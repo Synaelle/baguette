@@ -17,7 +17,7 @@ use crate::ftp::{Aborter, Entry, Error, Ftp, Result};
 use crate::remote::{self, Remote, Site};
 use crate::status::{ServerInfo, battery_refusal, battery_text};
 use crate::util::{base_name, format_size, join_remote, parent_remote};
-use crate::{REQUIRED_PROTOCOL, win};
+use crate::{RC2_PROTOCOL, REQUIRED_PROTOCOL, win};
 
 /// a listing for the main window (notify 0) or another view (the 3DS picker)
 #[derive(Clone, Debug)]
@@ -80,6 +80,8 @@ pub enum Kind {
     Download,
     SendToPc,
     Info, // size and time of path (remote) for the edited copy path2
+    Install, // Cement installs the CIA at path (protocol 2)
+    Color,   // Cement's accent colour becomes path ("b8283c", protocol 2)
 }
 
 #[derive(Clone, Debug)]
@@ -292,6 +294,8 @@ pub struct Shared {
     pub cwd: Mutex<String>,
     pub cancel: AtomicBool,
     pub progress: Mutex<Progress>,
+    /// the accent colour Cement should use ("b8283c"; empty: leave it)
+    pub accent: Mutex<String>,
     pub browse: Worker,
     pub xfer: Worker,
     sink: Box<dyn Sink>,
@@ -334,6 +338,7 @@ impl Client {
             cwd: Mutex::new(cwd),
             cancel: AtomicBool::new(false),
             progress: Mutex::new(Progress::default()),
+            accent: Mutex::new(String::new()),
             browse: Worker::new(),
             xfer: Worker::new(),
             sink,
@@ -449,6 +454,13 @@ fn run(s: &Arc<Shared>, transfer: bool) {
                     Some(Ok(i)) => i,
                     _ => ServerInfo { protocol: REQUIRED_PROTOCOL, ..Default::default() }, // unknown: do not warn
                 };
+                // the accent chosen in Chomp, when Cement shows another one
+                let accent = s.accent.lock().unwrap().clone();
+                if !accent.is_empty() && info.protocol >= RC2_PROTOCOL && !info.full.accent.eq_ignore_ascii_case(&accent) {
+                    if let Some(f) = cement_of(&mut r) {
+                        let _ = f.set_accent(&accent);
+                    }
+                }
                 *s.server_info.lock().unwrap() = info;
                 if s.cwd().is_empty() {
                     let home = r.home().unwrap_or_else(|_| "/".into());
@@ -466,7 +478,7 @@ fn run(s: &Arc<Shared>, transfer: bool) {
             let q = w.q.lock().unwrap();
             let (mut q, _) = w
                 .cv
-                .wait_timeout_while(q, Duration::from_secs(10), |q| !q.quit && !q.kick && q.jobs.is_empty())
+                .wait_timeout_while(q, idle_wait(s, transfer), |q| !q.quit && !q.kick && q.jobs.is_empty())
                 .unwrap();
             if q.quit {
                 return;
@@ -544,13 +556,23 @@ fn run(s: &Arc<Shared>, transfer: bool) {
         if transfer && !w.busy() {
             s.progress.lock().unwrap().active = false;
         }
-        if kind != Kind::List && kind != Kind::Info {
+        if !matches!(kind, Kind::List | Kind::Info | Kind::Color) {
             s.browse.push(list_job(&s.cwd())); // show the result
         }
     }
 }
 
 /// SD card free/total space and battery for the status bar (Cement only)
+/// how long the idle browse connection waits before asking Cement again: often
+/// while it installs, so the progress moves
+fn idle_wait(s: &Shared, transfer: bool) -> Duration {
+    if !transfer && s.server_info.lock().unwrap().full.installing {
+        Duration::from_millis(700)
+    } else {
+        Duration::from_secs(10)
+    }
+}
+
 fn refresh_space(s: &Shared, r: &mut Box<dyn Remote>) -> Result<()> {
     let Some(ftp) = r.cement() else { return Ok(()) };
     let info = ftp.server_info()?;
@@ -560,6 +582,7 @@ fn refresh_space(s: &Shared, r: &mut Box<dyn Remote>) -> Result<()> {
         si.sd_free = info.sd_free;
         si.sd_total = info.sd_total;
         si.battery = info.battery;
+        si.full = info.full;
     }
     s.sink.emit(Event::State);
     Ok(())
@@ -592,6 +615,20 @@ fn execute(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
                 size: size.unwrap_or(0),
                 stamp,
             }));
+        }
+        Kind::Install | Kind::Color => {
+            let protocol = s.server_info.lock().unwrap().protocol;
+            let Some(c) = ftp.cement() else { return Err(Error::Ftp("Only Cement can install CIAs".into())) };
+            if protocol < RC2_PROTOCOL {
+                return Err(Error::Ftp("Update Cement on the 3DS first (install its new CIA with A)".into()));
+            }
+            if job.kind == Kind::Install {
+                let answer = c.install(&job.path)?;
+                s.message(format!("{}: {}", base_name(&job.path), answer));
+            } else {
+                c.set_accent(&job.path)?;
+            }
+            refresh_space(s, ftp)?;
         }
         Kind::Mkdir => ftp.mkdir(&job.path)?,
         Kind::Rename => {

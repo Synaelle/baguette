@@ -91,6 +91,8 @@ pub struct ServerInfo {
     pub sd_free: u64,
     pub sd_total: u64,
     pub battery: Battery,
+    /// everything else SITE STATUS said (CIAs, installs, accent)
+    pub full: Status,
 }
 
 pub fn parse_server_info(code: i32, text: &str) -> ServerInfo {
@@ -99,6 +101,7 @@ pub fn parse_server_info(code: i32, text: &str) -> ServerInfo {
         return info;
     }
     info.cement = true;
+    info.full = parse_status(code, text);
     if let (Some(free), Some(total)) = (status_number(text, "sd_free"), status_number(text, "sd_total")) {
         info.sd_free = free;
         info.sd_total = total;
@@ -149,6 +152,27 @@ pub struct Status {
     pub install_done: u64,
     pub install_size: u64,
     pub install_file: String,
+    /// accent colour of the 3DS screens, "b8283c" (protocol 2)
+    pub accent: String,
+    /// CIA files waiting to be installed (protocol 2)
+    pub cias: Vec<Cia>,
+    /// the last install that finished (protocol 2)
+    pub install_result: Option<InstallResult>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Cia {
+    pub size: u64,
+    pub file: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct InstallResult {
+    pub n: u64, // goes up by one per finished install
+    pub ok: bool,
+    pub code: String,
+    pub file: String,
+    pub error: String,
 }
 
 /// "key=value key=value ... file=<rest of the line>"
@@ -189,6 +213,7 @@ pub fn parse_status(code: i32, text: &str) -> Status {
                     "installing" => st.installing = v == "1",
                     "connections" => st.connections = parse_u64(&v) as i32,
                     "version" => st.version = v,
+                    "accent" => st.accent = v.to_ascii_lowercase(),
                     "sd_free" => st.sd_free = parse_u64(&v),
                     "sd_total" => {
                         st.sd_total = parse_u64(&v);
@@ -218,6 +243,32 @@ pub fn parse_status(code: i32, text: &str) -> Status {
                 }
             }
             st.transfers.push(t);
+        } else if kind == "cia" {
+            let mut c = Cia::default();
+            for (k, v) in fields(line.get(4..).unwrap_or("")) {
+                match k.as_str() {
+                    "size" => c.size = parse_u64(&v),
+                    "file" => c.file = v,
+                    _ => {}
+                }
+            }
+            st.cias.push(c);
+        } else if kind == "install_result" {
+            let mut r = InstallResult::default();
+            for (k, v) in fields(line.get(15..).unwrap_or("")) {
+                match k.as_str() {
+                    "n" => r.n = parse_u64(&v),
+                    "ok" => r.ok = v == "1",
+                    "code" => r.code = v,
+                    "file" => r.file = v,
+                    _ => {}
+                }
+            }
+            st.install_result = Some(r);
+        } else if kind == "install_error" {
+            if let Some(r) = &mut st.install_result {
+                r.error = line.get(14..).unwrap_or("").to_string();
+            }
         } else if kind == "install" {
             for (k, v) in fields(line.get(8..).unwrap_or("")) {
                 match k.as_str() {
@@ -251,6 +302,27 @@ mod tests {
         let info = parse_server_info(211, REPLY);
         assert_eq!(info.version, "1.2.32-abc");
         assert!(info.has_space && info.battery.known && !info.battery.low);
+    }
+
+    #[test]
+    fn protocol_2() {
+        let reply = "211-Status
+ busy=0 idle_ms=5 installing=1 connections=1 protocol=2 sd_free=1 sd_total=2 battery=50 battery_bars=3 charging=0 plugged=0 battery_low=0 accent=B8283C version=2.0
+ cia size=680384 file=/Cement.cia
+ cia size=12 file=/cias/a b.cia
+ install done=10 size=20 file=/Cement.cia
+ install_result n=3 ok=0 code=d8e08027 file=/old.cia
+ install_error Install write failed
+211 End
+";
+        let st = parse_status(211, reply);
+        assert_eq!(st.protocol, 2);
+        assert_eq!(st.accent, "b8283c");
+        assert_eq!(st.cias, vec![Cia { size: 680384, file: "/Cement.cia".into() }, Cia { size: 12, file: "/cias/a b.cia".into() }]);
+        assert_eq!((st.install_done, st.install_size, st.install_file.as_str()), (10, 20, "/Cement.cia"));
+        let r = st.install_result.unwrap();
+        assert_eq!((r.n, r.ok, r.code.as_str(), r.file.as_str(), r.error.as_str()), (3, false, "d8e08027", "/old.cia", "Install write failed"));
+        assert_eq!(parse_server_info(211, reply).full.cias.len(), 2);
     }
 
     #[test]

@@ -15,11 +15,28 @@ pub struct Config {
     pub send_dir: String,        // "Send to PC" destination folder
     pub send_items: Vec<String>, // "Send to PC" 3DS paths
     pub send_replace: bool,      // "Send to PC" empties the PC folder first
+    pub accent: String,          // "b8283c": the window's red, also sent to Cement
+}
+
+pub const DEFAULT_ACCENT: &str = "b8283c";
+
+/// "#B8283C" or "b8283c" -> "b8283c"; None when it isn't a colour
+pub fn normalize_accent(s: &str) -> Option<String> {
+    let h = s.trim().trim_start_matches('#').to_ascii_lowercase();
+    (h.len() == 6 && h.bytes().all(|c| c.is_ascii_hexdigit())).then_some(h)
 }
 
 impl Default for Config {
     fn default() -> Config {
-        Config { host: String::new(), port: 5000, dark: true, send_dir: String::new(), send_items: Vec::new(), send_replace: false }
+        Config {
+            host: String::new(),
+            port: 5000,
+            dark: true,
+            send_dir: String::new(),
+            send_items: Vec::new(),
+            send_replace: false,
+            accent: DEFAULT_ACCENT.into(),
+        }
     }
 }
 
@@ -145,6 +162,7 @@ impl Config {
             send_dir: get_str(&path, "transfer", "sendto", ""),
             send_replace: get_int(&path, "transfer", "replace", 0) != 0,
             send_items: Vec::new(),
+            accent: normalize_accent(&get_str(&path, "ui", "accent", "")).unwrap_or_else(|| DEFAULT_ACCENT.into()),
         };
         let count = get_int(&path, "sendtopc", "count", 0);
         for i in 0..count {
@@ -162,6 +180,7 @@ impl Config {
         put(&path, "server", Some("host"), Some(&self.host));
         put(&path, "server", Some("port"), Some(&self.port.to_string()));
         put(&path, "ui", Some("dark"), Some(if self.dark { "1" } else { "0" }));
+        put(&path, "ui", Some("accent"), Some(&self.accent));
         put(&path, "transfer", Some("sendto"), Some(&self.send_dir));
         put(&path, "transfer", Some("replace"), Some(if self.send_replace { "1" } else { "0" }));
         put(&path, "sendtopc", None, None); // drop the old list

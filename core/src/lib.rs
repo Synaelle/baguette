@@ -28,3 +28,7 @@ pub const VERSION: &str = match option_env!("CHOMP_VERSION") {
 /// for changes that really need the new 3DS build: Chomp warns about an outdated
 /// 3DS app only when it is below this level.
 pub const REQUIRED_PROTOCOL: i32 = 1;
+
+/// Installing CIAs and the synced accent colour need this level of Cement
+/// (SITE INSTALL, SITE COLOR). Older ones still work, without those.
+pub const RC2_PROTOCOL: i32 = 2;

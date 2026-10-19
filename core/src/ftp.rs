@@ -525,6 +525,21 @@ impl Ftp {
         Ok(info)
     }
 
+    /// the accent colour of Cement's screens ("b8283c"), protocol 2
+    pub fn set_accent(&mut self, hex: &str) -> Result<()> {
+        self.simple(&format!("SITE COLOR #{}", hex.trim_start_matches('#')), 200)
+    }
+
+    /// starts (or queues) installing a CIA already on the SD card, protocol 2;
+    /// Ok(the server's answer)
+    pub fn install(&mut self, path: &str) -> Result<String> {
+        let (code, text) = self.cmd_text(&format!("SITE INSTALL {path}"))?;
+        if code / 100 != 2 {
+            return Err(Error::Ftp(text));
+        }
+        Ok(first_line(&text).get(4..).unwrap_or("").to_string())
+    }
+
     /// free bytes on the SD card (AVBL); None if the server doesn't say
     pub fn free_bytes(&mut self) -> Result<Option<u64>> {
         let (code, text) = self.cmd_text("AVBL")?;

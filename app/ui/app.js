@@ -519,6 +519,8 @@ function showMenu(pane, x, y) {
   if (sel.length === 1) items.push(["Open", "Enter", () => pane.openRow(pane.rowOf(sel[0]))]);
   if (sel.length && !(local && pane.st.path === "")) {
     if (local && t) items.push(["Upload", "", () => uploadSelected()]);
+    if (!local && sel.length === 1 && !sel[0].dir && /\.cia$/i.test(sel[0].name) && t?.cement?.can_install)
+      items.push(["Install on the 3DS", "", () => invoke("install_cia", { tab: active, path: pane.join(pane.st.path, sel[0].name) })]);
     if (!local) {
       items.push(["Download", "", () => downloadSelected()]);
       items.push(["Download to...", "", () => invoke("download_to", { tab: active, dir: pane.st.path, entries: sel })]);
@@ -569,9 +571,91 @@ document.addEventListener("keydown", (ev) => {
 });
 
 // ---------------------------------------------------------------------------
+// the colour: every red of the palette follows the accent's hue
+
+const DEFAULT_ACCENT = "b8283c";
+const PALETTE = {
+  "--accent-hi": "#cc3a48", "--hi": "#d8676a", "--soft": "#e9a9a3", "--bg": "#0e0a0a", "--blob": "#1a1112",
+  "--surface": "#1d1414", "--well": "#120c0c", "--quick": "#171010", "--track": "#2a1516", "--sel": "#3d1418", "--edge": "#4d1d21",
+  "--line": "#2e1f1f", "--input": "#3a2828", "--text": "#f2e7e4", "--dim": "#a8928e", "--mute": "#594544",
+};
+const ACCENTS = ["b8283c", "951d2e", "d0503a", "c27a1e", "3f9a5a", "1f8f8a", "2f6fd0", "7a4cc4", "b8388f"];
+function toHsl(hex) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min, s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s, l];
+}
+const hsl = (h, s, l) => `hsl(${h.toFixed(1)} ${(s * 100).toFixed(1)}% ${(l * 100).toFixed(1)}%)`;
+let accent = DEFAULT_ACCENT;
+function applyAccent(hex) {
+  const root = document.documentElement.style;
+  if (hex === DEFAULT_ACCENT) {
+    // the hand-picked palette exactly
+    for (const name of ["--accent", ...Object.keys(PALETTE)]) root.removeProperty(name);
+    return;
+  }
+  const [h, sat] = toHsl(hex);
+  root.setProperty("--accent", "#" + hex);
+  for (const [name, value] of Object.entries(PALETTE)) {
+    const [h0, s0, l0] = toHsl(value);
+    // the default palette's lightness on the accent's hue; a greyer accent gives
+    // greyer surfaces
+    root.setProperty(name, hsl(h, s0 * Math.min(1, sat / 0.64), l0));
+  }
+}
+
+// ---------------------------------------------------------------------------
 // title bar
 
 $("winMin").onclick = () => appWindow.minimize();
+$("btnSettings").onclick = openPrefs;
+
+let pickedAccent = accent;
+function drawSwatches() {
+  const box = $("accents");
+  box.innerHTML = "";
+  for (const a of ACCENTS) {
+    const b = document.createElement("button");
+    b.className = "swatch";
+    b.style.background = "#" + a;
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-label", "#" + a);
+    b.setAttribute("aria-checked", String(a === pickedAccent));
+    b.onclick = () => pickAccent(a);
+    box.appendChild(b);
+  }
+  $("accentCustom").value = "#" + pickedAccent;
+  $("accentHex").textContent = "#" + pickedAccent;
+}
+function pickAccent(a) {
+  pickedAccent = a.replace("#", "").toLowerCase();
+  applyAccent(pickedAccent); // shown at once, kept on Save
+  drawSwatches();
+}
+function openPrefs() {
+  pickedAccent = accent;
+  drawSwatches();
+  $("prefs").hidden = false;
+}
+$("accentCustom").addEventListener("input", (ev) => pickAccent(ev.target.value));
+$("prefsCancel").onclick = () => {
+  applyAccent(accent);
+  $("prefs").hidden = true;
+};
+$("prefsOk").onclick = async () => {
+  try {
+    await invoke("set_accent", { accent: pickedAccent });
+    accent = pickedAccent;
+  } catch (e) {
+    applyAccent(accent);
+    tell(e);
+  }
+  $("prefs").hidden = true;
+};
 $("winMax").onclick = () => appWindow.toggleMaximize();
 $("winClose").onclick = () => appWindow.close();
 
@@ -901,6 +985,7 @@ document.addEventListener("keydown", (ev) => {
   else if (!$("refusedDlg").hidden) $("rfCancel").click();
   else if (!$("sendback").hidden) $("sbKeep").click();
   else if (!$("settings").hidden) $("settingsCancel").click();
+  else if (!$("prefs").hidden) $("prefsCancel").click();
   else if (!$("siteDlg").hidden) $("siteCancel").click();
 });
 
@@ -1079,9 +1164,24 @@ function drawCement() {
   $("cSd").textContent = c.sd_free + " free";
   $("cSdTotal").textContent = "of " + c.sd_total;
   $("cSdFill").style.width = c.sd_permille / 10 + "%";
+  $("cInstalling").hidden = !c.installing;
+  if (c.installing) {
+    $("cInstName").textContent = c.installing.name;
+    $("cInstFill").style.width = c.installing.permille / 10 + "%";
+  }
+  const busy = !!c.installing;
   $("cCias").innerHTML = c.cias.length
-    ? c.cias.map((p) => `<div class="cia"><span title="${escapeHtml(p)}">${escapeHtml(p.slice(p.lastIndexOf("/") + 1))}</span></div>`).join("")
-    : '<div class="dim">None sent yet</div>';
+    ? c.cias
+        .map((x, i) =>
+          `<div class="cia"><span title="${escapeHtml(x.path)}">${escapeHtml(x.name)}</span>` +
+          (c.can_install
+            ? `<span class="size">${escapeHtml(x.size)}</span><button class="pill accent" data-i="${i}"${busy ? " disabled" : ""}>Install</button>`
+            : "") +
+          `</div>`)
+        .join("")
+    : '<div class="dim">None on the 3DS</div>';
+  for (const b of $("cCias").querySelectorAll("button")) b.onclick = () => invoke("install_cia", { tab: active, path: c.cias[+b.dataset.i].path });
+  $("cCiaHint").textContent = c.can_install ? "Or press A on the 3DS" : "Press A on the 3DS to install (update Cement to install from here)";
 }
 $("btnSend").onclick = () => tab() && invoke("send_to_pc", { tab: active });
 
@@ -1157,6 +1257,8 @@ listen("list", (ev) => {
   $("version").textContent = init.version.replace(/\.(\d+)-([0-9a-f]+)(-dev)?$/, "");
   $("version").title = "Chomp v" + init.version;
   settings = init.settings;
+  accent = init.accent;
+  applyAccent(accent);
   sites = init.sites;
   renderSites();
   showTab();

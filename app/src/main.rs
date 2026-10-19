@@ -24,9 +24,9 @@ use chomp_core::ftp::Entry;
 use chomp_core::remote::Site;
 use chomp_core::sites::Saved;
 use chomp_core::status::battery_text;
-use chomp_core::util::{format_size, stamp_text};
+use chomp_core::util::{base_name, format_size, stamp_text};
 use chomp_core::workers::{CONNECTED, Client, Event, Job, Kind, REFUSED, Sink};
-use chomp_core::{REQUIRED_PROTOCOL, VERSION, win};
+use chomp_core::{RC2_PROTOCOL, REQUIRED_PROTOCOL, VERSION, win};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State, WebviewUrl, WebviewWindowBuilder};
 
@@ -57,7 +57,8 @@ pub struct Tab {
     site: Site,
     client: Client,
     status: Status,
-    cias: Vec<String>, // .cia files sent to Cement from this tab, waiting to be installed
+    cias: Vec<String>, // .cia files sent to Cement from this tab (Cement before protocol 2)
+    last_install: Option<u64>, // the install result already reported
 }
 
 pub struct AppState {
@@ -135,7 +136,37 @@ impl AppState {
                 _ => format!("Connecting to {addr}..."),
             };
             let mut card = None;
+            let mut said = None;
             if cement {
+                let rc2 = info.protocol >= RC2_PROTOCOL;
+                let full = &info.full;
+                // Cement lists its CIAs itself since protocol 2
+                let cias: Vec<CiaOut> = if rc2 {
+                    full.cias
+                        .iter()
+                        .map(|c| CiaOut { path: c.file.clone(), name: base_name(&c.file).into(), size: format_size(c.size) })
+                        .collect()
+                } else {
+                    t.cias.iter().map(|c| CiaOut { path: c.clone(), name: base_name(c).into(), size: String::new() }).collect()
+                };
+                let installing = (full.installing && full.install_size != 0).then(|| InstallingOut {
+                    name: base_name(&full.install_file).into(),
+                    permille: full.install_done * 1000 / full.install_size.max(1),
+                });
+                // a finished install is told once (not the one from before this connection)
+                if let Some(r) = &full.install_result {
+                    if t.last_install.is_some_and(|n| n != r.n) {
+                        said = Some(if r.ok {
+                            format!("Installed {} on the 3DS", base_name(&r.file))
+                        } else {
+                            let why = if r.error.is_empty() { "install failed".to_string() } else { r.error.clone() };
+                            format!("Could not install {}: {why} ({})", base_name(&r.file), r.code.to_uppercase())
+                        });
+                    }
+                    t.last_install = Some(r.n);
+                } else if t.last_install.is_none() {
+                    t.last_install = Some(0);
+                }
                 card = Some(CementOut {
                     battery: if info.battery.known { battery_text(&info.battery) } else { String::new() },
                     battery_percent: info.battery.percent,
@@ -145,7 +176,9 @@ impl AppState {
                     sd_free: if info.has_space { format_size(info.sd_free) } else { String::new() },
                     sd_total: if info.has_space { format_size(info.sd_total) } else { String::new() },
                     sd_permille: if info.sd_total != 0 { (info.sd_total - info.sd_free.min(info.sd_total)) * 1000 / info.sd_total } else { 0 },
-                    cias: t.cias.clone(),
+                    cias,
+                    can_install: rc2,
+                    installing,
                 });
             }
             (
@@ -159,9 +192,13 @@ impl AppState {
                     cement: card,
                 },
                 cement.then(|| (t.site.host.clone(), t.site.port)),
+                said,
             )
         });
-        let Some((out, cement_addr)) = out else { return };
+        let Some((out, cement_addr, said)) = out else { return };
+        if let Some(m) = said {
+            self.message(tab, m);
+        }
         if let Some((host, port)) = cement_addr {
             // chomp-cli talks to the last Cement the window reached
             let mut c = self.config.lock().unwrap();
@@ -196,7 +233,22 @@ struct CementOut {
     sd_free: String,
     sd_total: String,
     sd_permille: u64,
-    cias: Vec<String>,
+    cias: Vec<CiaOut>,
+    can_install: bool,
+    installing: Option<InstallingOut>,
+}
+
+#[derive(Serialize, Clone)]
+struct CiaOut {
+    path: String,
+    name: String,
+    size: String,
+}
+
+#[derive(Serialize, Clone)]
+struct InstallingOut {
+    name: String,
+    permille: u64,
 }
 
 #[derive(Serialize, Clone)]
@@ -509,7 +561,17 @@ pub fn start_download(
 fn open_tab(state: &Arc<AppState>, saved_id: u32, name: String, site: Site) -> u32 {
     let id = state.next_tab.fetch_add(1, Ordering::Relaxed);
     let client = Client::start_site(site.clone(), Box::new(Bridge(state.clone(), id)));
-    state.tabs.lock().unwrap().push(Tab { id, saved_id, name, site, client, status: Status::default(), cias: Vec::new() });
+    *client.shared.accent.lock().unwrap() = state.config.lock().unwrap().accent.clone();
+    state.tabs.lock().unwrap().push(Tab {
+        id,
+        saved_id,
+        name,
+        site,
+        client,
+        status: Status::default(),
+        cias: Vec::new(),
+        last_install: None,
+    });
     id
 }
 
@@ -550,6 +612,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::init,
             commands::save_settings,
+            commands::set_accent,
+            commands::install_cia,
             commands::site_save,
             commands::site_delete,
             commands::open_site,

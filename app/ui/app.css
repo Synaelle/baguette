@@ -25,6 +25,7 @@
   --blob: #1a1112;
   --surface: #1d1414;  /* cards */
   --well: #120c0c;     /* lists inside cards */
+  --quick: #171010;    /* the Quick connect box */
   --track: #2a1516;
   --sel: #3d1418;
   --edge: #4d1d21;
@@ -116,7 +117,7 @@ input, select { font: inherit; color: var(--text); }
 @keyframes pulse { 50% { opacity: .35; } }
 
 .quick {
-  padding: 12px; border-radius: 14px; background: #171010; border: 1px dashed var(--edge);
+  padding: 12px; border-radius: 14px; background: var(--quick); border: 1px dashed var(--edge);
   display: flex; flex-direction: column; gap: 6px;
 }
 .quick label { color: var(--dim); font-size: 11px; }
@@ -198,7 +199,7 @@ select option { padding: 3px 6px; border-radius: 6px; }
 .list { flex-grow: 1; overflow-y: auto; outline: none; min-height: 0; border-radius: 8px; }
 .rows { display: flex; flex-direction: column; gap: 1px; min-height: 100%; }
 .row-e { padding: 5px 10px; border-radius: 8px; cursor: default; }
-.row-e:hover { background: #1a1112; }
+.row-e:hover { background: var(--blob); }
 .row-e.sel { background: var(--sel); }
 .row-e.sel .size, .row-e.sel .date { color: var(--soft); }
 .list:focus .row-e.focus { box-shadow: inset 0 0 0 1px var(--edge); }
@@ -290,3 +291,12 @@ select option { padding: 3px 6px; border-radius: 6px; }
   .cols, .row-e { grid-template-columns: minmax(0, 1fr) 70px; }
   .c-date, .row-e .date { display: none; }
 }
+
+/* settings: the colour swatches */
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.swatch { width: 30px; height: 30px; border-radius: 99px; border: 2px solid transparent; padding: 0; cursor: pointer; }
+.swatch[aria-checked="true"] { border-color: var(--text); box-shadow: 0 0 0 2px var(--bg) inset; }
+input[type=color] { width: 44px; flex-grow: 0 !important; padding: 2px 4px; cursor: pointer; }
+#cCias .cia { align-items: center; }
+#cCias .cia .size { color: var(--dim); font-size: 11px; white-space: nowrap; }
+#cCias .cia .pill { height: 22px; padding: 0 10px; font-size: 11px; }

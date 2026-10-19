@@ -82,6 +82,7 @@ pub struct SiteIn {
 #[derive(Serialize)]
 pub struct InitOut {
     version: String,
+    accent: String,
     settings: SettingsOut,
     sites: Vec<SiteOut>,
     home: String,
@@ -94,7 +95,7 @@ fn sites_out(state: &AppState) -> Vec<SiteOut> {
 #[tauri::command]
 pub fn init(state: St) -> InitOut {
     let c = state.config.lock().unwrap();
-    InitOut { version: VERSION.into(), settings: SettingsOut::from(&*c), sites: sites_out(&state), home: win::home_dir() }
+    InitOut { version: VERSION.into(), accent: c.accent.clone(), settings: SettingsOut::from(&*c), sites: sites_out(&state), home: win::home_dir() }
 }
 
 /// Send to PC settings. Err(text) when they can't be used.
@@ -111,6 +112,38 @@ pub fn save_settings(state: St, s: SettingsOut) -> Result<(), String> {
     c.send_replace = s.send_replace;
     c.save();
     Ok(())
+}
+
+/// the window's red; Cement tabs get it too (their 3DS screens follow)
+#[tauri::command]
+pub fn set_accent(state: St, accent: String) -> Result<(), String> {
+    let hex = chomp_core::config::normalize_accent(&accent).ok_or("Not a colour")?;
+    {
+        let mut c = state.config.lock().unwrap();
+        c.accent = hex.clone();
+        c.save();
+    }
+    for t in state.tabs.lock().unwrap().iter() {
+        let sh = &t.client.shared;
+        *sh.accent.lock().unwrap() = hex.clone();
+        let info = sh.server_info.lock().unwrap().clone();
+        if sh.browse.connected() && info.cement && info.protocol >= chomp_core::RC2_PROTOCOL {
+            let mut j = Job::new(Kind::Color);
+            j.path = hex.clone();
+            sh.browse.push(j);
+        }
+    }
+    Ok(())
+}
+
+/// Cement installs a CIA that is on the SD card
+#[tauri::command]
+pub fn install_cia(state: St, tab: u32, path: String) {
+    state.with_client(tab, |c| {
+        let mut j = Job::new(Kind::Install);
+        j.path = path;
+        c.shared.browse.push(j);
+    });
 }
 
 /// adds or updates a site; returns the sites. Open tabs of that site use it
