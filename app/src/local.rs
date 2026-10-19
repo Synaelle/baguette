@@ -8,7 +8,7 @@ use std::os::windows::fs::MetadataExt;
 use chomp_core::win;
 use serde::Serialize;
 
-use crate::EntryOut;
+use crate::{EntryOut, St};
 
 #[derive(Serialize)]
 pub struct LocalList {
@@ -68,18 +68,24 @@ pub fn local_join(dir: String, name: String) -> String {
 }
 
 #[tauri::command]
-pub fn local_mkdir(path: String) -> Result<(), String> {
+pub fn local_mkdir(state: St, path: String) -> Result<(), String> {
+    state.windows_guard(&path, false)?;
     std::fs::create_dir(&path).map_err(|e| format!("Can't create {path}: {e}"))
 }
 
 #[tauri::command]
-pub fn local_rename(from: String, to: String) -> Result<(), String> {
+pub fn local_rename(state: St, from: String, to: String) -> Result<(), String> {
+    state.windows_guard(&from, true)?;
+    state.windows_guard(&to, false)?;
     std::fs::rename(&from, &to).map_err(|e| format!("Can't rename {from}: {e}"))
 }
 
 /// to the Recycle Bin
 #[tauri::command]
-pub fn local_delete(paths: Vec<String>) -> Result<(), String> {
+pub fn local_delete(state: St, paths: Vec<String>) -> Result<(), String> {
+    for p in &paths {
+        state.windows_guard(p, true)?;
+    }
     if win::recycle(&paths) { Ok(()) } else { Err("Some items could not be deleted (in use?)".into()) }
 }
 

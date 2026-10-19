@@ -66,6 +66,7 @@
           <div class="pane-head">
             <button class="up" title="Up (Backspace)" aria-label="Up"><svg viewBox="0 0 16 16"><path d="M8 13V4M4 8l4-4 4 4"/></svg></button>
             <span class="pane-title">This PC</span>
+            <span id="roTagLocal" class="ro-tag" title="The Windows folder: Chomp only reads it. Start Chomp with --allow-windows-folder to change that." hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.8"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>read-only</span>
             <input class="path" spellcheck="false">
           </div>
           <div class="cols"><span class="c-name">Name</span><span class="c-size">Size</span><span class="c-date">Modified</span></div>
@@ -75,6 +76,7 @@
           <div class="pane-head">
             <button class="up" title="Up (Backspace)" aria-label="Up"><svg viewBox="0 0 16 16"><path d="M8 13V4M4 8l4-4 4 4"/></svg></button>
             <span class="pane-title" id="remoteTitle">Server</span>
+            <span id="roTag" class="ro-tag" title="A protected 3DS folder: it can be looked at and downloaded, not changed. The protection is in the settings." hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.8"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>read-only</span>
             <input class="path" spellcheck="false">
           </div>
           <div class="cols"><span class="c-name">Name</span><span class="c-size">Size</span><span class="c-date">Modified</span></div>
@@ -205,7 +207,7 @@
 
     <section class="prefs-tab" data-tab="3ds" role="tabpanel" hidden>
       <div class="setting row-setting">
-        <div class="setting-text"><label for="protect3ds"><b>Protect important 3DS files</b></label><span>On Cement, Chomp won't delete, rename or replace /Nintendo 3DS, /boot.firm, /luma, /gm9 or /boot.3dsx.</span></div>
+        <div class="setting-text"><label for="protect3ds"><b>Protect important 3DS files</b></label><span>On Cement, /Nintendo 3DS, /boot.firm, /luma, /gm9 and /boot.3dsx are read-only: you can look and download, not change them. Luma's screenshots and crash dumps stay free.</span></div>
         <input id="protect3ds" class="switch" type="checkbox" checked>
       </div>
     </section>

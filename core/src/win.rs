@@ -193,6 +193,11 @@ pub fn unprotect(hex: &str) -> Option<String> {
     Some(text)
 }
 
+/// the Windows folder ("C:\Windows")
+pub fn windows_dir() -> Option<String> {
+    known_folder(&FOLDERID_Windows).or_else(|| std::env::var("WINDIR").ok())
+}
+
 /// to the Recycle Bin
 pub fn recycle(paths: &[String]) -> bool {
     shell_delete(paths, true)

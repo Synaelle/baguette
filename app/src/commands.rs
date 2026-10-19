@@ -86,7 +86,10 @@ pub struct InitOut {
     accent: String,
     local_start: String, // "home", "last" or a folder
     local_dir: String,   // where the PC side opens now
+    windows_dir: Option<String>, // read-only on the PC side
     protect_3ds: bool,
+    protected: Vec<&'static str>,
+    protected_free: &'static [&'static str],
     check_updates: bool,
     bundles: bool,
     settings: SettingsOut,
@@ -106,7 +109,10 @@ pub fn init(state: St) -> InitOut {
         accent: c.accent.clone(),
         local_start: c.local_start.clone(),
         local_dir: c.local_start_dir(),
+        windows_dir: state.windows_dir.clone(),
         protect_3ds: c.protect_3ds,
+        protected: protect::PATHS.iter().map(|p| p.0).collect(),
+        protected_free: protect::FREE,
         check_updates: c.check_updates,
         bundles: c.bundles,
         settings: SettingsOut::from(&*c), sites: sites_out(&state), home: win::home_dir() }
@@ -256,12 +262,15 @@ pub fn sites_list(state: St) -> Vec<SiteOut> {
 
 /// Cement installs a CIA that is on the SD card
 #[tauri::command]
-pub fn install_cia(state: St, tab: u32, path: String) {
+pub fn install_cia(state: St, tab: u32, path: String) -> Result<(), String> {
+    // the 3DS deletes the CIA once installed
+    guard(&state, tab, std::slice::from_ref(&path), protect::delete_or_rename)?;
     state.with_client(tab, |c| {
         let mut j = Job::new(Kind::Install);
         j.path = path;
         c.shared.browse.push(j);
     });
+    Ok(())
 }
 
 /// adds or updates a site; returns the sites. Open tabs of that site use it
@@ -437,12 +446,14 @@ pub fn picker_list(state: St, tab: u32, path: String) {
 }
 
 #[tauri::command]
-pub fn mkdir(state: St, tab: u32, path: String) {
+pub fn mkdir(state: St, tab: u32, path: String) -> Result<(), String> {
+    guard(&state, tab, std::slice::from_ref(&path), protect::write)?;
     state.with_client(tab, |c| {
         let mut j = Job::new(Kind::Mkdir);
         j.path = path;
         c.shared.browse.push(j);
     });
+    Ok(())
 }
 
 #[tauri::command]
@@ -501,8 +512,10 @@ pub fn upload(state: St, tab: u32, paths: Vec<String>, dir: String) -> Result<()
 
 /// into a PC folder (dragged onto the PC side)
 #[tauri::command]
-pub fn download(state: St, tab: u32, dir: String, entries: Vec<EntryOut>, to: String) {
+pub fn download(state: St, tab: u32, dir: String, entries: Vec<EntryOut>, to: String) -> Result<(), String> {
+    state.windows_guard(&to, false)?;
     start_download(&state, tab, &dir, entries.into_iter().map(Entry::from).collect(), to, false);
+    Ok(())
 }
 
 fn pick_folder(app: &AppHandle, title: &str) -> Option<String> {
@@ -517,6 +530,10 @@ fn pick_folder(app: &AppHandle, title: &str) -> Option<String> {
 #[tauri::command]
 pub async fn download_to(app: AppHandle, state: St<'_>, tab: u32, dir: String, entries: Vec<EntryOut>) -> Result<(), ()> {
     if let Some(to) = pick_folder(&app, "Download to") {
+        if let Err(why) = state.windows_guard(&to, false) {
+            state.message(tab, why);
+            return Ok(());
+        }
         start_download(&state, tab, &dir, entries.into_iter().map(Entry::from).collect(), to, false);
     }
     Ok(())
@@ -589,6 +606,10 @@ pub async fn send_to_pc(app: AppHandle, state: St<'_>, tab: u32) -> Result<(), (
         let mut c = state.config.lock().unwrap();
         c.send_dir = dir.clone();
         c.save();
+    }
+    if let Err(why) = state.windows_guard(&dir, false) {
+        state.message(tab, why);
+        return Ok(());
     }
     let _ = std::fs::create_dir_all(&dir);
     if !std::path::Path::new(&dir).is_dir() {

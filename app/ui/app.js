@@ -236,7 +236,7 @@ class Pane {
     this.st.selectNext = name;
     const path = this.join(this.st.path, name);
     if (this.kind === "local") invoke("local_mkdir", { path }).then(() => this.refresh(), tell);
-    else invoke("mkdir", { tab: active, path });
+    else invoke("mkdir", { tab: active, path }).catch(tell);
   }
 
   async deleteSelected() {
@@ -401,7 +401,7 @@ function downloadSelected(to) {
   if (!t || !sel.length) return;
   const dest = to ?? localPane.st.path;
   if (dest === "") invoke("download_to", { tab: active, dir: remotePane.st.path, entries: sel });
-  else invoke("download", { tab: active, dir: remotePane.st.path, entries: sel, to: dest });
+  else invoke("download", { tab: active, dir: remotePane.st.path, entries: sel, to: dest }).catch(tell);
   t.refreshLocal = true; // the worker lists the server folder again once the job is done
 }
 
@@ -498,16 +498,58 @@ window.__TAURI__.webview.getCurrentWebview().onDragDropEvent((ev) => {
 // ---------------------------------------------------------------------------
 // toolbar, right-click menu
 
+// the protected 3DS paths (read-only on Cement while the protection is on)
+let protectedPaths = [];
+let freePaths = []; // inside a protected folder, still free (Luma's screenshots and crash dumps)
+const inside = (a, b) => {
+  const x = a.replace(/\/+$/, "").toLowerCase(), y = b.replace(/\/+$/, "").toLowerCase();
+  return x === y || x.startsWith(y + "/");
+};
+function readOnly(path) {
+  const t = tab();
+  return protect3ds && !!t?.cement && protectedPaths.some((p) => inside(path, p)) && !freePaths.some((p) => inside(path, p));
+}
+// the Windows folder: read-only on the PC side (null when Chomp was started to allow it)
+let windowsDir = null;
+const winNorm = (p) => p.replaceAll("/", "\\").replace(/\\+$/, "").toLowerCase();
+function localReadOnly(path) {
+  if (!windowsDir || !path) return false;
+  const a = winNorm(path), w = winNorm(windowsDir);
+  return a === w || a.startsWith(w + "\\");
+}
+function localTouchesWindows(pane) {
+  if (pane !== localPane || !windowsDir) return false;
+  const w = winNorm(windowsDir);
+  return pane.selectedEntries().some((e) => {
+    const a = winNorm(pane.join(pane.st.path, e.name));
+    return a === w || a.startsWith(w + "\\") || w.startsWith(a + "\\");
+  });
+}
+
+// something selected that is, or holds, a protected path
+function touchesProtected(pane) {
+  if (pane !== remotePane) return false;
+  return pane.selectedEntries().some((e) => {
+    const p = pane.join(pane.st.path, e.name);
+    return readOnly(p) || (protect3ds && tab()?.cement && protectedPaths.some((x) => inside(x, p)));
+  });
+}
+
 function updateToolbar() {
   const t = tab();
   const on = t && t.state === "connected";
-  $("btnUpload").disabled = !on || !localPane.selectedEntries().length || localPane.st.path === "";
-  $("btnDownload").disabled = !on || !remotePane.selectedEntries().length;
+  const ro = readOnly(remotePane.st.path);
+  const lro = localReadOnly(localPane.st.path);
+  $("btnUpload").disabled = !on || ro || !localPane.selectedEntries().length || localPane.st.path === "";
+  $("btnDownload").disabled = !on || lro || !remotePane.selectedEntries().length;
   const p = activePane;
-  const ready = p === localPane ? p.st.path !== "" : on;
+  const ready = p === localPane ? p.st.path !== "" && !lro : on && !ro;
+  const locked = touchesProtected(p) || localTouchesWindows(p);
   $("btnMkdir").disabled = !ready;
-  $("btnRename").disabled = !ready || p.selectedEntries().length !== 1;
-  $("btnDelete").disabled = !ready || !p.selectedEntries().length;
+  $("btnRename").disabled = !ready || p.selectedEntries().length !== 1 || locked;
+  $("btnDelete").disabled = !ready || !p.selectedEntries().length || locked;
+  $("roTag").hidden = !ro;
+  $("roTagLocal").hidden = !lro;
 }
 $("btnUpload").onclick = () => uploadSelected();
 $("btnDownload").onclick = () => downloadSelected();
@@ -527,7 +569,7 @@ function showMenu(pane, x, y) {
   if (sel.length && !(local && pane.st.path === "")) {
     if (local && t) items.push(["Upload", "", () => uploadSelected()]);
     if (!local && sel.length === 1 && !sel[0].dir && /\.cia$/i.test(sel[0].name) && t?.cement?.can_install)
-      items.push(["Install on the 3DS", "", () => invoke("install_cia", { tab: active, path: pane.join(pane.st.path, sel[0].name) })]);
+      items.push(["Install on the 3DS", "", () => invoke("install_cia", { tab: active, path: pane.join(pane.st.path, sel[0].name) }).catch(tell)]);
     if (!local) {
       items.push(["Download", "", () => downloadSelected()]);
       items.push(["Download to...", "", () => invoke("download_to", { tab: active, dir: pane.st.path, entries: sel })]);
@@ -721,6 +763,7 @@ $("prefsOk").onclick = async () => {
   }
   protect3ds = $("protect3ds").checked;
   invoke("set_protect_3ds", { on: protect3ds });
+  updateToolbar();
   if ($("bundles").checked !== bundles) {
     bundles = $("bundles").checked;
     invoke("set_bundles", { on: bundles });
@@ -1267,7 +1310,7 @@ function drawCement() {
           `</div>`)
         .join("")
     : '<div class="dim">None on the 3DS</div>';
-  for (const b of $("cCias").querySelectorAll("button")) b.onclick = () => invoke("install_cia", { tab: active, path: c.cias[+b.dataset.i].path });
+  for (const b of $("cCias").querySelectorAll("button")) b.onclick = () => invoke("install_cia", { tab: active, path: c.cias[+b.dataset.i].path }).catch(tell);
   $("cCiaHint").textContent = c.can_install ? "Or press A on the 3DS" : "Press A on the 3DS to install (update Cement to install from here)";
 }
 $("btnSend").onclick = () => tab() && invoke("send_to_pc", { tab: active });
@@ -1371,6 +1414,9 @@ listen("list", (ev) => {
   showTab();
   localStart = init.local_start;
   protect3ds = init.protect_3ds;
+  protectedPaths = init.protected;
+  freePaths = init.protected_free;
+  windowsDir = init.windows_dir;
   checkUpdates = init.check_updates;
   bundles = init.bundles;
   if (checkUpdates) setTimeout(lookForUpdate, 2500); // after the window is up, never in its way

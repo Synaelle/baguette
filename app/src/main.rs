@@ -63,6 +63,9 @@ pub struct Tab {
 }
 
 pub struct AppState {
+    /// kept read-only on the PC side; None only when Chomp was started with
+    /// --allow-windows-folder
+    windows_dir: Option<String>,
     tabs: Mutex<Vec<Tab>>,
     next_tab: AtomicU32,
     sites: Mutex<Vec<Saved>>,
@@ -74,6 +77,14 @@ pub struct AppState {
 type St<'a> = State<'a, Arc<AppState>>;
 
 impl AppState {
+    /// Err(why) when `path` is the Windows folder, inside it, or (`holding`) a
+    /// folder holding it
+    pub fn windows_guard(&self, path: &str, holding: bool) -> Result<(), String> {
+        let Some(w) = &self.windows_dir else { return Ok(()) };
+        let hit = if holding { chomp_core::protect::local_hit(path, w) } else { chomp_core::protect::local_inside(path, w) };
+        if hit { Err(format!("{w} is read-only in Chomp: it is the Windows folder")) } else { Ok(()) }
+    }
+
     fn with_tab<T>(&self, tab: u32, f: impl FnOnce(&mut Tab) -> T) -> Option<T> {
         self.tabs.lock().unwrap().iter_mut().find(|t| t.id == tab).map(f)
     }
@@ -607,7 +618,16 @@ fn main() {
 
     let (config, _) = Config::load();
     let sites = chomp_core::sites::load();
+    // the Windows folder stays read-only, unless Chomp is started with this
+    // argument on purpose (there is no setting for it). Tests protect a
+    // stand-in folder instead of the real one.
+    let windows_dir = if std::env::args().any(|a| a == "--allow-windows-folder") {
+        None
+    } else {
+        std::env::var("CHOMP_TEST_WINDOWS_DIR").ok().or_else(win::windows_dir)
+    };
     let state = Arc::new(AppState {
+        windows_dir,
         tabs: Mutex::new(Vec::new()),
         next_tab: AtomicU32::new(1),
         sites: Mutex::new(sites),
