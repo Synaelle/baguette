@@ -52,6 +52,11 @@ just asks for its password again.
 
 The Fredoka and Nunito fonts are under the SIL Open Font License (see `app/ui/fonts`).
 
+## Credits
+
+The red and black look of Chomp and Cement was inspired by the [vedal.ai](https://vedal.ai/)
+website. Nothing is taken from it, and this project isn't affiliated with Vedal.
+
 ## License
 
 GPL-3.0 or later, see [LICENSE](LICENSE). Versions before 1.0.21 were MIT.
