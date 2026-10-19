@@ -653,6 +653,24 @@ $("localBrowse").onclick = async () => {
   if (d) $("localDir").value = d;
 };
 let protect3ds = true;
+let checkUpdates = true;
+let bundles = false;
+
+async function lookForUpdate() {
+  const u = await invoke("check_update").catch(() => null);
+  if (!u) return;
+  const chip = $("updateChip");
+  chip.textContent = `${u.version} is out`;
+  chip.title = "A new Chomp is on GitHub";
+  chip.hidden = false;
+  chip.onclick = async () => {
+    const go = await ask(
+      `Chomp ${u.version} is available (you have ${$("version").textContent}).\n\nThis opens its release page on GitHub in your browser.`,
+      "Open GitHub", "Not now", "New version"
+    );
+    if (go) invoke("open_release", { url: u.url }).catch(tell);
+  };
+}
 $("protect3ds").addEventListener("change", async () => {
   if ($("protect3ds").checked) return;
   $("prefs").hidden = true;
@@ -670,6 +688,8 @@ $("protect3ds").addEventListener("change", async () => {
 function openPrefs() {
   pickedAccent = accent;
   $("protect3ds").checked = protect3ds;
+  $("checkUpdates").checked = checkUpdates;
+  $("bundles").checked = bundles;
   drawSwatches();
   const custom = localStart !== "home" && localStart !== "last";
   $("localStart").value = custom ? "dir" : localStart;
@@ -695,6 +715,16 @@ $("prefsOk").onclick = async () => {
   }
   protect3ds = $("protect3ds").checked;
   invoke("set_protect_3ds", { on: protect3ds });
+  if ($("bundles").checked !== bundles) {
+    bundles = $("bundles").checked;
+    invoke("set_bundles", { on: bundles });
+  }
+  if ($("checkUpdates").checked !== checkUpdates) {
+    checkUpdates = $("checkUpdates").checked;
+    invoke("set_check_updates", { on: checkUpdates });
+    if (checkUpdates) lookForUpdate();
+    else $("updateChip").hidden = true;
+  }
   try {
     await invoke("set_accent", { accent: pickedAccent });
     accent = pickedAccent;
@@ -1034,6 +1064,7 @@ document.addEventListener("keydown", (ev) => {
   else if (!$("sendback").hidden) $("sbKeep").click();
   else if (!$("settings").hidden) $("settingsCancel").click();
   else if (!$("prefs").hidden) $("prefsCancel").click();
+  else if (!$("cementLogin").hidden) $("clCancel").click();
   else if (!$("siteDlg").hidden) $("siteCancel").click();
 });
 
@@ -1218,6 +1249,8 @@ function drawCement() {
     $("cInstFill").style.width = c.installing.permille / 10 + "%";
   }
   const busy = !!c.installing;
+  $("cLoginBox").hidden = !c.can_login;
+  $("btnCementLogin").textContent = c.login ? "On, change..." : "Off, set one...";
   $("cCias").innerHTML = c.cias.length
     ? c.cias
         .map((x, i) =>
@@ -1232,6 +1265,26 @@ function drawCement() {
   $("cCiaHint").textContent = c.can_install ? "Or press A on the 3DS" : "Press A on the 3DS to install (update Cement to install from here)";
 }
 $("btnSend").onclick = () => tab() && invoke("send_to_pc", { tab: active });
+$("btnCementLogin").onclick = () => {
+  const site = sites.find((s) => s.id === tab()?.saved_id);
+  $("clUser").value = site?.user || "";
+  $("clPass").value = "";
+  $("clRemove").hidden = !tab()?.cement?.login;
+  $("cementLogin").hidden = false;
+  $("clUser").focus();
+};
+const setCementLogin = (user, pass) => {
+  $("cementLogin").hidden = true;
+  invoke("set_cement_login", { tab: active, user, pass }).catch(tell);
+};
+$("clSave").onclick = () => setCementLogin($("clUser").value, $("clPass").value);
+$("clRemove").onclick = () => setCementLogin("", "");
+$("clCancel").onclick = () => ($("cementLogin").hidden = true);
+$("clPass").addEventListener("keydown", (ev) => ev.key === "Enter" && $("clSave").click());
+listen("sites-changed", async () => {
+  sites = await invoke("sites_list");
+  renderSites();
+});
 
 listen("status", (ev) => {
   const t = tabs.get(ev.payload.tab);
@@ -1312,6 +1365,9 @@ listen("list", (ev) => {
   showTab();
   localStart = init.local_start;
   protect3ds = init.protect_3ds;
+  checkUpdates = init.check_updates;
+  bundles = init.bundles;
+  if (checkUpdates) setTimeout(lookForUpdate, 2500); // after the window is up, never in its way
   localPane.navigate(init.local_dir);
   localPane.focus();
   // the sites that were open last time

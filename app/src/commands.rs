@@ -87,6 +87,8 @@ pub struct InitOut {
     local_start: String, // "home", "last" or a folder
     local_dir: String,   // where the PC side opens now
     protect_3ds: bool,
+    check_updates: bool,
+    bundles: bool,
     settings: SettingsOut,
     sites: Vec<SiteOut>,
     home: String,
@@ -105,6 +107,8 @@ pub fn init(state: St) -> InitOut {
         local_start: c.local_start.clone(),
         local_dir: c.local_start_dir(),
         protect_3ds: c.protect_3ds,
+        check_updates: c.check_updates,
+        bundles: c.bundles,
         settings: SettingsOut::from(&*c), sites: sites_out(&state), home: win::home_dir() }
 }
 
@@ -183,12 +187,71 @@ fn guard(state: &AppState, tab: u32, paths: &[String], check: fn(&str) -> Option
     }
 }
 
+/// experimental: many-file uploads to Cement go as one bundle
+#[tauri::command]
+pub fn set_bundles(state: St, on: bool) {
+    {
+        let mut c = state.config.lock().unwrap();
+        c.bundles = on;
+        c.save();
+    }
+    for t in state.tabs.lock().unwrap().iter() {
+        t.client.shared.bundles.store(on, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+#[tauri::command]
+pub fn set_check_updates(state: St, on: bool) {
+    let mut c = state.config.lock().unwrap();
+    c.check_updates = on;
+    c.save();
+}
+
+/// a newer release on GitHub, if any (off the window's thread: it waits on the network)
+#[tauri::command]
+pub async fn check_update() -> Option<crate::update::Update> {
+    tauri::async_runtime::spawn_blocking(|| crate::update::check(VERSION)).await.ok().flatten()
+}
+
+/// the release page, in the browser (only Chomp's own releases)
+#[tauri::command]
+pub fn open_release(url: String) -> Result<(), String> {
+    if !url.starts_with(crate::update::RELEASES) {
+        return Err("Not a Chomp release page".into());
+    }
+    win::launch_file(&url)
+}
+
 /// the PC folder on screen, for "where you left it"
 #[tauri::command]
 pub fn remember_local(state: St, dir: String) {
     if !dir.is_empty() {
         state.config.lock().unwrap().remember_local(&dir);
     }
+}
+
+/// Cement's own login (empty user: anyone can log in again)
+#[tauri::command]
+pub fn set_cement_login(state: St, tab: u32, user: String, pass: String) -> Result<(), String> {
+    let user = user.trim().to_string();
+    if user.contains(' ') {
+        return Err("The user name can't have spaces".into());
+    }
+    if !user.is_empty() && pass.is_empty() {
+        return Err("Choose a password too".into());
+    }
+    state.with_client(tab, |c| {
+        let mut j = Job::new(Kind::Login);
+        j.path = user;
+        j.path2 = pass;
+        c.shared.browse.push(j);
+    });
+    Ok(())
+}
+
+#[tauri::command]
+pub fn sites_list(state: St) -> Vec<SiteOut> {
+    sites_out(&state)
 }
 
 /// Cement installs a CIA that is on the SD card

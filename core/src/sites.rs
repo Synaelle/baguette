@@ -86,6 +86,23 @@ pub fn save(sites: &[Saved]) {
     }
 }
 
+/// the user name and password of the saved site at host:port, without
+/// writing anything (chomp-cli, when Cement asks for a login)
+pub fn find_login(host: &str, port: u16) -> Option<(String, String)> {
+    let path = config_path();
+    let count = get_int(&path, "sites", "count", 0);
+    (0..count).find_map(|i| {
+        let sec = format!("site{i}");
+        let s = |k: &str| unescape(&get_str(&path, &sec, k, ""));
+        let p = Protocol::parse(&s("protocol")).unwrap_or_default();
+        let site_port = get_int(&path, &sec, "port", p.default_port() as i32) as u16;
+        if p != Protocol::Ftp || !s("host").eq_ignore_ascii_case(host) || site_port != port || s("user").is_empty() {
+            return None;
+        }
+        Some((s("user"), unprotect(&s("pass")).unwrap_or_default()))
+    })
+}
+
 /// a free id for a new site
 pub fn next_id(sites: &[Saved]) -> u32 {
     sites.iter().map(|s| s.id).max().unwrap_or(0) + 1

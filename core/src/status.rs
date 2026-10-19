@@ -154,6 +154,8 @@ pub struct Status {
     pub install_file: String,
     /// accent colour of the 3DS screens, "b8283c" (protocol 2)
     pub accent: String,
+    /// Cement wants a user name and password (protocol 3)
+    pub login: bool,
     /// CIA files waiting to be installed (protocol 2)
     pub cias: Vec<Cia>,
     /// the last install that finished (protocol 2)
@@ -214,6 +216,7 @@ pub fn parse_status(code: i32, text: &str) -> Status {
                     "connections" => st.connections = parse_u64(&v) as i32,
                     "version" => st.version = v,
                     "accent" => st.accent = v.to_ascii_lowercase(),
+                    "login" => st.login = v == "1",
                     "sd_free" => st.sd_free = parse_u64(&v),
                     "sd_total" => {
                         st.sd_total = parse_u64(&v);

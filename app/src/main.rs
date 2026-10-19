@@ -14,6 +14,7 @@
 mod commands;
 mod dragout;
 mod local;
+mod update;
 
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -179,6 +180,8 @@ impl AppState {
                     cias,
                     can_install: rc2,
                     installing,
+                    login: full.login,
+                    can_login: info.protocol >= chomp_core::LOGIN_PROTOCOL,
                 });
             }
             (
@@ -236,6 +239,8 @@ struct CementOut {
     cias: Vec<CiaOut>,
     can_install: bool,
     installing: Option<InstallingOut>,
+    login: bool,     // Cement asks for a user name and password
+    can_login: bool, // and Chomp can change that (protocol 3)
 }
 
 #[derive(Serialize, Clone)]
@@ -352,6 +357,23 @@ impl Sink for Bridge {
                     "refused",
                     RefusedOut { tab, message, fingerprint, host: site.host, protocol: site.protocol.name().into() },
                 );
+            }
+            Event::LoginChanged { user, pass } => {
+                // the tab and its saved site use the new login from now on
+                let saved = app.with_tab(tab, |t| {
+                    t.site.user = user.clone();
+                    t.site.pass = pass.clone();
+                    t.saved_id
+                });
+                if let Some(id) = saved.filter(|id| *id != 0) {
+                    let mut all = app.sites.lock().unwrap();
+                    if let Some(s) = all.iter_mut().find(|s| s.id == id) {
+                        s.site.user = user;
+                        s.site.pass = pass;
+                        chomp_core::sites::save(&all);
+                    }
+                }
+                app.emit("sites-changed", ());
             }
             Event::Opened(f) => {
                 let baseline = win::last_write(&f.local).map_or(0, |w| w.0);
@@ -561,7 +583,11 @@ pub fn start_download(
 fn open_tab(state: &Arc<AppState>, saved_id: u32, name: String, site: Site) -> u32 {
     let id = state.next_tab.fetch_add(1, Ordering::Relaxed);
     let client = Client::start_site(site.clone(), Box::new(Bridge(state.clone(), id)));
-    *client.shared.accent.lock().unwrap() = state.config.lock().unwrap().accent.clone();
+    {
+        let c = state.config.lock().unwrap();
+        *client.shared.accent.lock().unwrap() = c.accent.clone();
+        client.shared.bundles.store(c.bundles, Ordering::Relaxed);
+    }
     state.tabs.lock().unwrap().push(Tab {
         id,
         saved_id,
@@ -615,8 +641,14 @@ fn main() {
             commands::set_accent,
             commands::set_local_start,
             commands::set_protect_3ds,
+            commands::set_check_updates,
+            commands::set_bundles,
+            commands::check_update,
+            commands::open_release,
             commands::remember_local,
             commands::install_cia,
+            commands::set_cement_login,
+            commands::sites_list,
             commands::site_save,
             commands::site_delete,
             commands::open_site,

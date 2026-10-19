@@ -100,7 +100,20 @@ impl Link {
         }
         let deadline = Instant::now() + Duration::from_secs(self.wait);
         let mut told = false;
-        while !self.ftp.connect(&self.host, self.port) {
+        // a 3DS with a login: the one saved with its site in Chomp
+        let mut login = chomp_core::ftp::Login::default();
+        if let Some((user, pass)) = chomp_core::sites::find_login(&self.host, self.port) {
+            login.user = user;
+            login.pass = pass;
+        }
+        loop {
+            match self.ftp.open(&self.host, self.port, login.clone()) {
+                Ok(()) => break,
+                Err(Error::Ftp(m)) => {
+                    return Err(Fail::Ftp(format!("{m} (save the 3DS's user name and password with its site in Chomp)")));
+                }
+                Err(_) => {}
+            }
             if Instant::now() >= deadline {
                 return Err(Fail::Unreachable);
             }

@@ -530,10 +530,61 @@ impl Ftp {
         self.simple(&format!("SITE COLOR #{}", hex.trim_start_matches('#')), 200)
     }
 
+    /// sets Cement's user name and password (empty user: anyone can log in
+    /// again), protocol 3
+    pub fn set_login(&mut self, user: &str, pass: &str) -> Result<()> {
+        if user.is_empty() { self.simple("SITE LOGIN", 200) } else { self.simple(&format!("SITE LOGIN {user} {pass}"), 200) }
+    }
+
     /// starts (or queues) installing a CIA already on the SD card, protocol 2;
     /// Ok(the server's answer)
     pub fn install(&mut self, path: &str) -> Result<String> {
         let (code, text) = self.cmd_text(&format!("SITE INSTALL {path}"))?;
+        if code / 100 != 2 {
+            return Err(Error::Ftp(text));
+        }
+        Ok(first_line(&text).get(4..).unwrap_or("").to_string())
+    }
+
+    /// many files as one uncompressed tar that Cement unpacks into `dir` while
+    /// it arrives (SITE BUNDLE, protocol 3); Ok(the server's answer)
+    pub fn bundle(
+        &mut self,
+        dir: &str,
+        reader: &mut dyn Read,
+        total: u64,
+        progress: &mut dyn FnMut(u64) -> Result<()>,
+    ) -> Result<String> {
+        self.simple(&format!("SITE BUNDLE {dir}"), 200)?;
+        self.open_data()?;
+        self.cmd(&format!("ALLO {total}"), None)?;
+        let (code, text) = self.cmd_text("STOR bundle.tar")?;
+        if code != 150 && code != 125 {
+            self.close_data();
+            return Err(Error::Ftp(text));
+        }
+        self.secure_data()?;
+        let mut buf = vec![0u8; 1 << 20];
+        loop {
+            let n = reader.read(&mut buf).map_err(|e| Error::Ftp(e.to_string()))?;
+            if n == 0 {
+                break;
+            }
+            self.data.as_mut().ok_or(Error::Net)?.write_all(&buf[..n])?;
+            if let Err(e) = progress(n as u64) {
+                if e == Error::Cancel {
+                    self.reset_data();
+                    self.reply(None)?;
+                }
+                return Err(e);
+            }
+        }
+        if let Some(d) = &mut self.data {
+            d.finish();
+        }
+        let mut text = String::new();
+        let code = self.reply(Some(&mut text))?;
+        self.close_data();
         if code / 100 != 2 {
             return Err(Error::Ftp(text));
         }

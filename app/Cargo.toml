@@ -34,3 +34,4 @@ windows = { version = "0.61", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Input_KeyboardAndMouse",
 ] }
+ureq = { version = "3.4.2", default-features = false, features = ["rustls", "json"] }

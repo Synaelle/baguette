@@ -17,7 +17,7 @@ use crate::ftp::{Aborter, Entry, Error, Ftp, Result};
 use crate::remote::{self, Remote, Site};
 use crate::status::{ServerInfo, battery_refusal, battery_text};
 use crate::util::{base_name, format_size, join_remote, parent_remote};
-use crate::{RC2_PROTOCOL, REQUIRED_PROTOCOL, win};
+use crate::{BUNDLE_MIN_FILES, BUNDLE_PROTOCOL, RC2_PROTOCOL, REQUIRED_PROTOCOL, win};
 
 /// a listing for the main window (notify 0) or another view (the 3DS picker)
 #[derive(Clone, Debug)]
@@ -64,6 +64,8 @@ pub enum Event {
     /// stays down until `reconnect`. fingerprint is set when the user may trust
     /// a certificate or host key to get in.
     Refused { message: String, fingerprint: String },
+    /// Cement took a new login (empty user: none): the site should use it now
+    LoginChanged { user: String, pass: String },
 }
 
 pub trait Sink: Send + Sync {
@@ -82,6 +84,7 @@ pub enum Kind {
     Info, // size and time of path (remote) for the edited copy path2
     Install, // Cement installs the CIA at path (protocol 2)
     Color,   // Cement's accent colour becomes path ("b8283c", protocol 2)
+    Login,   // Cement's login becomes path / path2 (empty path: none, protocol 3)
 }
 
 #[derive(Clone, Debug)]
@@ -296,6 +299,8 @@ pub struct Shared {
     pub progress: Mutex<Progress>,
     /// the accent colour Cement should use ("b8283c"; empty: leave it)
     pub accent: Mutex<String>,
+    /// experimental: many-file uploads to Cement go as one bundle
+    pub bundles: AtomicBool,
     pub browse: Worker,
     pub xfer: Worker,
     sink: Box<dyn Sink>,
@@ -339,6 +344,7 @@ impl Client {
             cancel: AtomicBool::new(false),
             progress: Mutex::new(Progress::default()),
             accent: Mutex::new(String::new()),
+            bundles: AtomicBool::new(false),
             browse: Worker::new(),
             xfer: Worker::new(),
             sink,
@@ -556,7 +562,7 @@ fn run(s: &Arc<Shared>, transfer: bool) {
         if transfer && !w.busy() {
             s.progress.lock().unwrap().active = false;
         }
-        if !matches!(kind, Kind::List | Kind::Info | Kind::Color) {
+        if !matches!(kind, Kind::List | Kind::Info | Kind::Color | Kind::Login) {
             s.browse.push(list_job(&s.cwd())); // show the result
         }
     }
@@ -615,6 +621,22 @@ fn execute(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
                 size: size.unwrap_or(0),
                 stamp,
             }));
+        }
+        Kind::Login => {
+            let protocol = s.server_info.lock().unwrap().protocol;
+            let Some(c) = ftp.cement() else { return Err(Error::Ftp("Only Cement has a login to set".into())) };
+            if protocol < crate::LOGIN_PROTOCOL {
+                return Err(Error::Ftp("Update Cement on the 3DS first (install its new CIA with A)".into()));
+            }
+            c.set_login(&job.path, &job.path2)?;
+            {
+                let mut site = s.site.lock().unwrap();
+                site.user = job.path.clone();
+                site.pass = job.path2.clone();
+            }
+            s.sink.emit(Event::LoginChanged { user: job.path.clone(), pass: job.path2.clone() });
+            s.message(if job.path.is_empty() { "The 3DS takes anyone again".into() } else { format!("The 3DS now wants {} and its password", job.path) });
+            refresh_space(s, ftp)?;
         }
         Kind::Install | Kind::Color => {
             let protocol = s.server_info.lock().unwrap().protocol;
@@ -769,6 +791,67 @@ fn expand_send_to_pc(ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
     Ok(())
 }
 
+/// the whole upload as one bundle; after a lost connection it is sent again
+/// from the start (the files already unpacked are overwritten, which is cheap
+/// next to one file at a time)
+fn send_bundle(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job, file_count: usize) -> Result<()> {
+    let base = job.path.trim_end_matches('/').to_string();
+    let items: Vec<crate::bundle::Item> = job
+        .items
+        .iter()
+        .map(|it| crate::bundle::Item {
+            local: it.local.clone(),
+            path: it.remote.strip_prefix(&format!("{base}/")).unwrap_or(&it.remote).to_string(),
+            dir: it.dir,
+            size: it.size,
+        })
+        .collect();
+    let total = crate::bundle::total_size(&items);
+    let c = ftp.cement().ok_or(Error::Net)?;
+    c.announce_batch(file_count as u64, total, "up")?;
+    let names: Vec<(String, bool)> = job.items.iter().map(|i| (base_name(&i.remote).to_string(), i.dir)).collect();
+    let mut reader = crate::bundle::Reader::new(items);
+    {
+        let mut p = s.progress.lock().unwrap();
+        p.active = true;
+        p.up = true;
+        p.del = false;
+        p.file_count = file_count;
+        p.total = total;
+        p.done = 0;
+    }
+    let mut sent = 0u64;
+    let dir = if base.is_empty() { "/".to_string() } else { base.clone() };
+    let current = reader.current.clone();
+    let mut progress = |n: u64| -> Result<()> {
+        sent += n;
+        let cur = current.load(Ordering::Relaxed);
+        let mut p = s.progress.lock().unwrap();
+        p.done = sent;
+        if let Some((name, _)) = names.get(cur) {
+            p.name = name.clone();
+        }
+        p.file_index = names[..=cur.min(names.len().saturating_sub(1))].iter().filter(|n| !n.1).count().max(1);
+        if s.cancel.load(Ordering::Relaxed) { Err(Error::Cancel) } else { Ok(()) }
+    };
+    let answer = c.bundle(&dir, &mut reader, total, &mut progress);
+    c.end_batch();
+    match answer {
+        Ok(_) => {
+            job.done = job.total;
+            job.next = job.items.len();
+            s.message(format!("Upload complete: {file_count} file(s) in one bundle, {}", format_size(job.total)));
+            Ok(())
+        }
+        Err(Error::Ftp(msg)) => {
+            job.errors += 1;
+            job.next = job.items.len();
+            Err(Error::Ftp(msg))
+        }
+        Err(e) => Err(e),
+    }
+}
+
 fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
     let up = job.kind == Kind::Upload;
     if !job.expanded {
@@ -808,6 +891,12 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
     }
 
     let file_count = job.items.iter().filter(|i| !i.dir).count();
+    if up && file_count >= BUNDLE_MIN_FILES && s.bundles.load(Ordering::Relaxed) {
+        let protocol = s.server_info.lock().unwrap().protocol;
+        if protocol >= BUNDLE_PROTOCOL && ftp.cement().is_some() {
+            return send_bundle(s, ftp, job, file_count);
+        }
+    }
     let files_left = job.items.iter().enumerate().filter(|(i, it)| !it.dir && *i >= job.next).count();
     // let the 3DS (and other clients asking it) know what is left of this job
     if let Some(c) = ftp.cement() {

@@ -3,6 +3,7 @@
 //! Chomp's engine: the FTP client, Cement's status extras, the saved settings
 //! and the two-connection transfer workers. Used by Chomp.exe and chomp-cli.exe.
 
+pub mod bundle;
 pub mod config;
 pub mod ftp;
 pub mod listing;
@@ -33,3 +34,12 @@ pub const REQUIRED_PROTOCOL: i32 = 1;
 /// Installing CIAs and the synced accent colour need this level of Cement
 /// (SITE INSTALL, SITE COLOR). Older ones still work, without those.
 pub const RC2_PROTOCOL: i32 = 2;
+
+/// Sending many files as one bundle (SITE BUNDLE) needs this level of Cement.
+pub const BUNDLE_PROTOCOL: i32 = 3;
+
+/// Cement's own user name and password (SITE LOGIN) need this level too.
+pub const LOGIN_PROTOCOL: i32 = 3;
+
+/// an upload of at least this many files goes as one bundle (when allowed)
+pub const BUNDLE_MIN_FILES: usize = 8;
