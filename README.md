@@ -34,11 +34,14 @@ is just the comfy way to use it. Windows 10/11 only for now.
 
 ## Build
 
-With MinGW-w64 (`g++` and `windres` on `PATH`):
+Chomp is written in Rust, with its window drawn by WebView2 (built into Windows 10 and 11).
+With Rust (MSVC toolchain) and the Visual Studio Build Tools:
 
 ```
 build.bat
 ```
+
+Chomp is portable: it keeps its settings (`chomp.ini`) and temp files next to `Chomp.exe`.
 
 ## License
 

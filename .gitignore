@@ -1,7 +1,13 @@
 # build output
 *.exe
-*.o
+target/
 release/
+app/gen/
+
+# what a portable Chomp keeps next to itself
+chomp.ini
+temp/
+webview/
 
 # local tests
 test/

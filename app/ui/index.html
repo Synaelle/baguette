@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chomp</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body class="dark">
+<div id="toolbar">
+  <button id="btnUp" title="Up (Backspace)">Up</button>
+  <button id="btnRefresh" title="Refresh (F5)">Refresh</button>
+  <button id="btnMkdir">New folder</button>
+  <button id="btnRename" title="Rename (F2)">Rename</button>
+  <input id="path" readonly value="/">
+  <button id="btnSend" title="Send to PC (Ctrl+S)">Send to PC</button>
+  <button id="btnReconnect">Force reconnect</button>
+  <button id="btnSettings">Settings...</button>
+</div>
+
+<div id="listWrap" tabindex="0">
+  <table id="list">
+    <thead><tr><th class="name">Name</th><th class="size">Size</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+
+<div id="progressRow" hidden>
+  <div id="progress"><div id="progressFill"></div></div>
+  <button id="btnCancel">Cancel</button>
+</div>
+
+<div id="statusbar">
+  <span id="st0"></span>
+  <span id="st1"></span>
+  <span id="st2"></span>
+</div>
+
+<div id="menu" class="menu" hidden></div>
+
+<!-- Settings -->
+<div id="settings" class="modal" hidden>
+  <div class="dialog" style="width: 460px">
+    <h2>Settings</h2>
+    <fieldset>
+      <legend>3DS (Cement)</legend>
+      <div class="row"><label for="host">IP address</label><input id="host" placeholder="192.168.1.10"></div>
+      <div class="row"><label for="port">Port</label><input id="port" type="number" min="1" max="65535" value="5000"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Send to PC</legend>
+      <select id="sendItems" multiple size="5"></select>
+      <div class="row">
+        <button id="btnAddPick">Add from 3DS...</button>
+        <button id="btnRemoveItem">Remove</button>
+      </div>
+      <div class="row"><input id="newPath" placeholder="/path/to/folder or file"><button id="btnAddPath">Add</button></div>
+      <p id="sendNote" class="note"></p>
+      <div class="row"><label for="sendDir">PC folder</label><input id="sendDir"><button id="btnBrowse">Browse...</button></div>
+      <label class="check"><input id="replace" type="checkbox"> Replace PC folder contents (old files go to the Recycle Bin)</label>
+    </fieldset>
+    <label class="check"><input id="dark" type="checkbox"> Dark mode</label>
+    <div class="buttons"><button id="settingsOk" class="primary">OK</button><button id="settingsCancel">Cancel</button></div>
+  </div>
+</div>
+
+<!-- 3DS picker -->
+<div id="picker" class="modal" hidden>
+  <div class="dialog" style="width: 420px">
+    <h2>Add from 3DS</h2>
+    <div class="row"><button id="pickUp">Up</button><input id="pickPath" readonly></div>
+    <div id="pickWrap"><table><tbody id="pickRows"></tbody></table></div>
+    <div class="buttons"><button id="pickOk" class="primary">Add</button><button id="pickCancel">Cancel</button></div>
+  </div>
+</div>
+
+<!-- send an edited file back -->
+<div id="sendback" class="modal" hidden>
+  <div class="dialog" style="width: 460px">
+    <h2>Send your changes to the 3DS?</h2>
+    <p id="sbPath" class="mono"></p>
+    <div class="grid">
+      <span>Current file (3DS):</span><span id="sbRemote"></span>
+      <span>Your edited file:</span><span id="sbLocal"></span>
+    </div>
+    <p id="sbWarn" class="warn"></p>
+    <div class="buttons"><button id="sbSend" class="primary">Send</button><button id="sbKeep">Don't send</button></div>
+  </div>
+</div>
+
+<!-- yes/no and messages -->
+<div id="ask" class="modal" hidden>
+  <div class="dialog" style="width: 400px">
+    <h2 id="askTitle">Chomp</h2>
+    <p id="askText"></p>
+    <div class="buttons"><button id="askYes" class="primary">Yes</button><button id="askNo">No</button></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

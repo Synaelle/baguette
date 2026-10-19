@@ -1,0 +1,144 @@
+/* Chomp 1.x look: plain and close to the C++ app. The 2.0 redesign replaces it. */
+:root {
+  --bg: #f0f0f0;
+  --panel: #e8e8e8;
+  --text: #1a1a1a;
+  --dim: #666;
+  --list: #ffffff;
+  --edit: #ffffff;
+  --border: #c8c8c8;
+  --accent: #0a64d8;
+  --select: #cce4ff;
+  --hover: #e8f2ff;
+  --warn: #b06000;
+  --button: #fdfdfd;
+}
+body.dark {
+  --bg: #202020;
+  --panel: #2b2b2b;
+  --text: #e6e6e6;
+  --dim: #a0a0a0;
+  --list: #191919;
+  --edit: #2d2d2d;
+  --border: #404040;
+  --accent: #4ca0ff;
+  --select: #1f4a7a;
+  --hover: #262f3a;
+  --warn: #ffb040;
+  --button: #333;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px "Segoe UI", system-ui, sans-serif;
+  user-select: none;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--button);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  height: 26px;
+  cursor: default;
+}
+button:hover { border-color: var(--accent); }
+button:disabled { opacity: .5; }
+button.primary { border-color: var(--accent); }
+input, select {
+  font: inherit;
+  color: var(--text);
+  background: var(--edit);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 6px;
+  user-select: text;
+}
+
+#toolbar { display: flex; gap: 4px; padding: 6px; align-items: center; }
+#path { flex: 1; min-width: 40px; height: 22px; }
+
+#listWrap { flex: 1; overflow: auto; background: var(--list); outline: none; }
+#list { width: 100%; border-collapse: collapse; table-layout: fixed; }
+#list th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  font-weight: normal;
+  text-align: left;
+  padding: 3px 8px;
+}
+#list th.size, #list td.size { width: 110px; text-align: right; }
+#list td { padding: 2px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#list tr:hover td { background: var(--hover); }
+#list tr.sel td { background: var(--select); }
+#list tr.drop td { outline: 1px dashed var(--accent); outline-offset: -1px; }
+.icon { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; margin-right: 6px; }
+td input.rename { width: calc(100% - 24px); padding: 0 3px; }
+
+#progressRow { display: flex; gap: 6px; padding: 3px 6px; align-items: center; }
+#progressRow[hidden] { display: none; }
+#progress { flex: 1; height: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+#progressFill { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+#btnCancel { width: 80px; height: 22px; }
+
+#statusbar {
+  display: flex;
+  height: 24px;
+  align-items: center;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+}
+#statusbar span { padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+#st0 { width: 462px; flex: none; }
+#st1 { flex: 1; color: var(--dim); border-left: 1px solid var(--border); }
+#st2 { flex: none; color: var(--dim); border-left: 1px solid var(--border); }
+#st2:empty { display: none; }
+
+.menu {
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px #0006;
+  padding: 3px 0;
+  min-width: 170px;
+  z-index: 20;
+}
+.menu div { padding: 4px 24px 4px 14px; display: flex; justify-content: space-between; gap: 20px; }
+.menu div:hover { background: var(--select); }
+.menu div.off { color: var(--dim); pointer-events: none; }
+.menu hr { border: 0; border-top: 1px solid var(--border); margin: 3px 0; }
+.menu .key { color: var(--dim); }
+
+.modal { position: fixed; inset: 0; background: #0008; display: flex; align-items: center; justify-content: center; z-index: 10; }
+.modal[hidden] { display: none; }
+.dialog { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; max-height: 95vh; overflow: auto; }
+.dialog h2 { font-size: 15px; font-weight: 600; margin: 0 0 10px; }
+fieldset { border: 1px solid var(--border); border-radius: 4px; margin: 0 0 10px; padding: 6px 10px 10px; }
+legend { color: var(--dim); }
+.row { display: flex; gap: 6px; align-items: center; margin: 5px 0; }
+.row label { width: 80px; flex: none; }
+.row input { flex: 1; }
+#sendItems { width: 100%; }
+.check { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
+.note { color: var(--dim); margin: 2px 0; min-height: 1em; }
+.warn { color: var(--warn); min-height: 1em; }
+.mono { font-family: Consolas, monospace; word-break: break-all; }
+.grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 8px 0; }
+.buttons { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; }
+.buttons button { min-width: 80px; }
+#pickWrap { height: 260px; overflow: auto; background: var(--list); border: 1px solid var(--border); }
+#pickWrap table { width: 100%; border-collapse: collapse; }
+#pickWrap td { padding: 2px 6px; white-space: nowrap; }
+#pickWrap tr.sel td { background: var(--select); }
+#pickPath { flex: 1; }
