@@ -32,7 +32,8 @@ removed in a later build.
 ## Chomp + Cement
 
 [Cement](https://github.com/Synaelle/cement) is the FTP server app for the 3DS. With it,
-Chomp shows the battery, the SD card space, Send to PC and the CIAs waiting to be installed,
+Chomp shows the battery, the SD card space, Send to PC and the CIAs waiting to be installed
+(and installs them for you),
 and uses a few Cement extras (`SITE STATUS`, `SITE BATCH`) for progress and time left. Cement
 works on its own with any FTP client, and Chomp is just the comfy way to use it. Windows 10/11
 only for now.
@@ -47,7 +48,8 @@ build.bat
 ```
 
 Chomp is portable: it keeps its settings and sites (`chomp.ini`) and temp files next to
-`Chomp.exe`. Saved passwords are encrypted for your Windows account, so on another PC a site
+`Chomp.exe`. The colour can be changed in the settings, and Cement follows it on the 3DS.
+Saved passwords are encrypted for your Windows account, so on another PC a site
 just asks for its password again.
 
 The Fredoka and Nunito fonts are under the SIL Open Font License (see `app/ui/fonts`).
