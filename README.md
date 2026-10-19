@@ -6,6 +6,9 @@
 
 <p align="center">A cute little Windows explorer for your 3DS, over Wi-Fi 🍪</p>
 
+Chomp is mainly here to make my workflow faster while I develop 3DS homebrew apps: build on
+the PC, push the new `.3dsx` or CIA in one command, pull the logs back, repeat.
+
 ## What it does
 
 - 🖱️ **Drag and drop** files and folders to and from the 3DS
@@ -20,7 +23,6 @@
 
 1. Run [**Cement**](https://github.com/Synaelle/cement) on your 3DS
 2. Open `Chomp.exe` and type the address Cement shows (asked only once)
-3. Chomp away 🍪
 
 ```
 chomp-cli status                   is the 3DS there? busy? SD space, battery
