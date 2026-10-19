@@ -9,16 +9,6 @@
 Chomp is mainly here to make my workflow faster while I develop 3DS homebrew apps: build on
 the PC, push the new `.3dsx` or CIA in one command, pull the logs back, repeat.
 
-## What it does
-
-- 🖱️ **Drag and drop** files and folders to and from the 3DS
-- 🔁 **Survives dropped connections**: closed the lid? It waits, reconnects and resumes
-- 📝 **Open files** straight from the 3DS, and send your edits back
-- 📥 **Send to PC**: one button copies your favourite 3DS folders to the PC
-- 📊 **Progress, time left, free space and battery** at a glance
-- 🌙 **Dark mode**
-- ⌨️ **`chomp-cli`** does it all from a terminal or a script, with JSON output
-
 ## Use it
 
 1. Run [**Cement**](https://github.com/Synaelle/cement) on your 3DS
