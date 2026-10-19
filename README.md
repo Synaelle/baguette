@@ -53,6 +53,8 @@ build.bat
 
 Chomp is portable: it keeps its settings and sites (`chomp.ini`) and temp files next to
 `Chomp.exe`. The colour can be changed in the settings, and Cement follows it on the 3DS.
+Chomp only reads the Windows folder, never changes it (start it with `--allow-windows-folder`
+if you really need to).
 Saved passwords are encrypted for your Windows account, so on another PC a site
 just asks for its password again.
 
