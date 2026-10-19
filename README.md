@@ -29,7 +29,7 @@ removed in a later build.
 
 Chomp is made for [Cement](https://github.com/Synaelle/cement), the FTP server app for the
 3DS. It talks plain FTP plus a few Cement extras (`SITE STATUS`, `SITE BATCH`) for progress,
-time left, free space and the battery. Cement works on its own with any FTP client; Chomp
+time left, free space and the battery. Cement works on its own with any FTP client, and Chomp
 is just the comfy way to use it. Windows 10/11 only for now.
 
 ## Build
