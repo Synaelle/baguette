@@ -10,6 +10,8 @@ Chomp started as a way to make my workflow faster while I develop 3DS homebrew a
 the PC, push the new `.3dsx` or CIA in one command, pull the logs back, repeat. It now speaks
 FTP, FTPS and SFTP too, so the same window works for the Pi, the NAS or a server.
 
+> The names and the design are a work in progress, nothing here is final yet.
+
 ## Use it
 
 1. Open `Chomp.exe`, add a site and connect
