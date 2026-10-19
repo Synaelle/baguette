@@ -613,6 +613,8 @@ fn main() {
             commands::init,
             commands::save_settings,
             commands::set_accent,
+            commands::set_local_start,
+            commands::remember_local,
             commands::install_cia,
             commands::site_save,
             commands::site_delete,

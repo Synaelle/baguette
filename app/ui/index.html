@@ -169,6 +169,14 @@
       <div id="accents" class="swatches" role="radiogroup" aria-label="Colour"></div>
       <label for="accentCustom">Your own</label>
       <div class="pair"><input id="accentCustom" type="color"><span class="note" id="accentHex"></span></div>
+      <label for="localStart">PC side opens in</label>
+      <select id="localStart">
+        <option value="home">Your user folder</option>
+        <option value="last">The folder you left it in</option>
+        <option value="dir">This folder:</option>
+      </select>
+      <span></span>
+      <div class="pair" id="localDirRow"><input id="localDir" spellcheck="false"><button id="localBrowse" class="pill small">Browse...</button></div>
     </div>
     <p class="note">Cement uses the same colour on the 3DS screens (Cement 2.0-RC2 and later).</p>
     <div class="buttons"><div class="grow"></div><button id="prefsCancel" class="pill">Cancel</button><button id="prefsOk" class="pill accent">Save</button></div>

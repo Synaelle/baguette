@@ -83,6 +83,8 @@ pub struct SiteIn {
 pub struct InitOut {
     version: String,
     accent: String,
+    local_start: String, // "home", "last" or a folder
+    local_dir: String,   // where the PC side opens now
     settings: SettingsOut,
     sites: Vec<SiteOut>,
     home: String,
@@ -95,7 +97,12 @@ fn sites_out(state: &AppState) -> Vec<SiteOut> {
 #[tauri::command]
 pub fn init(state: St) -> InitOut {
     let c = state.config.lock().unwrap();
-    InitOut { version: VERSION.into(), accent: c.accent.clone(), settings: SettingsOut::from(&*c), sites: sites_out(&state), home: win::home_dir() }
+    InitOut {
+        version: VERSION.into(),
+        accent: c.accent.clone(),
+        local_start: c.local_start.clone(),
+        local_dir: c.local_start_dir(),
+        settings: SettingsOut::from(&*c), sites: sites_out(&state), home: win::home_dir() }
 }
 
 /// Send to PC settings. Err(text) when they can't be used.
@@ -134,6 +141,27 @@ pub fn set_accent(state: St, accent: String) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// where the PC side opens: "home", "last" or a folder
+#[tauri::command]
+pub fn set_local_start(state: St, start: String) -> Result<(), String> {
+    let start = start.trim().to_string();
+    if !matches!(start.as_str(), "home" | "last") && !std::path::Path::new(&start).is_dir() {
+        return Err(format!("Can't find the folder {start}"));
+    }
+    let mut c = state.config.lock().unwrap();
+    c.local_start = start;
+    c.save();
+    Ok(())
+}
+
+/// the PC folder on screen, for "where you left it"
+#[tauri::command]
+pub fn remember_local(state: St, dir: String) {
+    if !dir.is_empty() {
+        state.config.lock().unwrap().remember_local(&dir);
+    }
 }
 
 /// Cement installs a CIA that is on the SD card

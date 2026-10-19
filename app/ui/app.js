@@ -182,7 +182,7 @@ class Pane {
       const r = await invoke("local_list", { path });
       this.show(r);
       if (!r.ok) setMessage("Can't open " + path + ": " + r.error);
-      store("localPath", this.st.path);
+      else if (this.st.path) invoke("remember_local", { dir: this.st.path });
     } else if (tab()) {
       invoke("navigate", { tab: active, path });
     }
@@ -413,15 +413,22 @@ function startDrag(from, down) {
     if (!dragMoved && Math.abs(ev.clientX - down.clientX) + Math.abs(ev.clientY - down.clientY) < 6) return;
     dragMoved = true;
     document.body.style.cursor = "copy";
+    // past the window's edge with server items: Windows' own drag takes over
+    // (Explorer). The page keeps getting moves while the button is held, so the
+    // position says it, not a mouseout.
+    const r = 2;
+    if (ev.clientX < r || ev.clientY < r || ev.clientX >= innerWidth - r || ev.clientY >= innerHeight - r) return out();
     const over = paneAt(ev.clientX, ev.clientY);
     setDropTarget(over && over.pane !== from ? over : null);
   };
-  const leave = (ev) => {
-    // leaving the window with server items: Windows' own drag takes over (Explorer)
-    if (!dragMoved || ev.relatedTarget || from.kind !== "remote") return;
+  const out = () => {
+    if (from.kind !== "remote") return;
     stop();
     draggingOut = true;
     invoke("drag_out", { tab: active, dir: from.st.path, entries: from.selectedEntries() });
+  };
+  const leave = (ev) => {
+    if (dragMoved && !ev.relatedTarget) out();
   };
   const up = () => {
     const target = dropTarget;
@@ -636,9 +643,22 @@ function pickAccent(a) {
   applyAccent(pickedAccent); // shown at once, kept on Save
   drawSwatches();
 }
+let localStart = "home";
+function syncLocalStart() {
+  $("localDirRow").hidden = $("localStart").value !== "dir";
+}
+$("localStart").onchange = syncLocalStart;
+$("localBrowse").onclick = async () => {
+  const d = await invoke("browse_folder", { title: "Folder the PC side opens in" });
+  if (d) $("localDir").value = d;
+};
 function openPrefs() {
   pickedAccent = accent;
   drawSwatches();
+  const custom = localStart !== "home" && localStart !== "last";
+  $("localStart").value = custom ? "dir" : localStart;
+  $("localDir").value = custom ? localStart : localPane.st.path;
+  syncLocalStart();
   $("prefs").hidden = false;
 }
 $("accentCustom").addEventListener("input", (ev) => pickAccent(ev.target.value));
@@ -647,6 +667,16 @@ $("prefsCancel").onclick = () => {
   $("prefs").hidden = true;
 };
 $("prefsOk").onclick = async () => {
+  const start = $("localStart").value === "dir" ? $("localDir").value.trim() : $("localStart").value;
+  try {
+    await invoke("set_local_start", { start });
+    localStart = start;
+  } catch (e) {
+    $("prefs").hidden = true;
+    await tell(e);
+    $("prefs").hidden = false;
+    return;
+  }
   try {
     await invoke("set_accent", { accent: pickedAccent });
     accent = pickedAccent;
@@ -1262,7 +1292,8 @@ listen("list", (ev) => {
   sites = init.sites;
   renderSites();
   showTab();
-  localPane.navigate(recall("localPath", init.home));
+  localStart = init.local_start;
+  localPane.navigate(init.local_dir);
   localPane.focus();
   // the sites that were open last time
   for (const id of recall("openSites", sites.length === 1 ? [sites[0].id] : [])) {

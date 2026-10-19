@@ -194,8 +194,14 @@ pub fn drag_out(state: &AppState, tab: u32, remote_dir: &str, entries: Vec<Entry
     }
     .into();
     let mut effect = DROPEFFECT_NONE;
-    unsafe {
-        let _ = DoDragDrop(&data, &source, DROPEFFECT_COPY, &mut effect);
+    // the drag needs OLE on this thread (already there when WebView2 set it up: then a no-op)
+    let ole = unsafe { OleInitialize(None) };
+    let rc = unsafe { DoDragDrop(&data, &source, DROPEFFECT_COPY, &mut effect) };
+    if ole.is_ok() {
+        unsafe { OleUninitialize() };
+    }
+    if rc.is_err() {
+        state.message(tab, format!("Could not start dragging to Explorer ({:08X})", rc.0 as u32));
     }
     if !fetched.get() {
         let _ = std::fs::remove_dir(&dir);

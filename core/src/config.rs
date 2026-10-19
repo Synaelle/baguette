@@ -16,6 +16,8 @@ pub struct Config {
     pub send_items: Vec<String>, // "Send to PC" 3DS paths
     pub send_replace: bool,      // "Send to PC" empties the PC folder first
     pub accent: String,          // "b8283c": the window's red, also sent to Cement
+    pub local_start: String,     // where the PC side opens: "home", "last" or a folder
+    pub local_last: String,      // the PC folder shown last
 }
 
 pub const DEFAULT_ACCENT: &str = "b8283c";
@@ -36,6 +38,8 @@ impl Default for Config {
             send_items: Vec::new(),
             send_replace: false,
             accent: DEFAULT_ACCENT.into(),
+            local_start: "home".into(),
+            local_last: String::new(),
         }
     }
 }
@@ -152,6 +156,24 @@ pub(crate) fn unescape(s: &str) -> String {
 }
 
 impl Config {
+    /// the folder the PC side opens in; the user folder when the saved one is gone
+    pub fn local_start_dir(&self) -> String {
+        let pick = match self.local_start.as_str() {
+            "home" => String::new(),
+            "last" => self.local_last.clone(),
+            dir => dir.to_string(),
+        };
+        if !pick.is_empty() && std::path::Path::new(&pick).is_dir() { pick } else { crate::win::home_dir() }
+    }
+
+    /// remembers the PC folder on screen (only written when it changed)
+    pub fn remember_local(&mut self, dir: &str) {
+        if self.local_last != dir {
+            self.local_last = dir.to_string();
+            put(&config_path(), "ui", Some("local_last"), Some(&escape(dir)));
+        }
+    }
+
     /// None when no server address is saved yet
     pub fn load() -> (Config, bool) {
         let path = config_path();
@@ -163,6 +185,8 @@ impl Config {
             send_replace: get_int(&path, "transfer", "replace", 0) != 0,
             send_items: Vec::new(),
             accent: normalize_accent(&get_str(&path, "ui", "accent", "")).unwrap_or_else(|| DEFAULT_ACCENT.into()),
+            local_start: unescape(&get_str(&path, "ui", "local_start", "home")),
+            local_last: unescape(&get_str(&path, "ui", "local_last", "")),
         };
         let count = get_int(&path, "sendtopc", "count", 0);
         for i in 0..count {
@@ -181,6 +205,8 @@ impl Config {
         put(&path, "server", Some("port"), Some(&self.port.to_string()));
         put(&path, "ui", Some("dark"), Some(if self.dark { "1" } else { "0" }));
         put(&path, "ui", Some("accent"), Some(&self.accent));
+        put(&path, "ui", Some("local_start"), Some(&escape(&self.local_start)));
+        put(&path, "ui", Some("local_last"), Some(&escape(&self.local_last)));
         put(&path, "transfer", Some("sendto"), Some(&self.send_dir));
         put(&path, "transfer", Some("replace"), Some(if self.send_replace { "1" } else { "0" }));
         put(&path, "sendtopc", None, None); // drop the old list
