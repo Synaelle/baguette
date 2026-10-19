@@ -37,7 +37,9 @@ removed in a later build.
 Chomp shows the battery, the SD card space, Send to PC and the CIAs waiting to be installed
 (and installs them for you),
 and uses a few Cement extras (`SITE STATUS`, `SITE BATCH`) for progress and time left. Cement
-works on its own with any FTP client, and Chomp is just the comfy way to use it. Windows 10/11
+works on its own with any FTP client, and Chomp is just the comfy way to use it. Chomp can also
+give the 3DS a login of your choice, and, as an experiment in the settings, send many small
+files as one bundle that Cement unpacks. Windows 10/11
 only for now.
 
 ## Build
@@ -58,15 +60,9 @@ The Fredoka and Nunito fonts are under the SIL Open Font License (see `app/ui/fo
 
 ## Planned
 
-Next release:
-
-- An update checker next to the version, linking to the newest release
-- Many small files sent to Cement as one uncompressed bundle, so the 3DS isn't slowed down by
-  each file
-
 Later:
 
-- Updating from within the app
+- Updating from within the app (for now, Chomp tells you when a new version is out)
 - Tools for other consoles: PS3, Xbox 360 (with Aurora) and Switch
 - An Android version
 
