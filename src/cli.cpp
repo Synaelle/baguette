@@ -1,3 +1,5 @@
+// Copyright (C) 2026 Synaelle
+// SPDX-License-Identifier: GPL-3.0-or-later
 // chomp-cli - command-line access to Cement, the FTP server on the 3DS, for scripts and
 // automation. Uses the same FTP engine (ftp.h) and saved settings as the GUI.
 //

@@ -1,3 +1,5 @@
+// Copyright (C) 2026 Synaelle
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Chomp - minimal Windows file explorer for Cement, the FTP server on the 3DS
 //
 // - two FTP connections: one for browsing, one for transfers, so the

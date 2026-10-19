@@ -52,4 +52,4 @@ build.bat
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+GPL-3.0 or later, see [LICENSE](LICENSE). Versions before 1.0.21 were MIT.

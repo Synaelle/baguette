@@ -1,3 +1,5 @@
+// Copyright (C) 2026 Synaelle
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Chomp - FTP engine shared by the Windows app (main.cpp) and the
 // command-line tool for scripts and automation (cli.cpp).
 #pragma once

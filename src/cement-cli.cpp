@@ -1,3 +1,5 @@
+// Copyright (C) 2026 Synaelle
+// SPDX-License-Identifier: GPL-3.0-or-later
 // cement-cli - the old name of chomp-cli, kept so existing scripts and agents
 // still work: runs chomp-cli.exe from the same folder with the same arguments
 // and returns its exit code. Output goes straight through; a notice on stderr
