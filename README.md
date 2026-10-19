@@ -1,0 +1,53 @@
+<p align="center">
+  <img src="icon.png" width="128" alt="Chomp">
+</p>
+
+<h1 align="center">Chomp</h1>
+
+<p align="center">A cute little Windows explorer for your 3DS, over Wi-Fi 🍪</p>
+
+## What it does
+
+- 🖱️ **Drag and drop** files and folders to and from the 3DS
+- 🔁 **Survives dropped connections**: closed the lid? It waits, reconnects and resumes
+- 📝 **Open files** straight from the 3DS, and send your edits back
+- 📥 **Send to PC**: one button copies your favourite 3DS folders to the PC
+- 📊 **Progress, time left, free space and battery** at a glance
+- 🌙 **Dark mode**
+- ⌨️ **`chomp-cli`** does it all from a terminal or a script, with JSON output
+
+## Use it
+
+1. Run [**Cement**](https://github.com/Synaelle/cement) on your 3DS
+2. Open `Chomp.exe` and type the address Cement shows (asked only once)
+3. Chomp away 🍪
+
+```
+chomp-cli status                   is the 3DS there? busy? SD space, battery
+chomp-cli ls sd:/3ds               list a folder
+chomp-cli put game/ sd:/3ds/app    upload files and folders
+chomp-cli get sd:/luma/screenshots shots
+chomp-cli --help                   everything else
+```
+
+`cement-cli.exe` still works for now: it's a stub that runs `chomp-cli.exe` and will be
+removed in a later build.
+
+## Chomp + Cement
+
+Chomp is made for [Cement](https://github.com/Synaelle/cement), the FTP server app for the
+3DS. It talks plain FTP plus a few Cement extras (`SITE STATUS`, `SITE BATCH`) for progress,
+time left, free space and the battery. Cement works on its own with any FTP client; Chomp
+is just the comfy way to use it. Windows 10/11 only for now.
+
+## Build
+
+With MinGW-w64 (`g++` and `windres` on `PATH`):
+
+```
+build.bat
+```
+
+## License
+
+MIT, see [LICENSE](LICENSE).

@@ -1,4 +1,4 @@
-// cement-cli - command-line access to the Cement server, for scripts and
+// chomp-cli - command-line access to Cement, the FTP server on the 3DS, for scripts and
 // automation. Uses the same FTP engine (ftp.h) and saved settings as the GUI.
 //
 // Non-interactive: results on stdout (text or --json), progress on stderr.
@@ -8,11 +8,7 @@
 
 #include "ftp.h"
 
-#ifdef _WIN32
 #include <shlobj.h>
-#else
-#include <dirent.h>
-#endif
 
 #include <chrono>
 #include <cstring>
@@ -87,18 +83,13 @@ static string timeText (long long s)
 static string firstLine (string const &s) { return s.substr (0, s.find_first_of ("\r\n")); }
 
 // ---------------------------------------------------------------------------
-// local system (Windows and Linux)
+// local system
 
 static wstring envVar (wchar_t const *name)
 {
-#ifdef _WIN32
 	wchar_t buf[1024];
 	DWORD n = GetEnvironmentVariableW (name, buf, 1024);
 	return n && n < 1024 ? wstring (buf, n) : wstring ();
-#else
-	char const *v = getenv (utf8 (name).c_str ());
-	return v ? wide (v) : wstring ();
-#endif
 }
 
 static int icompare (wstring const &a, wstring const &b)
@@ -114,26 +105,17 @@ static int icompare (wstring const &a, wstring const &b)
 
 static bool localStat (wstring const &path, bool &dir, uint64_t &size)
 {
-#ifdef _WIN32
 	WIN32_FILE_ATTRIBUTE_DATA fa;
 	if (!GetFileAttributesExW (path.c_str (), GetFileExInfoStandard, &fa))
 		return false;
 	dir  = (fa.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 	size = ((uint64_t)fa.nFileSizeHigh << 32) | fa.nFileSizeLow;
-#else
-	struct stat st;
-	if (stat (utf8 (path).c_str (), &st) != 0)
-		return false;
-	dir  = S_ISDIR (st.st_mode);
-	size = (uint64_t)st.st_size;
-#endif
 	return true;
 }
 
 static std::vector<wstring> localList (wstring const &dir)
 {
 	std::vector<wstring> names;
-#ifdef _WIN32
 	WIN32_FIND_DATAW fd;
 	HANDLE h = FindFirstFileW ((dir + L"\\*").c_str (), &fd);
 	if (h == INVALID_HANDLE_VALUE)
@@ -143,36 +125,17 @@ static std::vector<wstring> localList (wstring const &dir)
 			names.push_back (fd.cFileName);
 	while (FindNextFileW (h, &fd));
 	FindClose (h);
-#else
-	DIR *d = opendir (utf8 (dir).c_str ());
-	if (!d)
-		return names;
-	while (dirent *e = readdir (d))
-		if (strcmp (e->d_name, ".") && strcmp (e->d_name, ".."))
-			names.push_back (wide (e->d_name));
-	closedir (d);
-#endif
 	return names;
 }
 
 static void localMkdir (wstring const &path)
 {
-#ifdef _WIN32
 	CreateDirectoryW (path.c_str (), nullptr);
-#else
-	mkdir (utf8 (path).c_str (), 0755);
-#endif
 }
 
 static void localMkdirs (wstring const &path)
 {
-#ifdef _WIN32
 	SHCreateDirectoryExW (nullptr, path.c_str (), nullptr);
-#else
-	for (size_t pos = 1; pos <= path.size (); ++pos)
-		if (pos == path.size () || path[pos] == L'/')
-			localMkdir (path.substr (0, pos));
-#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -180,16 +143,15 @@ static void localMkdirs (wstring const &path)
 
 static bool loadAddress (string &host, int &port)
 {
-	wstring file = envVar (L"CEMENT_CONFIG");
-#ifdef _WIN32
+	wstring file = envVar (L"CHOMP_CONFIG");
 	if (file.empty ())
 	{
 		PWSTR base = nullptr;
 		if (SUCCEEDED (SHGetKnownFolderPath (FOLDERID_RoamingAppData, 0, nullptr, &base)))
 		{
-			file = wstring (base) + L"\\Cement\\config.ini";
+			file = wstring (base) + L"\\Chomp\\config.ini";
 			// settings saved under the project's earlier names
-			for (wchar_t const *old : {L"\\Syna 3DS Tools\\config.ini", L"\\synaftp\\config.ini"})
+			for (wchar_t const *old : {L"\\Cement\\config.ini", L"\\Syna 3DS Tools\\config.ini", L"\\synaftp\\config.ini"})
 				if (GetFileAttributesW (file.c_str ()) == INVALID_FILE_ATTRIBUTES)
 					file = wstring (base) + old;
 		}
@@ -202,35 +164,6 @@ static bool loadAddress (string &host, int &port)
 	host = utf8 (h);
 	port = GetPrivateProfileIntW (L"server", L"port", 5000, file.c_str ());
 	return true;
-#else
-	// Linux: $XDG_CONFIG_HOME/cement/config.ini, else ~/.config/cement/config.ini,
-	// same format as the Windows app: [server] host=... port=...
-	if (file.empty ())
-	{
-		wstring base = envVar (L"XDG_CONFIG_HOME");
-		file         = (base.empty () ? envVar (L"HOME") + L"/.config" : base) + L"/cement/config.ini";
-	}
-	FILE *f = fopen (utf8 (file).c_str (), "r");
-	if (!f)
-		return false;
-	char line[512];
-	bool inServer = false;
-	port          = 5000;
-	while (fgets (line, sizeof (line), f))
-	{
-		string l = line;
-		l.erase (l.find_last_not_of (" \t\r\n") + 1);
-		l.erase (0, l.find_first_not_of (" \t"));
-		if (!l.empty () && l[0] == '[')
-			inServer = l == "[server]";
-		else if (inServer && l.rfind ("host=", 0) == 0)
-			host = l.substr (5);
-		else if (inServer && l.rfind ("port=", 0) == 0)
-			port = atoi (l.c_str () + 5);
-	}
-	fclose (f);
-	return !host.empty ();
-#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -1177,9 +1110,9 @@ static int run (Link &link, string const &cmd, std::vector<string> const &args, 
 }
 
 static char const *const USAGE =
-    "cement-cli - talk to the Cement server on the 3DS (SD card only)\n"
+    "chomp-cli - talk to Cement, the FTP server app on the 3DS (SD card only)\n"
     "\n"
-    "usage: cement-cli [options] <command> [arguments]\n"
+    "usage: chomp-cli [options] <command> [arguments]\n"
     "\n"
     "commands:\n"
     "  status                         reachable? busy (transfers, ETA, CIA install)? SD space, battery\n"
@@ -1210,7 +1143,6 @@ static char const *const USAGE =
     "remote paths are absolute on the SD card, e.g. /3ds/app/app.3dsx or sd:/3ds/app/app.3dsx\n"
     "(use the sd: form from Git Bash, which rewrites arguments starting with /)\n";
 
-#ifdef _WIN32
 int wmain (int argc, wchar_t **argv)
 {
 	SetConsoleOutputCP (CP_UTF8);
@@ -1218,18 +1150,6 @@ int wmain (int argc, wchar_t **argv)
 	g_tty = GetConsoleMode (GetStdHandle (STD_ERROR_HANDLE), &mode) != 0;
 	if (g_tty)
 		SetConsoleMode (GetStdHandle (STD_ERROR_HANDLE), mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-#else
-int main (int argc, char **argvUtf8)
-{
-	std::vector<wstring> args8;
-	for (int i = 0; i < argc; ++i)
-		args8.push_back (wide (argvUtf8[i]));
-	std::vector<wchar_t *> argvW;
-	for (auto &a : args8)
-		argvW.push_back (a.data ());
-	wchar_t **argv = argvW.data ();
-	g_tty          = isatty (2);
-#endif
 
 	string host;
 	int port = 0, wait = 20;
@@ -1266,7 +1186,7 @@ int main (int argc, char **argvUtf8)
 				opt.noWait = true;
 			else if (a == "--version")
 			{
-				out ("cement-cli " APP_VERSION "\n");
+				out ("chomp-cli " APP_VERSION "\n");
 				return EXIT_OK;
 			}
 			else if (a == "-h" || a == "--help" || a == "help")
@@ -1288,16 +1208,14 @@ int main (int argc, char **argvUtf8)
 		if (host.empty ())
 		{
 			if (!saved)
-				throw UsageError{"no 3DS address saved yet: open Cement.exe once, write ~/.config/cement/config.ini ([server] host=... port=...) or pass --host"};
+				throw UsageError{"no 3DS address saved yet: open Chomp.exe once or pass --host and --port"};
 			host = savedHost;
 		}
 		if (port == 0)
 			port = saved ? savedPort : 5000;
 
-#ifdef _WIN32
 		WSADATA wsa;
 		WSAStartup (MAKEWORD (2, 2), &wsa);
-#endif
 		Link link (host, port, wait);
 		auto fail = [&] (int code, string const &msg, char const *extra = "") {
 			out (g_json ? "{\"ok\":false,\"error\":" + jsonStr (msg) + extra + "}\n" : "error: " + msg + "\n");
@@ -1328,7 +1246,7 @@ int main (int argc, char **argvUtf8)
 		if (g_json)
 			out ("{\"ok\":false,\"error\":" + jsonStr (e.msg) + "}\n");
 		else
-			fprintf (stderr, "cement-cli: %s\n\n%s", e.msg.c_str (), USAGE);
+			fprintf (stderr, "chomp-cli: %s\n\n%s", e.msg.c_str (), USAGE);
 		return EXIT_USAGE;
 	}
 }
