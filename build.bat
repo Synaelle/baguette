@@ -1,7 +1,9 @@
 @echo off
-rem Builds Chomp.exe (the explorer), chomp-cli.exe (command line, for scripts
-rem and automation) and cement-cli.exe (its old name: a stub that runs
-rem chomp-cli.exe, to be removed later), and copies them next to this file.
+rem Builds Chomp.exe (the explorer) and chomp-cli.exe (command line, for
+rem scripts and automation), and copies them next to this file.
+rem "build.bat stub" also builds cement-cli.exe, chomp-cli's old name (a stub
+rem that runs chomp-cli.exe), for scripts that still call it. It is no longer
+rem part of the releases.
 rem Needs Rust (MSVC toolchain) and the Visual Studio Build Tools.
 cd /d "%~dp0"
 
@@ -16,6 +18,12 @@ for /f "delims=" %%d in ('git status --porcelain 2^>nul') do set DIRTY=-dev
 if "%BUILDNO%"=="" (set CHOMP_VERSION=%BASEVER%-dev) else if "%DIRTY%"=="" (set CHOMP_VERSION=%BASEVER%.%BUILDNO%) else (set CHOMP_VERSION=%BASEVER%.%BUILDNO%-%COMMIT%-dev)
 echo version %CHOMP_VERSION%
 
-cargo build --release || exit /b 1
-for %%f in (Chomp.exe chomp-cli.exe cement-cli.exe) do copy /y target\release\%%f %%f >nul || exit /b 1
-echo built Chomp.exe, chomp-cli.exe and cement-cli.exe v%CHOMP_VERSION%
+set PACKAGES=-p chomp -p chomp-cli
+set FILES=Chomp.exe chomp-cli.exe
+if /i "%~1"=="stub" (
+    set PACKAGES=-p chomp -p chomp-cli -p cement-cli
+    set FILES=Chomp.exe chomp-cli.exe cement-cli.exe
+)
+cargo build --release %PACKAGES% || exit /b 1
+for %%f in (%FILES%) do copy /y target\release\%%f %%f >nul || exit /b 1
+echo built %FILES% v%CHOMP_VERSION%
