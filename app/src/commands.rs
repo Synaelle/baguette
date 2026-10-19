@@ -83,6 +83,7 @@ pub struct SiteIn {
 #[derive(Serialize)]
 pub struct InitOut {
     version: String,
+    protocol: i32, // the newest Cement protocol this Chomp speaks
     accent: String,
     local_start: String, // "home", "last" or a folder
     local_dir: String,   // where the PC side opens now
@@ -106,6 +107,7 @@ pub fn init(state: St) -> InitOut {
     let c = state.config.lock().unwrap();
     InitOut {
         version: VERSION.into(),
+        protocol: chomp_core::PROTOCOL,
         accent: c.accent.clone(),
         local_start: c.local_start.clone(),
         local_dir: c.local_start_dir(),

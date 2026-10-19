@@ -31,6 +31,11 @@ pub const VERSION: &str = match option_env!("CHOMP_VERSION") {
 /// 3DS app only when it is below this level.
 pub const REQUIRED_PROTOCOL: i32 = 1;
 
+/// The newest Cement protocol level this Chomp speaks. The apps have their
+/// own version numbers: this is what tells which Chomp goes with which
+/// Cement. Raise it with each protocol level Chomp learns.
+pub const PROTOCOL: i32 = 3;
+
 /// Installing CIAs and the synced accent colour need this level of Cement
 /// (SITE INSTALL, SITE COLOR). Older ones still work, without those.
 pub const RC2_PROTOCOL: i32 = 2;

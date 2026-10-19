@@ -116,6 +116,7 @@
       <button id="btnSend" class="pill accent wide" title="Send to PC (Ctrl+S)">Send to PC</button>
       <button id="btnSendSettings" class="link">Choose what to send...</button>
       <div id="cLoginBox" class="kv"><span>Login</span><button id="btnCementLogin" class="link"></button></div>
+      <div id="cVersion" class="card-foot"></div>
     </div>
     <div class="card">
       <div class="card-title light">CIAs on the 3DS</div>
@@ -174,6 +175,7 @@
         <button role="tab" data-tab="general" aria-selected="false">Preferences</button>
         <button role="tab" data-tab="3ds" aria-selected="false">3DS</button>
         <button role="tab" data-tab="lab" aria-selected="false">Experimental</button>
+        <button role="tab" data-tab="about" aria-selected="false">About</button>
       </div>
     </div>
 
@@ -218,6 +220,16 @@
         <div class="setting-text"><label for="bundles"><b>Send many files as one bundle</b></label><span>Chomp and Cement only (Cement 2.0-RC3 and later). Uploads of 8 files or more go as one stream that Cement unpacks as it arrives.</span></div>
         <input id="bundles" class="switch" type="checkbox">
       </div>
+    </section>
+
+    <section class="prefs-tab" data-tab="about" role="tabpanel" hidden>
+      <div class="setting">
+        <div class="about-row"><span>Chomp</span><b id="aboutChomp"></b></div>
+        <div class="about-row"><span>Speaks Cement protocol</span><b id="aboutProtocol"></b></div>
+        <div class="about-row" id="aboutCementRow"><span>Cement on this tab</span><b id="aboutCement"></b></div>
+        <p class="note" id="aboutNote"></p>
+      </div>
+      <p class="note">Chomp and Cement each have their own version. The protocol level is what tells which ones work together: a Cement with a lower level still works, without the newer features.</p>
     </section>
 
     <div class="buttons"><div class="grow"></div><button id="prefsCancel" class="pill">Cancel</button><button id="prefsOk" class="pill accent">Save</button></div>

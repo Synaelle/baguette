@@ -732,8 +732,29 @@ function showPrefsTab(name) {
   for (const p of document.querySelectorAll("#prefs .prefs-tab")) p.hidden = p.dataset.tab !== name;
 }
 for (const b of document.querySelectorAll("#prefs .seg button")) b.onclick = () => showPrefsTab(b.dataset.tab);
+let chompProtocol = 0;
+let chompVersion = "";
+// "Cement 2.0.58, protocol 3" and what it means next to this Chomp
+function protocolLine(c) {
+  const v = c.version ? `Cement ${c.version}` : "Cement";
+  return `${v} · protocol ${c.protocol}`;
+}
+function protocolHint(c) {
+  if (c.protocol < chompProtocol) return "Update Cement to use everything this Chomp can do";
+  if (c.protocol > chompProtocol) return "This Cement is newer: update Chomp for its new features";
+  return "";
+}
+function drawAbout() {
+  $("aboutChomp").textContent = chompVersion;
+  $("aboutProtocol").textContent = String(chompProtocol);
+  const c = tab()?.state === "connected" ? tab().cement : null;
+  $("aboutCementRow").hidden = !c;
+  $("aboutCement").textContent = c ? protocolLine(c) : "";
+  $("aboutNote").textContent = c ? protocolHint(c) || "They speak the same protocol: everything works." : "";
+}
 function openPrefs() {
   showPrefsTab("design");
+  drawAbout();
   pickedAccent = accent;
   $("protect3ds").checked = protect3ds;
   $("checkUpdates").checked = checkUpdates;
@@ -1298,6 +1319,7 @@ function drawCement() {
     $("cInstFill").style.width = c.installing.permille / 10 + "%";
   }
   const busy = !!c.installing;
+  $("cVersion").innerHTML = escapeHtml(protocolLine(c)) + (protocolHint(c) ? `<span class="hint">${escapeHtml(protocolHint(c))}</span>` : "");
   $("cLoginBox").hidden = !c.can_login;
   $("btnCementLogin").textContent = c.login ? "On, change..." : "Off, set one...";
   $("cCias").innerHTML = c.cias.length
@@ -1405,7 +1427,9 @@ listen("list", (ev) => {
 (async () => {
   const init = await invoke("init");
   $("version").textContent = init.version.replace(/\.\d+(-[0-9a-f]+-dev)?$/, "");
-  $("version").title = "Chomp v" + init.version;
+  $("version").title = "Chomp v" + init.version + " · Cement protocol " + init.protocol;
+  chompProtocol = init.protocol;
+  chompVersion = init.version;
   settings = init.settings;
   accent = init.accent;
   applyAccent(accent);

@@ -191,6 +191,8 @@ impl AppState {
                     cias,
                     can_install: rc2,
                     installing,
+                    version: info.version.clone(),
+                    protocol: info.protocol,
                     login: full.login,
                     can_login: info.protocol >= chomp_core::LOGIN_PROTOCOL,
                 });
@@ -250,6 +252,8 @@ struct CementOut {
     cias: Vec<CiaOut>,
     can_install: bool,
     installing: Option<InstallingOut>,
+    version: String, // Cement's own version
+    protocol: i32,   // its protocol level
     login: bool,     // Cement asks for a user name and password
     can_login: bool, // and Chomp can change that (protocol 3)
 }

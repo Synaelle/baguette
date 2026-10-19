@@ -328,6 +328,10 @@ input[type=color] { width: 44px; flex-grow: 0 !important; padding: 2px 4px; curs
 .swatches { gap: 10px; }
 .swatch { width: 34px; height: 34px; }
 .custom-colour { display: flex; align-items: center; gap: 10px; color: var(--dim); font-weight: 700; }
+.about-row { display: flex; justify-content: space-between; gap: 12px; }
+.about-row span { color: var(--dim); font-weight: 700; }
+.card-foot { color: var(--dim); font-size: 11px; font-weight: 700; border-top: 1px solid var(--line); padding-top: 10px; }
+.card-foot .hint { color: var(--hi); display: block; margin-top: 2px; }
 .lab-note { color: var(--hi); font-weight: 700; font-size: 12px; background: var(--track); border-radius: 10px; padding: 8px 12px; }
 input.switch {
   appearance: none; -webkit-appearance: none; flex: none; cursor: pointer;
