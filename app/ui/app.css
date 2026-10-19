@@ -306,3 +306,36 @@ input[type=color] { width: 44px; flex-grow: 0 !important; padding: 2px 4px; curs
 #cCias .cia { align-items: center; }
 #cCias .cia .size { color: var(--dim); font-size: 11px; white-space: nowrap; }
 #cCias .cia .pill { height: 22px; padding: 0 10px; font-size: 11px; }
+
+/* ---- settings ---- */
+.win svg.gear { width: 15px; height: 15px; fill: currentColor; stroke: none; transition: transform .3s; }
+#btnSettings:hover svg.gear { transform: rotate(45deg); }
+.dialog.prefs { width: 560px; gap: 16px; }
+.prefs-head { display: flex; flex-direction: column; gap: 12px; }
+.seg { display: flex; gap: 4px; padding: 4px; border-radius: 99px; background: var(--well); align-self: flex-start; }
+.seg button { height: 30px; padding: 0 14px; border: 0; border-radius: 99px; background: transparent; color: var(--dim); font-weight: 800; }
+.seg button:hover { color: var(--text); }
+.seg button[aria-selected="true"] { background: var(--accent); color: #fff; }
+.prefs-tab { display: flex; flex-direction: column; gap: 10px; min-height: 230px; }
+.setting { background: var(--well); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.setting.row-setting { flex-direction: row; align-items: center; gap: 16px; }
+.setting-text { display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0; }
+.setting-text b { font-weight: 800; }
+.setting-text span { color: var(--dim); font-size: 12px; }
+.setting-text label { cursor: pointer; }
+.swatches { gap: 10px; }
+.swatch { width: 34px; height: 34px; }
+.custom-colour { display: flex; align-items: center; gap: 10px; color: var(--dim); font-weight: 700; }
+.lab-note { color: var(--hi); font-weight: 700; font-size: 12px; background: var(--track); border-radius: 10px; padding: 8px 12px; }
+input.switch {
+  appearance: none; -webkit-appearance: none; flex: none; cursor: pointer;
+  width: 42px; height: 24px; border-radius: 99px; background: var(--track); border: 1px solid var(--edge);
+  position: relative; transition: background .15s; margin: 0;
+}
+input.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 99px;
+  background: var(--dim); transition: transform .15s, background .15s;
+}
+input.switch:checked { background: var(--accent); border-color: var(--accent); }
+input.switch:checked::after { transform: translateX(18px); background: #fff; }
+input.switch:focus-visible { outline: 2px solid var(--hi); outline-offset: 2px; }

@@ -19,7 +19,6 @@ const PATHS: &[(&str, Level, &str)] = &[
     ("/luma", Level::Keep, "Luma3DS settings and payloads"),
     ("/gm9", Level::Keep, "GodMode9 files, like NAND backups"),
     ("/boot.3dsx", Level::Keep, "the Homebrew Launcher"),
-    ("/3ds", Level::Keep, "your homebrew apps"),
 ];
 
 fn lower(p: &str) -> String {
@@ -68,7 +67,7 @@ mod tests {
         assert!(delete_or_rename("/luma").is_some());
         assert!(delete_or_rename("/luma/payloads/old.firm").is_none(), "inside a Keep folder is fine");
         assert!(delete_or_rename("/3ds/app").is_none());
-        assert!(delete_or_rename("/3ds").is_some());
+        assert!(delete_or_rename("/3ds").is_none(), "homebrew lives there: not protected");
         assert!(delete_or_rename("/Nintendo 3DS games").is_none(), "only the exact name");
         assert!(delete_or_rename("/notes.txt").is_none());
         assert!(write("/boot.firm").is_some());

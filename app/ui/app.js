@@ -677,7 +677,7 @@ $("protect3ds").addEventListener("change", async () => {
   const ok = await ask(
     "Without it, Chomp lets you delete, rename or replace the 3DS files that keep it working: " +
       "/Nintendo 3DS (installed games and saves), /boot.firm (what the console boots), " +
-      "/luma, /gm9 (NAND backups), /boot.3dsx and /3ds." +
+      "/luma, /gm9 (NAND backups) and /boot.3dsx." +
       "\n\nA mistake there can lose your games and saves, " +
       "or stop the 3DS from booting into its custom firmware. Turn the protection off?",
     "Turn it off", "Keep it on", "Protect important 3DS files"
@@ -685,7 +685,13 @@ $("protect3ds").addEventListener("change", async () => {
   $("prefs").hidden = false;
   $("protect3ds").checked = !ok;
 });
+function showPrefsTab(name) {
+  for (const b of document.querySelectorAll("#prefs .seg button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
+  for (const p of document.querySelectorAll("#prefs .prefs-tab")) p.hidden = p.dataset.tab !== name;
+}
+for (const b of document.querySelectorAll("#prefs .seg button")) b.onclick = () => showPrefsTab(b.dataset.tab);
 function openPrefs() {
+  showPrefsTab("design");
   pickedAccent = accent;
   $("protect3ds").checked = protect3ds;
   $("checkUpdates").checked = checkUpdates;
