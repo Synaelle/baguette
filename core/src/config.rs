@@ -18,6 +18,7 @@ pub struct Config {
     pub accent: String,          // "b8283c": the window's red, also sent to Cement
     pub local_start: String,     // where the PC side opens: "home", "last" or a folder
     pub local_last: String,      // the PC folder shown last
+    pub protect_3ds: bool,       // refuse to delete or replace important 3DS files
 }
 
 pub const DEFAULT_ACCENT: &str = "b8283c";
@@ -40,6 +41,7 @@ impl Default for Config {
             accent: DEFAULT_ACCENT.into(),
             local_start: "home".into(),
             local_last: String::new(),
+            protect_3ds: true,
         }
     }
 }
@@ -187,6 +189,7 @@ impl Config {
             accent: normalize_accent(&get_str(&path, "ui", "accent", "")).unwrap_or_else(|| DEFAULT_ACCENT.into()),
             local_start: unescape(&get_str(&path, "ui", "local_start", "home")),
             local_last: unescape(&get_str(&path, "ui", "local_last", "")),
+            protect_3ds: get_int(&path, "ui", "protect_3ds", 1) != 0,
         };
         let count = get_int(&path, "sendtopc", "count", 0);
         for i in 0..count {
@@ -206,6 +209,7 @@ impl Config {
         put(&path, "ui", Some("dark"), Some(if self.dark { "1" } else { "0" }));
         put(&path, "ui", Some("accent"), Some(&self.accent));
         put(&path, "ui", Some("local_start"), Some(&escape(&self.local_start)));
+        put(&path, "ui", Some("protect_3ds"), Some(if self.protect_3ds { "1" } else { "0" }));
         put(&path, "ui", Some("local_last"), Some(&escape(&self.local_last)));
         put(&path, "transfer", Some("sendto"), Some(&self.send_dir));
         put(&path, "transfer", Some("replace"), Some(if self.send_replace { "1" } else { "0" }));

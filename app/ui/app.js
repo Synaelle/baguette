@@ -247,7 +247,7 @@ class Pane {
     if (!(await ask(q))) return;
     if (this.kind === "local") {
       invoke("local_delete", { paths: sel.map((e) => this.join(this.st.path, e.name)) }).then(() => this.refresh(), (e) => (tell(e), this.refresh()));
-    } else invoke("delete", { tab: active, dir: this.st.path, entries: sel });
+    } else invoke("delete", { tab: active, dir: this.st.path, entries: sel }).catch(tell);
   }
 
   startRename() {
@@ -277,7 +277,7 @@ class Pane {
       this.st.selectNext = name;
       const from = this.join(this.st.path, e.name), to = this.join(this.st.path, name);
       if (this.kind === "local") invoke("local_rename", { from, to }).then(() => this.refresh(), tell);
-      else invoke("rename", { tab: active, from, to });
+      else invoke("rename", { tab: active, from, to }).catch(tell);
     };
     input.addEventListener("keydown", (ev) => {
       ev.stopPropagation();
@@ -393,7 +393,7 @@ function uploadSelected(to) {
   const t = tab();
   const sel = localPane.selectedEntries();
   if (!t || !sel.length || localPane.st.path === "") return;
-  invoke("upload", { tab: active, paths: sel.map((e) => localPane.join(localPane.st.path, e.name)), dir: to ?? remotePane.st.path });
+  invoke("upload", { tab: active, paths: sel.map((e) => localPane.join(localPane.st.path, e.name)), dir: to ?? remotePane.st.path }).catch(tell);
 }
 function downloadSelected(to) {
   const t = tab();
@@ -491,7 +491,7 @@ window.__TAURI__.webview.getCurrentWebview().onDragDropEvent((ev) => {
       if (tab()) setMessage("Drop files on the server side to upload them");
       return;
     }
-    invoke("upload", { tab: active, paths: p.paths, dir: t.row ? remotePane.join(remotePane.st.path, t.row) : remotePane.st.path });
+    invoke("upload", { tab: active, paths: p.paths, dir: t.row ? remotePane.join(remotePane.st.path, t.row) : remotePane.st.path }).catch(tell);
   }
 });
 
@@ -652,8 +652,24 @@ $("localBrowse").onclick = async () => {
   const d = await invoke("browse_folder", { title: "Folder the PC side opens in" });
   if (d) $("localDir").value = d;
 };
+let protect3ds = true;
+$("protect3ds").addEventListener("change", async () => {
+  if ($("protect3ds").checked) return;
+  $("prefs").hidden = true;
+  const ok = await ask(
+    "Without it, Chomp lets you delete, rename or replace the 3DS files that keep it working: " +
+      "/Nintendo 3DS (installed games and saves), /boot.firm (what the console boots), " +
+      "/luma, /gm9 (NAND backups), /boot.3dsx and /3ds." +
+      "\n\nA mistake there can lose your games and saves, " +
+      "or stop the 3DS from booting into its custom firmware. Turn the protection off?",
+    "Turn it off", "Keep it on", "Protect important 3DS files"
+  );
+  $("prefs").hidden = false;
+  $("protect3ds").checked = !ok;
+});
 function openPrefs() {
   pickedAccent = accent;
+  $("protect3ds").checked = protect3ds;
   drawSwatches();
   const custom = localStart !== "home" && localStart !== "last";
   $("localStart").value = custom ? "dir" : localStart;
@@ -677,6 +693,8 @@ $("prefsOk").onclick = async () => {
     $("prefs").hidden = false;
     return;
   }
+  protect3ds = $("protect3ds").checked;
+  invoke("set_protect_3ds", { on: protect3ds });
   try {
     await invoke("set_accent", { accent: pickedAccent });
     accent = pickedAccent;
@@ -1284,7 +1302,7 @@ listen("list", (ev) => {
 
 (async () => {
   const init = await invoke("init");
-  $("version").textContent = init.version.replace(/\.(\d+)-([0-9a-f]+)(-dev)?$/, "");
+  $("version").textContent = init.version.replace(/\.\d+(-[0-9a-f]+-dev)?$/, "");
   $("version").title = "Chomp v" + init.version;
   settings = init.settings;
   accent = init.accent;
@@ -1293,6 +1311,7 @@ listen("list", (ev) => {
   renderSites();
   showTab();
   localStart = init.local_start;
+  protect3ds = init.protect_3ds;
   localPane.navigate(init.local_dir);
   localPane.focus();
   // the sites that were open last time

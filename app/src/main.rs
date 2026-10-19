@@ -614,6 +614,7 @@ fn main() {
             commands::save_settings,
             commands::set_accent,
             commands::set_local_start,
+            commands::set_protect_3ds,
             commands::remember_local,
             commands::install_cia,
             commands::site_save,

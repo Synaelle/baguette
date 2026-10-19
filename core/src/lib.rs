@@ -6,6 +6,7 @@
 pub mod config;
 pub mod ftp;
 pub mod listing;
+pub mod protect;
 pub mod remote;
 pub mod sites;
 #[cfg(feature = "sftp")]
@@ -17,7 +18,7 @@ pub mod util;
 pub mod win;
 pub mod workers;
 
-/// set by the build: <VERSION file>.<commit count>-<commit>[-dev]
+/// set by the build: <VERSION file>.<commit count>, plus -<commit>-dev for a build with uncommitted changes
 pub const VERSION: &str = match option_env!("CHOMP_VERSION") {
     Some(v) => v,
     None => "dev",

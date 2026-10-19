@@ -11,6 +11,7 @@ use chomp_core::ftp::Entry;
 use chomp_core::remote::{Protocol, Site};
 use chomp_core::sites::{self, Saved};
 use chomp_core::util::{join_remote, normalize_remote, parent_remote};
+use chomp_core::protect;
 use chomp_core::workers::{Job, Kind};
 use chomp_core::{VERSION, win};
 use serde::{Deserialize, Serialize};
@@ -85,6 +86,7 @@ pub struct InitOut {
     accent: String,
     local_start: String, // "home", "last" or a folder
     local_dir: String,   // where the PC side opens now
+    protect_3ds: bool,
     settings: SettingsOut,
     sites: Vec<SiteOut>,
     home: String,
@@ -102,6 +104,7 @@ pub fn init(state: St) -> InitOut {
         accent: c.accent.clone(),
         local_start: c.local_start.clone(),
         local_dir: c.local_start_dir(),
+        protect_3ds: c.protect_3ds,
         settings: SettingsOut::from(&*c), sites: sites_out(&state), home: win::home_dir() }
 }
 
@@ -154,6 +157,30 @@ pub fn set_local_start(state: St, start: String) -> Result<(), String> {
     c.local_start = start;
     c.save();
     Ok(())
+}
+
+/// on or off: refusing to delete or replace important 3DS files
+#[tauri::command]
+pub fn set_protect_3ds(state: St, on: bool) {
+    let mut c = state.config.lock().unwrap();
+    c.protect_3ds = on;
+    c.save();
+}
+
+/// Err(why) when the protection is on, the tab is on Cement and one of the
+/// paths is protected (check: protect::delete_or_rename or protect::write)
+fn guard(state: &AppState, tab: u32, paths: &[String], check: fn(&str) -> Option<String>) -> Result<(), String> {
+    if !state.config.lock().unwrap().protect_3ds {
+        return Ok(());
+    }
+    let cement = state.with_client(tab, |c| c.shared.server_info.lock().unwrap().cement).unwrap_or(false);
+    if !cement {
+        return Ok(());
+    }
+    match paths.iter().find_map(|p| check(p)) {
+        Some(why) => Err(format!("{why}. You can turn this protection off in the settings.")),
+        None => Ok(()),
+    }
 }
 
 /// the PC folder on screen, for "where you left it"
@@ -356,18 +383,22 @@ pub fn mkdir(state: St, tab: u32, path: String) {
 }
 
 #[tauri::command]
-pub fn rename(state: St, tab: u32, from: String, to: String) {
+pub fn rename(state: St, tab: u32, from: String, to: String) -> Result<(), String> {
+    guard(&state, tab, &[from.clone(), to.clone()], protect::delete_or_rename)?;
     state.with_client(tab, |c| {
         let mut j = Job::new(Kind::Rename);
         j.path = from;
         j.path2 = to;
         c.shared.browse.push(j);
     });
+    Ok(())
 }
 
 /// on the transfer connection: tracked with the progress bar, cancellable, resumable
 #[tauri::command]
-pub fn delete(state: St, tab: u32, dir: String, entries: Vec<EntryOut>) {
+pub fn delete(state: St, tab: u32, dir: String, entries: Vec<EntryOut>) -> Result<(), String> {
+    let paths: Vec<String> = entries.iter().map(|e| join_remote(&dir, &e.name)).collect();
+    guard(&state, tab, &paths, protect::delete_or_rename)?;
     state.with_client(tab, |c| {
         let mut j = Job::new(Kind::Delete);
         j.path = dir;
@@ -375,13 +406,16 @@ pub fn delete(state: St, tab: u32, dir: String, entries: Vec<EntryOut>) {
         c.shared.start_progress();
         c.shared.xfer.push(j);
     });
+    Ok(())
 }
 
 #[tauri::command]
-pub fn upload(state: St, tab: u32, paths: Vec<String>, dir: String) {
+pub fn upload(state: St, tab: u32, paths: Vec<String>, dir: String) -> Result<(), String> {
     if paths.is_empty() {
-        return;
+        return Ok(());
     }
+    let targets: Vec<String> = paths.iter().map(|p| join_remote(&dir, chomp_core::util::base_name(p))).collect();
+    guard(&state, tab, &targets, protect::write)?;
     state.with_tab(tab, |t| {
         // CIAs sent to Cement show in its card until they are installed
         for p in &paths {
@@ -399,6 +433,7 @@ pub fn upload(state: St, tab: u32, paths: Vec<String>, dir: String) {
         t.client.shared.xfer.push(j);
     });
     state.update_conn_state(tab); // the CIA card
+    Ok(())
 }
 
 /// into a PC folder (dragged onto the PC side)

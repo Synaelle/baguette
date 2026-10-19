@@ -222,6 +222,7 @@ select option { padding: 3px 6px; border-radius: 6px; }
 .bar { height: 10px; border-radius: 99px; background: var(--track); overflow: hidden; }
 .bar > div { height: 100%; width: 0; border-radius: 99px; background: var(--accent); transition: width .25s; }
 .bar.thin { height: 8px; margin-top: 6px; }
+#cSdTotal { margin-top: 6px; }
 .bar > div.soft { background: var(--hi); }
 
 #statusbar { display: flex; gap: 12px; align-items: center; padding: 8px 18px; color: var(--dim); font-weight: 600; white-space: nowrap; overflow: hidden; flex: none; }
