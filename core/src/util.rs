@@ -92,6 +92,26 @@ pub fn stamp_text(s: &str) -> String {
     format!("{}-{}-{} {}:{}:{}", &s[0..4], &s[4..6], &s[6..8], &s[8..10], &s[10..12], &s[12..14])
 }
 
+/// (year, month) today (UTC), for listings that leave the year out
+pub fn this_year_month() -> (u32, u32) {
+    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let (y, m, _) = civil_from_days((secs / 86400) as i64);
+    (y as u32, m)
+}
+
+/// days since 1970-01-01 to (year, month, day)
+pub fn civil_from_days(z: i64) -> (i64, u32, u32) {
+    let z = z + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z.rem_euclid(146097);
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    (yoe + era * 400 + (m <= 2) as i64, m, d)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

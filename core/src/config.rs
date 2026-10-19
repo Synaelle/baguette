@@ -71,7 +71,7 @@ pub fn read_address() -> Option<(String, u16)> {
     Some((host, get_int(&file, "server", "port", 5000) as u16))
 }
 
-fn get_str(file: &str, section: &str, key: &str, default: &str) -> String {
+pub(crate) fn get_str(file: &str, section: &str, key: &str, default: &str) -> String {
     let mut buf = vec![0u16; 4096];
     let n = unsafe {
         GetPrivateProfileStringW(
@@ -86,11 +86,11 @@ fn get_str(file: &str, section: &str, key: &str, default: &str) -> String {
     String::from_utf16_lossy(&buf[..n as usize])
 }
 
-fn get_int(file: &str, section: &str, key: &str, default: i32) -> i32 {
+pub(crate) fn get_int(file: &str, section: &str, key: &str, default: i32) -> i32 {
     unsafe { GetPrivateProfileIntW(wide(section).as_ptr(), wide(key).as_ptr(), default, wide(file).as_ptr()) as i32 }
 }
 
-fn put(file: &str, section: &str, key: Option<&str>, value: Option<&str>) {
+pub(crate) fn put(file: &str, section: &str, key: Option<&str>, value: Option<&str>) {
     let k = key.map(wide);
     let v = value.map(wide);
     unsafe {
@@ -104,7 +104,7 @@ fn put(file: &str, section: &str, key: Option<&str>, value: Option<&str>) {
 }
 
 /// "%XX"-escapes non-ASCII so the list survives an ANSI ini file
-fn escape(s: &str) -> String {
+pub(crate) fn escape(s: &str) -> String {
     let mut out = String::new();
     for &c in s.as_bytes() {
         if c >= 0x80 || c < 0x20 || c == b'%' {
@@ -116,7 +116,7 @@ fn escape(s: &str) -> String {
     out
 }
 
-fn unescape(s: &str) -> String {
+pub(crate) fn unescape(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = Vec::new();
     let mut i = 0;

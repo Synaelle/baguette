@@ -129,7 +129,7 @@ impl Link {
                     self.ftp.close();
                     note("connection lost, reconnecting...");
                 }
-                Err(Error::Ftp(m)) => return Err(Fail::Ftp(m)),
+                Err(Error::Ftp(m)) | Err(Error::Untrusted { detail: m, .. }) => return Err(Fail::Ftp(m)),
                 Err(Error::Cancel) => return Err(Fail::Ftp("cancelled".into())),
             }
         }
@@ -313,7 +313,7 @@ fn remote_path(arg: &str) -> String {
 /// looks the item up in its parent folder; None if it does not exist
 fn stat_remote(link: &mut Link, path: &str) -> CliResult<Option<Entry>> {
     if path == "/" {
-        return Ok(Some(Entry { name: "/".into(), dir: true, size: 0 }));
+        return Ok(Some(Entry { name: "/".into(), dir: true, ..Default::default() }));
     }
     let name = base_name(path).to_string();
     link.run(|f| match f.list(&parent_remote(path)) {

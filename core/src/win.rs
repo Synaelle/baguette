@@ -150,3 +150,45 @@ pub fn local_time_text(ft: u64) -> String {
     }
     format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond)
 }
+
+/// encrypts for this Windows user (DPAPI), as hex for the ini file
+pub fn protect(text: &str) -> String {
+    use windows_sys::Win32::Foundation::LocalFree;
+    use windows_sys::Win32::Security::Cryptography::{CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN, CryptProtectData};
+    if text.is_empty() {
+        return String::new();
+    }
+    let input = CRYPT_INTEGER_BLOB { cbData: text.len() as u32, pbData: text.as_ptr() as *mut u8 };
+    let mut out = CRYPT_INTEGER_BLOB { cbData: 0, pbData: std::ptr::null_mut() };
+    let ok = unsafe {
+        CryptProtectData(&input, std::ptr::null(), std::ptr::null(), std::ptr::null(), std::ptr::null(), CRYPTPROTECT_UI_FORBIDDEN, &mut out)
+    };
+    if ok == 0 {
+        return String::new();
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(out.pbData, out.cbData as usize) };
+    let hex = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    unsafe { LocalFree(out.pbData.cast()) };
+    hex
+}
+
+/// None when it was encrypted by another Windows user or another PC
+pub fn unprotect(hex: &str) -> Option<String> {
+    use windows_sys::Win32::Foundation::LocalFree;
+    use windows_sys::Win32::Security::Cryptography::{CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN, CryptUnprotectData};
+    if hex.is_empty() {
+        return Some(String::new());
+    }
+    let mut bytes: Vec<u8> = (0..hex.len() / 2).filter_map(|i| u8::from_str_radix(hex.get(i * 2..i * 2 + 2)?, 16).ok()).collect();
+    let input = CRYPT_INTEGER_BLOB { cbData: bytes.len() as u32, pbData: bytes.as_mut_ptr() };
+    let mut out = CRYPT_INTEGER_BLOB { cbData: 0, pbData: std::ptr::null_mut() };
+    let ok = unsafe {
+        CryptUnprotectData(&input, std::ptr::null_mut(), std::ptr::null(), std::ptr::null(), std::ptr::null(), CRYPTPROTECT_UI_FORBIDDEN, &mut out)
+    };
+    if ok == 0 {
+        return None;
+    }
+    let text = String::from_utf8_lossy(unsafe { std::slice::from_raw_parts(out.pbData, out.cbData as usize) }).into_owned();
+    unsafe { LocalFree(out.pbData.cast()) };
+    Some(text)
+}

@@ -159,7 +159,7 @@ impl From<&Entry> for EntryOut {
 
 impl From<EntryOut> for Entry {
     fn from(e: EntryOut) -> Entry {
-        Entry { name: e.name, dir: e.dir, size: e.size }
+        Entry { name: e.name, dir: e.dir, size: e.size, ..Default::default() }
     }
 }
 
@@ -199,6 +199,7 @@ impl Sink for Bridge {
                 ListOut { notify: l.notify, path: l.path, ok: l.ok, entries: l.entries.iter().map(EntryOut::from).collect() },
             ),
             Event::Message(m) => app.message(m),
+            Event::Refused { message, .. } => app.message(message),
             Event::Opened(f) => {
                 let baseline = win::last_write(&f.local).map_or(0, |w| w.0);
                 app.opened.lock().unwrap().push(Opened {
@@ -429,7 +430,7 @@ fn save_settings(state: St, s: SettingsOut) -> Result<(), String> {
     match client.as_ref() {
         None => *client = Some(Client::start(&host, s.port, Box::new(Bridge(state.inner().clone())))),
         Some(c) if moved => {
-            *c.shared.host.lock().unwrap() = (host, s.port);
+            *c.shared.site.lock().unwrap() = chomp_core::remote::Site::cement(&host, s.port);
             *c.shared.cwd.lock().unwrap() = "/".into();
             c.shared.browse.reconnect();
             c.shared.xfer.reconnect();

@@ -1,7 +1,8 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! The FTP client: passive mode, binary, UTF-8, resumable transfers, plus the
-//! extras Cement understands (SITE STATUS, SITE BATCH, ALLO, AVBL).
+//! The FTP client: passive mode, binary, UTF-8, resumable transfers, FTPS
+//! (with the `tls` feature), plus the extras Cement understands (SITE STATUS,
+//! SITE BATCH, ALLO, AVBL).
 
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -10,6 +11,7 @@ use std::os::windows::io::AsRawSocket;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::listing::{parse_list, parse_mlsd};
 use crate::status::{ServerInfo, parse_server_info};
 use crate::util::parse_u64;
 
@@ -22,6 +24,9 @@ pub enum Error {
     Cancel,
     /// the server or the local system said no; the text says why
     Ftp(String),
+    /// the server's certificate or host key isn't trusted yet: ask the user, then
+    /// connect again with this fingerprint trusted
+    Untrusted { fingerprint: String, detail: String },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -38,11 +43,40 @@ pub fn first_line(s: &str) -> &str {
 }
 
 /// a remote folder entry
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Entry {
     pub name: String,
     pub dir: bool,
     pub size: u64,
+    pub modified: String, // "YYYYMMDDhhmmss", empty if unknown
+}
+
+/// how a connection is protected
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Tls {
+    #[default]
+    None,
+    /// AUTH TLS on the usual port, then PROT P for the data connections
+    Explicit,
+    /// TLS from the first byte (port 990)
+    Implicit,
+}
+
+/// how a connection logs in
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Login {
+    pub user: String,
+    pub pass: String,
+    pub tls: Tls,
+    /// certificate fingerprints the user accepted for this site
+    pub trusted: Vec<String>,
+}
+
+impl Default for Login {
+    /// what Cement expects: anonymous, plain FTP
+    fn default() -> Login {
+        Login { user: "anonymous".into(), pass: "chomp".into(), tls: Tls::None, trusted: Vec::new() }
+    }
 }
 
 /// stops every blocking call of an Ftp from another thread
@@ -56,18 +90,87 @@ impl Aborter {
         }
     }
 
-    fn set(&self, socks: Vec<&TcpStream>) {
+    pub(crate) fn set(&self, socks: Vec<&TcpStream>) {
         *self.0.lock().unwrap() = socks.into_iter().filter_map(|s| s.try_clone().ok()).collect();
+    }
+}
+
+/// a control or data connection, plain or TLS
+enum Conn {
+    Plain(TcpStream),
+    #[cfg(feature = "tls")]
+    Tls(Box<crate::tls::Stream>),
+}
+
+impl Conn {
+    fn tcp(&self) -> &TcpStream {
+        match self {
+            Conn::Plain(s) => s,
+            #[cfg(feature = "tls")]
+            Conn::Tls(s) => &s.sock,
+        }
+    }
+
+    fn into_tcp(self) -> TcpStream {
+        match self {
+            Conn::Plain(s) => s,
+            #[cfg(feature = "tls")]
+            Conn::Tls(s) => s.sock,
+        }
+    }
+
+    /// end of an upload: TLS says goodbye first, then the write side closes
+    fn finish(&mut self) {
+        #[cfg(feature = "tls")]
+        if let Conn::Tls(s) = self {
+            crate::tls::finish(s);
+        }
+        let _ = self.tcp().shutdown(Shutdown::Write);
+    }
+}
+
+impl Read for Conn {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Conn::Plain(s) => s.read(buf),
+            #[cfg(feature = "tls")]
+            Conn::Tls(s) => crate::tls::read(s, buf),
+        }
+    }
+}
+
+impl Write for Conn {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            Conn::Plain(s) => s.write(buf),
+            #[cfg(feature = "tls")]
+            Conn::Tls(s) => s.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            Conn::Plain(s) => s.flush(),
+            #[cfg(feature = "tls")]
+            Conn::Tls(s) => s.flush(),
+        }
     }
 }
 
 #[derive(Default)]
 pub struct Ftp {
-    ctrl: Option<TcpStream>,
-    data: Option<TcpStream>,
+    ctrl: Option<Conn>,
+    data: Option<Conn>,
     host: String,
     rbuf: Vec<u8>,
     aborter: Aborter,
+    login: Login,
+    #[cfg(feature = "tls")]
+    tls: Option<Arc<rustls::ClientConfig>>,
+    prot_p: bool,    // the data connections use TLS too
+    no_pasv: bool,   // PASV refused: EPSV only
+    no_mlsd: bool,   // MLSD refused: LIST
+    is_cement: bool, // SITE STATUS answered like the 3DS app
 }
 
 impl Drop for Ftp {
@@ -76,9 +179,11 @@ impl Drop for Ftp {
     }
 }
 
-fn connect_to(host: &str, port: u16, timeout: Duration) -> Option<TcpStream> {
-    let addr: SocketAddr = (host, port).to_socket_addrs().ok()?.find(|a| a.is_ipv4())?;
-    TcpStream::connect_timeout(&addr, timeout).ok()
+pub(crate) fn connect_to(host: &str, port: u16, timeout: Duration) -> Option<TcpStream> {
+    let addrs: Vec<SocketAddr> = (host, port).to_socket_addrs().ok()?.collect();
+    // IPv4 first: Cement and most home servers only listen there
+    let addr = addrs.iter().find(|a| a.is_ipv4()).or(addrs.first())?;
+    TcpStream::connect_timeout(addr, timeout).ok()
 }
 
 /// acknowledge every reply at once: while a file goes over the data connection
@@ -126,37 +231,105 @@ impl Ftp {
         self.ctrl.is_some()
     }
 
+    /// Cement: anonymous, plain FTP
     pub fn connect(&mut self, host: &str, port: u16) -> bool {
+        self.open(host, port, Login::default()).is_ok()
+    }
+
+    /// Net: unreachable (try again later). Ftp: the server refused the login.
+    /// Untrusted: the certificate needs the user's OK.
+    pub fn open(&mut self, host: &str, port: u16, login: Login) -> Result<()> {
         self.close();
-        let Some(s) = connect_to(host, port, Duration::from_secs(3)) else { return false };
+        let Some(s) = connect_to(host, port, Duration::from_secs(3)) else { return Err(Error::Net) };
         let _ = s.set_nodelay(true);
         ack_every_segment(&s);
         let _ = s.set_read_timeout(Some(Duration::from_secs(10)));
         let _ = s.set_write_timeout(Some(Duration::from_secs(10)));
         self.aborter.set(vec![&s]);
-        self.ctrl = Some(s);
         self.host = host.to_string();
         self.rbuf.clear();
-        let login = (|| -> Result<()> {
-            if self.reply(None)? != 220 {
-                return Err(Error::Net);
-            }
-            let mut code = self.cmd("USER anonymous", None)?;
-            if code == 331 {
-                code = self.cmd("PASS chomp", None)?;
-            }
-            if code != 230 {
-                return Err(Error::Net);
-            }
-            self.cmd("TYPE I", None)?;
-            self.cmd("OPTS UTF8 ON", None)?;
-            Ok(())
-        })();
-        if login.is_err() {
-            self.close();
-            return false;
+        self.login = login;
+        #[cfg(feature = "tls")]
+        {
+            self.tls = None;
         }
-        true
+        self.prot_p = false;
+        self.no_pasv = false;
+        self.no_mlsd = false;
+        self.is_cement = false;
+        let r = self.handshake(s);
+        if r.is_err() {
+            self.close();
+        }
+        r
+    }
+
+    fn handshake(&mut self, s: TcpStream) -> Result<()> {
+        let tls = self.login.tls.clone();
+        self.ctrl = Some(if tls == Tls::Implicit { self.tls_wrap(s)? } else { Conn::Plain(s) });
+        self.sync_aborter();
+        if self.reply(None)? != 220 {
+            return Err(Error::Net);
+        }
+        if tls == Tls::Explicit {
+            let (code, text) = self.cmd_text("AUTH TLS")?;
+            if code != 234 {
+                return Err(Error::Ftp(format!("The server doesn't offer FTPS: {}", first_line(&text))));
+            }
+            let plain = self.ctrl.take().ok_or(Error::Net)?.into_tcp();
+            self.ctrl = Some(self.tls_wrap(plain)?);
+            self.sync_aborter();
+        }
+        let (user, pass) = (self.login.user.clone(), self.login.pass.clone());
+        let (mut code, mut text) = self.cmd_text(&format!("USER {user}"))?;
+        if code == 331 {
+            (code, text) = self.cmd_text(&format!("PASS {pass}"))?;
+        }
+        if code != 230 {
+            return Err(Error::Ftp(format!("Login refused: {}", first_line(&text))));
+        }
+        if tls != Tls::None {
+            self.cmd("PBSZ 0", None)?;
+            self.prot_p = self.cmd("PROT P", None)? / 100 == 2;
+        }
+        self.cmd("TYPE I", None)?;
+        self.cmd("OPTS UTF8 ON", None)?;
+        Ok(())
+    }
+
+    /// TLS over a new connection; the data connections reuse the control
+    /// connection's config, so their TLS session resumes
+    #[cfg(feature = "tls")]
+    fn tls_wrap(&mut self, s: TcpStream) -> Result<Conn> {
+        let refused: crate::tls::Refused = Default::default();
+        let cfg = match &self.tls {
+            Some(c) => c.clone(),
+            None => {
+                let c = crate::tls::config(self.login.trusted.clone(), refused.clone())
+                    .map_err(|e| Error::Ftp(format!("TLS: {e}")))?;
+                self.tls = Some(c.clone());
+                c
+            }
+        };
+        let host = self.host.clone();
+        match crate::tls::wrap(&cfg, &host, s) {
+            Ok(t) => Ok(Conn::Tls(Box::new(t))),
+            Err(e) => match refused.lock().unwrap().take() {
+                Some((fingerprint, detail)) => Err(Error::Untrusted { fingerprint, detail }),
+                None if e.kind() == std::io::ErrorKind::InvalidData => Err(Error::Ftp(format!("TLS: {e}"))),
+                None => Err(Error::Net),
+            },
+        }
+    }
+
+    #[cfg(not(feature = "tls"))]
+    fn tls_wrap(&mut self, _: TcpStream) -> Result<Conn> {
+        Err(Error::Ftp("FTPS isn't available in this build".into()))
+    }
+
+    /// the last SITE STATUS was answered like Cement does
+    pub fn is_cement(&self) -> bool {
+        self.is_cement
     }
 
     pub fn close(&mut self) {
@@ -166,13 +339,14 @@ impl Ftp {
     }
 
     fn sync_aborter(&self) {
-        self.aborter.set(self.ctrl.iter().chain(self.data.iter()).collect());
+        self.aborter.set(self.ctrl.iter().chain(self.data.iter()).map(Conn::tcp).collect());
     }
 
     /// sends a command; returns the reply code (and the whole reply text)
     pub fn cmd(&mut self, line: &str, text: Option<&mut String>) -> Result<i32> {
         let ctrl = self.ctrl.as_mut().ok_or(Error::Net)?;
         ctrl.write_all(format!("{line}\r\n").as_bytes())?;
+        ctrl.flush()?;
         self.reply(text)
     }
 
@@ -227,25 +401,52 @@ impl Ftp {
         Ok(())
     }
 
+    /// the data port from PASV, or EPSV when PASV is refused; the address is
+    /// always the control connection's host, which also works behind NAT
+    fn data_port(&mut self) -> Result<u16> {
+        if !self.no_pasv {
+            let (code, text) = self.cmd_text("PASV")?;
+            if code == 227 {
+                // "227 Entering Passive Mode (h1,h2,h3,h4,p1,p2)"
+                let nums: Vec<u32> = text
+                    .find('(')
+                    .map(|o| text[o + 1..].split([',', ')']).take(6).map(|v| parse_u64(v) as u32).collect())
+                    .unwrap_or_default();
+                if nums.len() != 6 {
+                    return Err(Error::Ftp(text));
+                }
+                return Ok((nums[4] * 256 + nums[5]) as u16);
+            }
+            self.no_pasv = true;
+        }
+        // "229 Entering Extended Passive Mode (|||port|)"
+        let (code, text) = self.cmd_text("EPSV")?;
+        let port = text.split('|').nth(3).map(parse_u64).unwrap_or(0);
+        if code != 229 || port == 0 || port > 65535 {
+            return Err(Error::Ftp(text));
+        }
+        Ok(port as u16)
+    }
+
     fn open_data(&mut self) -> Result<()> {
         self.close_data();
-        let (code, text) = self.cmd_text("PASV")?;
-        if code != 227 {
-            return Err(Error::Ftp(text));
-        }
-        // "227 Entering Passive Mode (h1,h2,h3,h4,p1,p2)": use the control host
-        let nums: Vec<u32> = text
-            .find('(')
-            .map(|o| text[o + 1..].split([',', ')']).take(6).map(|v| parse_u64(v) as u32).collect())
-            .unwrap_or_default();
-        if nums.len() != 6 {
-            return Err(Error::Ftp(text));
-        }
-        let port = (nums[4] * 256 + nums[5]) as u16;
+        let port = self.data_port()?;
         let s = connect_to(&self.host.clone(), port, Duration::from_secs(5)).ok_or(Error::Net)?;
         let _ = s.set_read_timeout(Some(Duration::from_secs(30)));
         let _ = s.set_write_timeout(Some(Duration::from_secs(30)));
-        self.data = Some(s);
+        self.data = Some(Conn::Plain(s));
+        self.sync_aborter();
+        Ok(())
+    }
+
+    /// once the server accepted the transfer command: TLS on the data connection
+    fn secure_data(&mut self) -> Result<()> {
+        if !self.prot_p {
+            return Ok(());
+        }
+        let plain = self.data.take().ok_or(Error::Net)?.into_tcp();
+        let c = self.tls_wrap(plain)?;
+        self.data = Some(c);
         self.sync_aborter();
         Ok(())
     }
@@ -258,18 +459,32 @@ impl Ftp {
 
     fn reset_data(&mut self) {
         if let Some(s) = self.data.take() {
-            reset(s);
+            reset(s.into_tcp());
             self.sync_aborter();
         }
     }
 
     pub fn list(&mut self, path: &str) -> Result<Vec<Entry>> {
+        if !self.no_mlsd {
+            match self.list_with("MLSD", path) {
+                Ok(raw) => return Ok(parse_mlsd(&raw)),
+                Err(Error::Ftp(t)) if t.starts_with("500") || t.starts_with("502") => self.no_mlsd = true,
+                Err(e) => return Err(e),
+            }
+        }
+        let raw = self.list_with("LIST", path)?;
+        let (y, m) = crate::util::this_year_month();
+        Ok(parse_list(&raw, y, m))
+    }
+
+    fn list_with(&mut self, verb: &str, path: &str) -> Result<String> {
         self.open_data()?;
-        let (code, text) = self.cmd_text(&format!("MLSD {path}"))?;
+        let (code, text) = self.cmd_text(&format!("{verb} {path}"))?;
         if code != 150 && code != 125 {
             self.close_data();
             return Err(Error::Ftp(text));
         }
+        self.secure_data()?;
         let mut raw = Vec::new();
         {
             let data = self.data.as_mut().ok_or(Error::Net)?;
@@ -283,38 +498,11 @@ impl Ftp {
             }
         }
         self.close_data();
-        let (code, text) = {
-            let mut t = String::new();
-            let c = self.reply(Some(&mut t))?;
-            (c, t)
-        };
-        if code / 100 != 2 {
+        let mut text = String::new();
+        if self.reply(Some(&mut text))? / 100 != 2 {
             return Err(Error::Ftp(text));
         }
-
-        let raw = String::from_utf8_lossy(&raw);
-        let mut out = Vec::new();
-        for line in raw.split('\n') {
-            let line = line.strip_suffix('\r').unwrap_or(line);
-            let Some(sp) = line.find("; ") else { continue };
-            let (facts, name) = (&line[..=sp], &line[sp + 2..]);
-            let mut e = Entry { name: name.to_string(), dir: false, size: 0 };
-            let mut skip = false;
-            for fact in facts.split(';') {
-                let Some((k, v)) = fact.split_once('=') else { continue };
-                let (k, v) = (k.to_ascii_lowercase(), v.to_ascii_lowercase());
-                if k == "type" {
-                    e.dir = v == "dir";
-                    skip = v == "cdir" || v == "pdir";
-                } else if k == "size" {
-                    e.size = parse_u64(&v);
-                }
-            }
-            if !skip && !e.name.is_empty() {
-                out.push(e);
-            }
-        }
-        Ok(out)
+        Ok(String::from_utf8_lossy(&raw).into_owned())
     }
 
     /// None if the remote file does not exist
@@ -332,7 +520,9 @@ impl Ftp {
 
     pub fn server_info(&mut self) -> Result<ServerInfo> {
         let (code, text) = self.cmd_text("SITE STATUS")?;
-        Ok(parse_server_info(code, &text))
+        let info = parse_server_info(code, &text);
+        self.is_cement = info.cement;
+        Ok(info)
     }
 
     /// free bytes on the SD card (AVBL); None if the server doesn't say
@@ -400,6 +590,7 @@ impl Ftp {
             self.close_data();
             return Err(Error::Ftp(text));
         }
+        self.secure_data()?;
 
         let mut buf = vec![0u8; 1 << 20];
         loop {
@@ -417,8 +608,8 @@ impl Ftp {
                 return Err(e);
             }
         }
-        if let Some(d) = &self.data {
-            let _ = d.shutdown(Shutdown::Write);
+        if let Some(d) = &mut self.data {
+            d.finish();
         }
         let mut text = String::new();
         let code = self.reply(Some(&mut text))?;
@@ -455,6 +646,7 @@ impl Ftp {
             self.close_data();
             return Err(Error::Ftp(text));
         }
+        self.secure_data()?;
 
         let mut buf = vec![0u8; 1 << 20];
         loop {

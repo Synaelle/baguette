@@ -5,7 +5,14 @@
 
 pub mod config;
 pub mod ftp;
+pub mod listing;
+pub mod remote;
+pub mod sites;
+#[cfg(feature = "sftp")]
+pub mod sftp;
 pub mod status;
+#[cfg(feature = "tls")]
+pub mod tls;
 pub mod util;
 pub mod win;
 pub mod workers;

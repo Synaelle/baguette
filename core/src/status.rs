@@ -84,6 +84,7 @@ pub fn battery_refusal(msg: &str) -> bool {
 /// version ("" if it does not say), protocol level, SD space and battery of the 3DS app
 #[derive(Clone, Debug, Default)]
 pub struct ServerInfo {
+    pub cement: bool, // SITE STATUS answered: the server is the 3DS app
     pub version: String,
     pub protocol: i32,
     pub has_space: bool, // the 3DS app reports SD space (sd_free, sd_total)
@@ -97,6 +98,7 @@ pub fn parse_server_info(code: i32, text: &str) -> ServerInfo {
     if code != 211 {
         return info;
     }
+    info.cement = true;
     if let (Some(free), Some(total)) = (status_number(text, "sd_free"), status_number(text, "sd_total")) {
         info.sd_free = free;
         info.sd_total = total;

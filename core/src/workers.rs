@@ -1,9 +1,11 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! The two FTP connections of Chomp.exe: one for browsing, one for transfers,
-//! so the explorer stays responsive during uploads. Both reconnect forever until
-//! the server is reachable again; queued and interrupted transfers resume
-//! (SIZE + REST). They report to the window through `Sink`.
+//! The two connections of a Chomp.exe tab: one for browsing, one for
+//! transfers, so the explorer stays responsive during uploads. Both reconnect
+//! until the server is reachable again (a refused login waits for the user);
+//! queued and interrupted transfers resume. Any protocol works through
+//! `Remote`; Cement's extras (battery, SD space, batches) only run on Cement.
+//! They report to the window through `Sink`.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
@@ -12,6 +14,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use crate::ftp::{Aborter, Entry, Error, Ftp, Result};
+use crate::remote::{self, Remote, Site};
 use crate::status::{ServerInfo, battery_refusal, battery_text};
 use crate::util::{base_name, format_size, join_remote, parent_remote};
 use crate::{REQUIRED_PROTOCOL, win};
@@ -57,6 +60,10 @@ pub enum Event {
     /// an edited file was sent back: the 3DS now has this version
     Sent(Fetched),
     Info(RemoteInfo),
+    /// the server refused the connection (login, certificate, host key): it
+    /// stays down until `reconnect`. fingerprint is set when the user may trust
+    /// a certificate or host key to get in.
+    Refused { message: String, fingerprint: String },
 }
 
 pub trait Sink: Send + Sync {
@@ -180,6 +187,7 @@ pub type JobPtr = Arc<JobHandle>;
 
 pub const WAITING: i32 = 0;
 pub const CONNECTED: i32 = 1;
+pub const REFUSED: i32 = 2; // waits for reconnect (new password, trusted key)
 
 /// the transfer progress shown under the list
 #[derive(Clone, Debug, Default)]
@@ -279,7 +287,7 @@ impl Worker {
 
 /// everything the workers and the window share
 pub struct Shared {
-    pub host: Mutex<(String, u16)>,
+    pub site: Mutex<Site>,
     pub server_info: Mutex<ServerInfo>,
     pub cwd: Mutex<String>,
     pub cancel: AtomicBool,
@@ -312,11 +320,18 @@ pub struct Client {
 }
 
 impl Client {
+    /// Cement at host:port
     pub fn start(host: &str, port: u16, sink: Box<dyn Sink>) -> Client {
+        Client::start_site(Site::cement(host, port), sink)
+    }
+
+    pub fn start_site(site: Site, sink: Box<dyn Sink>) -> Client {
+        // empty: the server's home folder, found when the browse connection opens
+        let cwd = site.start_dir.clone();
         let shared = Arc::new(Shared {
-            host: Mutex::new((host.to_string(), port)),
+            site: Mutex::new(site),
             server_info: Mutex::new(ServerInfo::default()),
-            cwd: Mutex::new("/".into()),
+            cwd: Mutex::new(cwd),
             cancel: AtomicBool::new(false),
             progress: Mutex::new(Progress::default()),
             browse: Worker::new(),
@@ -365,41 +380,85 @@ fn set_state(s: &Shared, w: &Worker, state: i32) {
     }
 }
 
+/// waits for reconnect (or quit), at most `timeout`; true on quit
+fn wait_kick(w: &Worker, timeout: Option<Duration>) -> bool {
+    let q = w.q.lock().unwrap();
+    let mut q = match timeout {
+        Some(t) => w.cv.wait_timeout_while(q, t, |q| !q.quit && !q.kick).unwrap().0,
+        None => w.cv.wait_while(q, |q| !q.quit && !q.kick).unwrap(),
+    };
+    q.kick = false;
+    q.quit
+}
+
 fn list_job(path: &str) -> Job {
     let mut j = Job::new(Kind::List);
     j.path = path.to_string();
     j
 }
 
+fn cement_of(r: &mut Box<dyn Remote>) -> Option<&mut Ftp> {
+    r.cement()
+}
+
+fn end_batch(r: &mut Box<dyn Remote>) {
+    if let Some(f) = r.cement() {
+        f.end_batch();
+    }
+}
+
 fn run(s: &Arc<Shared>, transfer: bool) {
     let w = worker(s, transfer);
-    let mut ftp = Ftp::new();
-    *w.aborter.lock().unwrap() = Some(ftp.aborter());
+    let mut site = s.site.lock().unwrap().clone();
+    let mut r = remote::for_site(&site);
+    *w.aborter.lock().unwrap() = Some(r.aborter());
     loop {
-        if !ftp.connected() {
-            let (host, port) = s.host.lock().unwrap().clone();
-            if ftp.connect(&host, port) {
-                if !transfer {
-                    // shown next to "Connected", with a hint when the 3DS app is too old
-                    let info = ftp
-                        .server_info()
-                        .unwrap_or(ServerInfo { protocol: REQUIRED_PROTOCOL, ..Default::default() }); // unknown: do not warn
-                    *s.server_info.lock().unwrap() = info;
+        if !r.connected() {
+            let now = s.site.lock().unwrap().clone();
+            if now.protocol != site.protocol {
+                r = remote::for_site(&now);
+                *w.aborter.lock().unwrap() = Some(r.aborter());
+            }
+            site = now;
+            let refused = match r.open(&site) {
+                Ok(()) => None,
+                Err(Error::Ftp(m)) => Some((m, String::new())),
+                Err(Error::Untrusted { fingerprint, detail }) => Some((detail, fingerprint)),
+                Err(_) => {
+                    set_state(s, w, WAITING);
+                    if wait_kick(w, Some(Duration::from_secs(2))) {
+                        return;
+                    }
+                    continue;
                 }
-                set_state(s, w, CONNECTED);
+            };
+            if let Some((message, fingerprint)) = refused {
+                r.close();
+                set_state(s, w, REFUSED);
                 if !transfer {
-                    // always show fresh content after (re)connecting
-                    w.push(list_job(&s.cwd()));
+                    s.sink.emit(Event::Refused { message, fingerprint });
                 }
-            } else {
-                set_state(s, w, WAITING);
-                let q = w.q.lock().unwrap();
-                let (mut q, _) = w.cv.wait_timeout_while(q, Duration::from_secs(2), |q| !q.quit && !q.kick).unwrap();
-                q.kick = false;
-                if q.quit {
+                if wait_kick(w, None) {
                     return;
                 }
                 continue;
+            }
+            if !transfer {
+                // shown next to "Connected", with a hint when the 3DS app is too old
+                let info = match cement_of(&mut r).map(|f| f.server_info()) {
+                    Some(Ok(i)) => i,
+                    _ => ServerInfo { protocol: REQUIRED_PROTOCOL, ..Default::default() }, // unknown: do not warn
+                };
+                *s.server_info.lock().unwrap() = info;
+                if s.cwd().is_empty() {
+                    let home = r.home().unwrap_or_else(|_| "/".into());
+                    *s.cwd.lock().unwrap() = home;
+                }
+            }
+            set_state(s, w, CONNECTED);
+            if !transfer {
+                // always show fresh content after (re)connecting
+                w.push(list_job(&s.cwd()));
             }
         }
 
@@ -415,7 +474,7 @@ fn run(s: &Arc<Shared>, transfer: bool) {
             if q.kick {
                 q.kick = false;
                 drop(q);
-                ftp.close();
+                r.close();
                 set_state(s, w, WAITING);
                 continue;
             }
@@ -427,13 +486,9 @@ fn run(s: &Arc<Shared>, transfer: bool) {
         let Some(job) = job else {
             // keep-alive, and notice quickly when the server went away; the browse
             // connection also refreshes the SD space and battery in the status bar
-            let alive = if transfer {
-                matches!(ftp.cmd("NOOP", None), Ok(c) if c / 100 == 2)
-            } else {
-                refresh_space(s, &mut ftp).is_ok()
-            };
-            if !alive {
-                ftp.close();
+            let alive = if !transfer && r.cement().is_some() { refresh_space(s, &mut r) } else { r.keepalive() };
+            if alive.is_err() {
+                r.close();
                 set_state(s, w, WAITING);
             }
             continue;
@@ -443,22 +498,22 @@ fn run(s: &Arc<Shared>, transfer: bool) {
         let mut done = true;
         let result = {
             let mut j = job.job.lock().unwrap();
-            execute(s, &mut ftp, &mut j)
+            execute(s, &mut r, &mut j)
         };
         match result {
             Ok(()) => ok = job.job.lock().unwrap().errors == 0,
             Err(Error::Net) => {
                 // connection lost: keep the job, it resumes after reconnecting
-                ftp.close();
+                r.close();
                 set_state(s, w, WAITING);
                 done = s.cancel.load(Ordering::Relaxed);
             }
             Err(Error::Cancel) => {
-                ftp.end_batch();
+                end_batch(&mut r);
                 s.message("Transfer cancelled".into());
             }
-            Err(Error::Ftp(msg)) => {
-                ftp.end_batch();
+            Err(Error::Ftp(msg)) | Err(Error::Untrusted { detail: msg, .. }) => {
+                end_batch(&mut r);
                 s.message(format!("Error: {}", msg.trim_end_matches(['\r', '\n'])));
             }
         }
@@ -481,7 +536,7 @@ fn run(s: &Arc<Shared>, transfer: bool) {
         if ok && (open_after || !track_local.is_empty()) {
             if let Some(first) = first {
                 // remember the 3DS file's time, to tell later whether it changed there
-                let remote_stamp = ftp.mdtm(&first.remote).ok().flatten().unwrap_or_default();
+                let remote_stamp = r.mtime(&first.remote).ok().flatten().unwrap_or_default();
                 let f = Fetched { local: if open_after { first.local } else { track_local }, remote: first.remote, remote_stamp };
                 s.sink.emit(if open_after { Event::Opened(f) } else { Event::Sent(f) });
             }
@@ -495,8 +550,9 @@ fn run(s: &Arc<Shared>, transfer: bool) {
     }
 }
 
-/// SD card free/total space and battery for the status bar
-fn refresh_space(s: &Shared, ftp: &mut Ftp) -> Result<()> {
+/// SD card free/total space and battery for the status bar (Cement only)
+fn refresh_space(s: &Shared, r: &mut Box<dyn Remote>) -> Result<()> {
+    let Some(ftp) = r.cement() else { return Ok(()) };
     let info = ftp.server_info()?;
     {
         let mut si = s.server_info.lock().unwrap();
@@ -509,7 +565,7 @@ fn refresh_space(s: &Shared, ftp: &mut Ftp) -> Result<()> {
     Ok(())
 }
 
-fn execute(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
+fn execute(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
     match job.kind {
         Kind::List => {
             let mut r = ListResult { notify: job.notify, path: job.path.clone(), entries: Vec::new(), ok: false };
@@ -521,14 +577,14 @@ fn execute(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
                         refresh_space(s, ftp)?;
                     }
                 }
-                Err(Error::Ftp(_)) => {}
+                Err(Error::Ftp(_)) | Err(Error::Untrusted { .. }) => {}
                 Err(e) => return Err(e),
             }
             s.sink.emit(Event::List(r));
         }
         Kind::Info => {
             let size = ftp.size(&job.path)?;
-            let stamp = if size.is_some() { ftp.mdtm(&job.path)?.unwrap_or_default() } else { String::new() };
+            let stamp = if size.is_some() { ftp.mtime(&job.path)?.unwrap_or_default() } else { String::new() };
             s.sink.emit(Event::Info(RemoteInfo {
                 local: job.path2.clone(),
                 remote: job.path.clone(),
@@ -537,10 +593,9 @@ fn execute(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
                 stamp,
             }));
         }
-        Kind::Mkdir => ftp.simple(&format!("MKD {}", job.path), 257)?,
+        Kind::Mkdir => ftp.mkdir(&job.path)?,
         Kind::Rename => {
-            ftp.simple(&format!("RNFR {}", job.path), 350)?;
-            ftp.simple(&format!("RNTO {}", job.path2), 250)?;
+            ftp.rename(&job.path, &job.path2)?;
             s.message(format!("Renamed {} to {}", base_name(&job.path), base_name(&job.path2)));
         }
         Kind::Delete => delete_items(s, ftp, job)?,
@@ -564,7 +619,7 @@ fn expand_local(job: &mut Job, local: &str, remote: &str) {
     }
 }
 
-fn expand_remote(ftp: &mut Ftp, job: &mut Job, remote: &str, local: &str, e: &Entry) -> Result<()> {
+fn expand_remote(ftp: &mut Box<dyn Remote>, job: &mut Job, remote: &str, local: &str, e: &Entry) -> Result<()> {
     if e.dir {
         job.items.push(Item { local: local.into(), remote: remote.into(), dir: true, size: 0 });
         for child in ftp.list(remote)? {
@@ -578,7 +633,7 @@ fn expand_remote(ftp: &mut Ftp, job: &mut Job, remote: &str, local: &str, e: &En
 }
 
 /// folder contents first, the folder itself last
-fn expand_delete(ftp: &mut Ftp, job: &mut Job, remote: &str, dir: bool) -> Result<()> {
+fn expand_delete(ftp: &mut Box<dyn Remote>, job: &mut Job, remote: &str, dir: bool) -> Result<()> {
     if dir {
         for child in ftp.list(remote)? {
             expand_delete(ftp, job, &join_remote(remote, &child.name), child.dir)?;
@@ -589,7 +644,7 @@ fn expand_delete(ftp: &mut Ftp, job: &mut Job, remote: &str, dir: bool) -> Resul
 }
 
 /// file by file, so no single command runs long on the 3DS; resumable like transfers
-fn delete_items(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
+fn delete_items(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
     if !job.expanded {
         for e in job.remotes.clone() {
             expand_delete(ftp, job, &join_remote(&job.path, &e.name), e.dir)?;
@@ -598,7 +653,9 @@ fn delete_items(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
     }
     let mut first_error = String::new();
     let mut resuming = job.partial; // the last attempt was cut off mid-item
-    ftp.announce_batch((job.items.len() - job.next) as u64, 0, "delete")?;
+    if let Some(c) = ftp.cement() {
+        c.announce_batch((job.items.len() - job.next) as u64, 0, "delete")?;
+    }
     while job.next < job.items.len() {
         if s.cancel.load(Ordering::Relaxed) {
             return Err(Error::Cancel);
@@ -615,19 +672,24 @@ fn delete_items(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
             p.total = job.items.len() as u64;
         }
         job.partial = true;
-        let (code, text) = ftp.cmd_text(&format!("{} {}", if it.dir { "RMD" } else { "DELE" }, it.remote))?;
-        // after a reconnect the interrupted item may already be gone: that is fine
-        if code / 100 != 2 && !resuming {
-            job.errors += 1;
-            if first_error.is_empty() {
-                first_error = format!("{}: {}", it.remote, text.trim_end_matches(['\r', '\n']));
+        match ftp.delete(&it.remote, it.dir) {
+            Ok(()) => {}
+            // after a reconnect the interrupted item may already be gone: that is fine
+            Err(Error::Ftp(text)) => {
+                if !resuming {
+                    job.errors += 1;
+                    if first_error.is_empty() {
+                        first_error = format!("{}: {}", it.remote, text.trim_end_matches(['\r', '\n']));
+                    }
+                }
             }
+            Err(e) => return Err(e),
         }
         job.partial = false;
         resuming = false;
         job.next += 1;
     }
-    ftp.end_batch();
+    end_batch(ftp);
     if job.errors != 0 {
         s.message(format!("Deleted with {} error(s), first: {first_error}", job.errors));
     } else {
@@ -636,7 +698,7 @@ fn delete_items(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
     Ok(())
 }
 
-fn expand_send_to_pc(ftp: &mut Ftp, job: &mut Job) -> Result<()> {
+fn expand_send_to_pc(ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
     if job.replace {
         if win::unsafe_replace_target(&job.path2) {
             return Err(Error::Ftp(format!("Refusing to empty {} (drive or personal/system folder)", job.path2)));
@@ -650,7 +712,7 @@ fn expand_send_to_pc(ftp: &mut Ftp, job: &mut Job) -> Result<()> {
         if rp == "/" {
             // the whole SD card: its contents go straight into the PC folder
             let to = job.path2.clone();
-            expand_remote(ftp, job, &rp, &to, &Entry { name: String::new(), dir: true, size: 0 })?;
+            expand_remote(ftp, job, &rp, &to, &Entry { dir: true, ..Default::default() })?;
             continue;
         }
         // each item lands directly in the PC folder: /openmw/logs -> <PC folder>\logs
@@ -670,13 +732,15 @@ fn expand_send_to_pc(ftp: &mut Ftp, job: &mut Job) -> Result<()> {
     Ok(())
 }
 
-fn transfer(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
+fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
     let up = job.kind == Kind::Upload;
     if !job.expanded {
         // the 3DS refuses transfers on a nearly empty battery: say so before starting
-        let bat = ftp.server_info()?.battery;
-        if bat.low {
-            return Err(Error::Ftp(format!("3DS battery too low ({}): plug in the charger", battery_text(&bat))));
+        if let Some(c) = ftp.cement() {
+            let bat = c.server_info()?.battery;
+            if bat.low {
+                return Err(Error::Ftp(format!("3DS battery too low ({}): plug in the charger", battery_text(&bat))));
+            }
         }
         if up {
             for l in job.locals.clone() {
@@ -692,10 +756,10 @@ fn transfer(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
             }
         }
         job.expanded = true;
-        if up {
+        if let (true, Some(c)) = (up, ftp.cement()) {
             // refuse up front what can't fit, instead of failing halfway with a full card
             let sizes: Vec<(String, u64)> = job.items.iter().filter(|i| !i.dir).map(|i| (i.remote.clone(), i.size)).collect();
-            let (fits, need, avail) = ftp.fits(&sizes)?;
+            let (fits, need, avail) = c.fits(&sizes)?;
             if !fits {
                 return Err(Error::Ftp(format!(
                     "not enough space on the SD card: needs {}, {} free",
@@ -709,7 +773,9 @@ fn transfer(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
     let file_count = job.items.iter().filter(|i| !i.dir).count();
     let files_left = job.items.iter().enumerate().filter(|(i, it)| !it.dir && *i >= job.next).count();
     // let the 3DS (and other clients asking it) know what is left of this job
-    ftp.announce_batch(files_left as u64, job.total - job.done, if up { "up" } else { "down" })?;
+    if let Some(c) = ftp.cement() {
+        c.announce_batch(files_left as u64, job.total - job.done, if up { "up" } else { "down" })?;
+    }
 
     while job.next < job.items.len() {
         if s.cancel.load(Ordering::Relaxed) {
@@ -718,7 +784,10 @@ fn transfer(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
         let it = job.items[job.next].clone();
         if it.dir {
             if up {
-                ftp.cmd(&format!("MKD {}", it.remote), None)?; // fails harmlessly if it exists
+                match ftp.mkdir(&it.remote) {
+                    Ok(()) | Err(Error::Ftp(_)) => {} // fails harmlessly if it exists
+                    Err(e) => return Err(e),
+                }
             } else {
                 let _ = std::fs::create_dir(&it.local);
             }
@@ -782,13 +851,17 @@ fn transfer(s: &Shared, ftp: &mut Ftp, job: &mut Job) -> Result<()> {
                 }
                 return Err(Error::Cancel);
             }
+            Err(Error::Untrusted { detail, .. }) => {
+                job.errors += 1;
+                s.message(format!("Error: {detail}"));
+            }
             Err(Error::Net) => return Err(Error::Net), // remember how far this job got
         }
         job.partial = false;
         job.done = base + it.size;
         job.next += 1;
     }
-    ftp.end_batch();
+    end_batch(ftp);
 
     let missing = if job.missing != 0 { format!("  ({} item(s) not found on the 3DS)", job.missing) } else { String::new() };
     if job.errors == 0 {

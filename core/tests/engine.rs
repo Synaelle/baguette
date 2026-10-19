@@ -173,7 +173,7 @@ fn workers_against_cement() {
     println!("download a folder (drag-out path)");
     *s.cwd.lock().unwrap() = "/".into();
     let mut j = job(Kind::Download, "/", &back.to_string_lossy());
-    j.remotes = vec![Entry { name: "tree".into(), dir: true, size: 0 }];
+    j.remotes = vec![Entry { name: "tree".into(), dir: true, ..Default::default() }];
     s.start_progress();
     let h = s.xfer.push(j);
     c.check(h.wait_timeout(Duration::from_secs(20)).is_some(), "download job finished");
@@ -234,8 +234,8 @@ fn workers_against_cement() {
     let mut del = job(Kind::Delete, "/", "");
     del.remotes = ["tree", "newdir", "3ds"]
         .into_iter()
-        .map(|n| Entry { name: n.into(), dir: true, size: 0 })
-        .chain([Entry { name: "boot.firm".into(), dir: false, size: 0 }])
+        .map(|n| Entry { name: n.into(), dir: true, ..Default::default() })
+        .chain([Entry { name: "boot.firm".into(), dir: false, ..Default::default() }])
         .collect();
     s.browse.push(del);
     c.check(wait_for(|| !root.join("tree").exists() && !root.join("newdir").exists(), 5000), "delete folders recursively");
@@ -255,7 +255,7 @@ fn workers_against_cement() {
         }
     }
     let mut j = job(Kind::Delete, "/", "");
-    j.remotes = vec![Entry { name: "many".into(), dir: true, size: 0 }];
+    j.remotes = vec![Entry { name: "many".into(), dir: true, ..Default::default() }];
     s.start_progress();
     let h = s.xfer.push(j);
     let mut saw_progress = false;
