@@ -28,8 +28,8 @@ chomp-cli get sd:/luma/screenshots shots
 chomp-cli --help                   everything else
 ```
 
-`cement-cli.exe` still works for now: it's a stub that runs `chomp-cli.exe` and will be
-removed in a later build.
+`cement-cli.exe`, the old name of `chomp-cli.exe`, isn't in the releases anymore. If a
+script still needs it, `build.bat stub` builds it.
 
 ## Chomp + Cement
 
