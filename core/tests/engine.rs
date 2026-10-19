@@ -73,9 +73,14 @@ fn server_exe() -> Option<PathBuf> {
     p.exists().then_some(p)
 }
 
+/// Chomp's tests run their Cement on 6000 (data 6001-6999): Cement's own tests
+/// keep 5000, so both can run at the same time
+const DEV_PORT: u16 = 6000;
+
 fn start_server(exe: &Path, root: &Path, flag: &Path) -> Child {
     Command::new(exe)
         .env("CEMENT_ROOT", root)
+        .env("CEMENT_PORT", DEV_PORT.to_string())
         .env("CEMENT_SLEEPFLAG", flag)
         .stderr(std::process::Stdio::null())
         .spawn()
@@ -105,7 +110,7 @@ fn workers_against_cement() {
     let lists = |e: &Arc<Events>| e.0.lock().unwrap().clone();
 
     println!("waits for the server, then connects");
-    let mut client = Client::start("127.0.0.1", 5000, Box::new(Collect(events.clone())));
+    let mut client = Client::start("127.0.0.1", DEV_PORT, Box::new(Collect(events.clone())));
     let s = client.shared.clone();
     std::thread::sleep(Duration::from_millis(2500));
     c.check(s.browse.state.load(Ordering::Relaxed) == WAITING, "waiting while the server is down");
