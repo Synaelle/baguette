@@ -192,3 +192,25 @@ pub fn unprotect(hex: &str) -> Option<String> {
     unsafe { LocalFree(out.pbData.cast()) };
     Some(text)
 }
+
+/// to the Recycle Bin
+pub fn recycle(paths: &[String]) -> bool {
+    shell_delete(paths, true)
+}
+
+/// "YYYYMMDDhhmmss" in local time, from a Windows file time
+pub fn local_stamp(ft: u64) -> String {
+    local_time_text(ft).chars().filter(char::is_ascii_digit).collect()
+}
+
+/// "C:\", "D:\"...
+pub fn drives() -> Vec<String> {
+    use windows_sys::Win32::Storage::FileSystem::GetLogicalDrives;
+    let mask = unsafe { GetLogicalDrives() };
+    (0..26u8).filter(|i| mask & (1 << i) != 0).map(|i| format!("{}:\\", (b'A' + i) as char)).collect()
+}
+
+/// the user's folder, where the PC side starts
+pub fn home_dir() -> String {
+    std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".into())
+}

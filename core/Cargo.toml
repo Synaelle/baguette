@@ -32,3 +32,7 @@ sftp = ["dep:russh", "dep:russh-sftp", "dep:tokio", "dep:sha2"]
 [[test]]
 name = "protocols"
 required-features = ["tls", "sftp"]
+
+[[example]]
+name = "test_servers"
+required-features = ["tls", "sftp"]

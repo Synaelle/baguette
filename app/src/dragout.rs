@@ -142,9 +142,9 @@ impl IDropSource_Impl for DropSource_Impl {
 }
 
 /// downloads into dir while the window keeps painting; Esc cancels
-fn download_modal(state: &AppState, entries: Vec<Entry>, dir: &str) -> bool {
-    let Some(job) = crate::start_download(state, entries, dir.to_string(), false) else { return false };
-    state.message("Downloading... (Esc to cancel)".into());
+fn download_modal(state: &AppState, tab: u32, remote_dir: &str, entries: Vec<Entry>, dir: &str) -> bool {
+    let Some(job) = crate::start_download(state, tab, remote_dir, entries, dir.to_string(), false) else { return false };
+    state.message(tab, "Downloading... (Esc to cancel)".into());
     let mut cancelled = false;
     while !job.is_finished() {
         unsafe {
@@ -152,7 +152,7 @@ fn download_modal(state: &AppState, entries: Vec<Entry>, dir: &str) -> bool {
             while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
                 if msg.message == WM_KEYDOWN && msg.wParam.0 == VK_ESCAPE.0 as usize {
                     cancelled = true;
-                    state.with_client(|c| {
+                    state.with_client(tab, |c| {
                         c.shared.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
                         c.shared.xfer.clear_pending();
                     });
@@ -169,7 +169,7 @@ fn download_modal(state: &AppState, entries: Vec<Entry>, dir: &str) -> bool {
 }
 
 /// runs on the UI thread: the drag loop is modal
-pub fn drag_out(state: &AppState, entries: Vec<Entry>) {
+pub fn drag_out(state: &AppState, tab: u32, remote_dir: &str, entries: Vec<Entry>) {
     if entries.is_empty() {
         return;
     }
@@ -181,6 +181,7 @@ pub fn drag_out(state: &AppState, entries: Vec<Entry>) {
     let fetched = std::rc::Rc::new(Cell::new(false));
     let f = fetched.clone();
     let d = dir.clone();
+    let rd = remote_dir.to_string();
     // the closure runs inside DoDragDrop, on this thread, while `state` is borrowed
     let state_ptr = state as *const AppState;
     let data: IDataObject = DataObject { files }.into();
@@ -188,7 +189,7 @@ pub fn drag_out(state: &AppState, entries: Vec<Entry>) {
         effect: Cell::new(DROPEFFECT_NONE),
         on_drop: RefCell::new(Box::new(move || {
             f.set(true);
-            download_modal(unsafe { &*state_ptr }, entries.clone(), &d)
+            download_modal(unsafe { &*state_ptr }, tab, &rd, entries.clone(), &d)
         })),
     }
     .into();
