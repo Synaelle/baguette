@@ -56,6 +56,20 @@ just asks for its password again.
 
 The Fredoka and Nunito fonts are under the SIL Open Font License (see `app/ui/fonts`).
 
+## Planned
+
+Next release:
+
+- An update checker next to the version, linking to the newest release
+- Many small files sent to Cement as one uncompressed bundle, so the 3DS isn't slowed down by
+  each file
+
+Later:
+
+- Updating from within the app
+- Tools for other consoles: PS3, Xbox 360 (with Aurora) and Switch
+- An Android version
+
 ## Credits
 
 The red and black look of Chomp and Cement was inspired by the [vedal.ai](https://vedal.ai/)
