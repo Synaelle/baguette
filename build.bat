@@ -7,15 +7,14 @@ rem part of the releases.
 rem Needs Rust (MSVC toolchain) and the Visual Studio Build Tools.
 cd /d "%~dp0"
 
-rem version: <VERSION>.<commit count>, plus -<short commit>-dev with uncommitted changes
+rem version: the VERSION file (major.minor.micro, bumped by hand for each
+rem release), plus -<short commit>-dev for a build with uncommitted changes
 set /p BASEVER=<VERSION
-set BUILDNO=
 set COMMIT=
 set DIRTY=
-for /f %%c in ('git rev-list --count HEAD 2^>nul') do set BUILDNO=%%c
 for /f %%h in ('git rev-parse --short HEAD 2^>nul') do set COMMIT=%%h
 for /f "delims=" %%d in ('git status --porcelain 2^>nul') do set DIRTY=-dev
-if "%BUILDNO%"=="" (set CHOMP_VERSION=%BASEVER%-dev) else if "%DIRTY%"=="" (set CHOMP_VERSION=%BASEVER%.%BUILDNO%) else (set CHOMP_VERSION=%BASEVER%.%BUILDNO%-%COMMIT%-dev)
+if "%COMMIT%"=="" (set CHOMP_VERSION=%BASEVER%-dev) else if "%DIRTY%"=="" (set CHOMP_VERSION=%BASEVER%) else (set CHOMP_VERSION=%BASEVER%-%COMMIT%-dev)
 echo version %CHOMP_VERSION%
 
 set PACKAGES=-p chomp -p chomp-cli

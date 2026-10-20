@@ -26,16 +26,11 @@ struct Release {
     draft: bool,
 }
 
-/// this build's version without its build number and dev mark:
-/// "2.0-RC2.35" -> "2.0-RC2", "2.0.12-abc1234-dev" -> "2.0"
+/// this build's version without its dev mark: "2.0.1-abc1234-dev" -> "2.0.1"
 fn local_base(v: &str) -> &str {
-    let mut v = v;
-    if let Some(stripped) = v.strip_suffix("-dev") {
-        v = stripped.rsplit_once('-').map_or(stripped, |(head, _hash)| head);
-    }
-    match v.rsplit_once('.') {
-        Some((head, count)) if !count.is_empty() && count.bytes().all(|c| c.is_ascii_digit()) => head,
-        _ => v,
+    match v.strip_suffix("-dev") {
+        Some(stripped) => stripped.rsplit_once('-').map_or(stripped, |(head, _hash)| head),
+        None => v,
     }
 }
 
@@ -104,17 +99,16 @@ mod tests {
 
     #[test]
     fn versions() {
-        assert_eq!(local_base("2.0-RC2.35"), "2.0-RC2");
-        assert_eq!(local_base("2.0.12-abc1234-dev"), "2.0");
-        assert_eq!(local_base("2.0.1.7"), "2.0.1");
-        assert!(older("2.0-RC2.35", "v2.0-RC3"));
-        assert!(older("2.0-RC3.40", "v2.0"), "an RC before the final release");
-        assert!(older("2.0.12", "v2.0.1"), "build 12 of 2.0 is older than 2.0.1");
-        assert!(older("2.0.12", "v2.1"));
-        assert!(!older("2.0-RC3.40", "v2.0-RC3"), "same RC, any build: up to date");
-        assert!(!older("2.0-RC3.40-abc1234-dev", "v2.0-RC2"));
-        assert!(!older("2.1.3", "v2.0"));
-        assert!(!older("2.0.5", "v2.0"));
-        assert!(!older("2.0.5", "nightly"), "unknown tags are ignored");
+        assert_eq!(local_base("2.0.1"), "2.0.1");
+        assert_eq!(local_base("2.0.1-abc1234-dev"), "2.0.1");
+        assert!(older("2.0.1", "v2.0.2"));
+        assert!(older("2.0.1", "v2.1"));
+        assert!(older("2.0-RC3", "v2.0"), "an RC before the final release");
+        assert!(older("2.0-RC2", "v2.0-RC3"));
+        assert!(!older("2.0.1", "v2.0.1"));
+        assert!(!older("2.0.1-abc1234-dev", "v2.0.1"), "a dev build of the same version");
+        assert!(!older("2.1.0", "v2.0.1"));
+        assert!(!older("2.0.1", "v2.0"));
+        assert!(!older("2.0.1", "nightly"), "unknown tags are ignored");
     }
 }

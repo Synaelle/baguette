@@ -1426,7 +1426,7 @@ listen("list", (ev) => {
 
 (async () => {
   const init = await invoke("init");
-  $("version").textContent = init.version.replace(/\.\d+(-[0-9a-f]+-dev)?$/, "");
+  $("version").textContent = init.version.replace(/-[0-9a-f]+-dev$/, "");
   $("version").title = "Chomp v" + init.version + " · Cement protocol " + init.protocol;
   chompProtocol = init.protocol;
   chompVersion = init.version;
