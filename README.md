@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icon.png" width="128" alt="Baguette">
+  <img src="meta/readme.jpg" height="160" alt="Teto with a baguette">
 </p>
 
 <h1 align="center">Baguette</h1>
