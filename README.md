@@ -14,7 +14,7 @@ Open `Baguette.exe`, add a site (or type an address in Quick connect) and drag f
 PC and the server.
 
 - Tabs, saved sites, drag and drop to and from Explorer, open and edit files in place
-- `--simple` opens a window with just the server's files
+- Lite mode shows just the server's files (pick it at first launch or in the settings)
 - Portable: settings stay next to `Baguette.exe`, passwords are encrypted for your Windows account
 - An option saves `.bmp` pictures as `.png` when they arrive
 
