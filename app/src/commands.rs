@@ -92,6 +92,7 @@ pub struct InitOut {
     protected_free: &'static [&'static str],
     check_updates: bool,
     bundles: bool,
+    simple: bool, // started with --simple: only the server side
     settings: SettingsOut,
     sites: Vec<SiteOut>,
     home: String,
@@ -115,6 +116,7 @@ pub fn init(state: St) -> InitOut {
         protected_free: protect::FREE,
         check_updates: c.check_updates,
         bundles: c.bundles,
+        simple: std::env::args().any(|a| a == "--simple"),
         settings: SettingsOut::from(&*c), sites: sites_out(&state), home: win::home_dir() }
 }
 
@@ -519,6 +521,18 @@ pub async fn download_to(app: AppHandle, state: St<'_>, tab: u32, dir: String, e
 #[tauri::command]
 pub async fn browse_folder(app: AppHandle, title: String) -> Result<Option<String>, ()> {
     Ok(pick_folder(&app, &title))
+}
+
+/// files to send (Simple mode has no PC side to pick them from)
+#[tauri::command]
+pub async fn browse_files(app: AppHandle, title: String) -> Result<Vec<String>, ()> {
+    use tauri_plugin_dialog::DialogExt;
+    let mut d = app.dialog().file().set_title(title);
+    if let Some(w) = app.get_webview_window("main") {
+        d = d.set_parent(&w);
+    }
+    let files = d.blocking_pick_files().unwrap_or_default();
+    Ok(files.into_iter().filter_map(|p| p.into_path().ok()).map(|p| p.to_string_lossy().into_owned()).collect())
 }
 
 /// a key file for a site

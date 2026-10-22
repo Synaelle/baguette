@@ -58,6 +58,7 @@ build.bat
 
 Baguette is portable: it keeps its settings and sites (`baguette.ini`) and temp files next to
 `Baguette.exe`.
+Start it with `--simple` for a window with just the server's files, as a list or as tiles.
 Baguette only reads the Windows folder, never changes it (start it with `--allow-windows-folder`
 if you really need to).
 Saved passwords are encrypted for your Windows account, so on another PC a site

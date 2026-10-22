@@ -688,6 +688,7 @@ fn main() {
             commands::download_to,
             commands::browse_folder,
             commands::browse_file,
+            commands::browse_files,
             commands::open_file,
             commands::send_back,
             commands::send_to_pc,

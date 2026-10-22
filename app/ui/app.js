@@ -56,6 +56,7 @@ let active = null;       // the tab on screen
 let settings = null;     // Send to PC
 let activePane = null;   // the pane the toolbar acts on
 let draggingOut = false;
+let simple = false;      // started with --simple
 
 function newPaneState(path) {
   return { path, shown: null, entries: [], selected: new Set(), anchor: -1, focus: 0, selectNext: "" };
@@ -142,6 +143,7 @@ class Pane {
     });
     this.rows.innerHTML = out.join("");
     this.pathInput.value = this.st.path || (this.kind === "local" ? "This PC" : "");
+    if (this.kind === "remote") drawCrumbs();
   }
 
   setSelection(names) {
@@ -359,7 +361,7 @@ class Pane {
       else if (ev.key === "Delete") this.deleteSelected();
       else if (ev.key === "F2") this.startRename();
       else if (ev.key === "F5") this.refresh();
-      else if (ev.key === "Tab") (this === localPane ? remotePane : localPane).focus();
+      else if (ev.key === "Tab" && !simple) (this === localPane ? remotePane : localPane).focus();
       else if (ev.key === "a" && ev.ctrlKey) this.setSelection(st.entries.map((e) => e.name));
       else if (ev.key === "ContextMenu") showMenu(this, this.el.getBoundingClientRect().left + 40, this.el.getBoundingClientRect().top + 80);
       else return;
@@ -772,6 +774,7 @@ function renderSites() {
     };
     list.appendChild(d);
   }
+  renderStart();
 }
 
 function renderTabs() {
@@ -1230,6 +1233,7 @@ function drawProgress() {
 }
 
 function drawCement() {
+  drawSimple();
   const t = tab();
   const c = t && t.state === "connected" ? t.cement : null;
   $("cement").hidden = !c;
@@ -1350,6 +1354,85 @@ listen("list", (ev) => {
   }
 });
 
+
+// ---------------------------------------------------------------------------
+// Simple mode (--simple): the server side alone, its folders as crumbs, a list
+// or tiles, and a start screen with the saved sites instead of the sidebar
+
+
+function drawCrumbs() {
+  if (!simple) return;
+  const t = tab();
+  const parts = (remotePane.st.path || "/").split("/").filter(Boolean);
+  const box = $("crumbs");
+  box.innerHTML = "";
+  const add = (label, to) => {
+    if (box.children.length) box.insertAdjacentHTML("beforeend", '<span class="sep">/</span>');
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.onclick = () => remotePane.navigate(to);
+    box.appendChild(b);
+  };
+  add(t?.cement ? "SD card" : t?.name || "Server", "/");
+  parts.forEach((p, i) => add(p, "/" + parts.slice(0, i + 1).join("/")));
+}
+
+function drawSimple() {
+  if (!simple) return;
+  const t = tab();
+  const c = t && t.state === "connected" ? t.cement : null;
+  const chip = $("simpleServer");
+  chip.hidden = !t;
+  document.body.classList.toggle("notab", !t);
+  if (t) chip.innerHTML = `<span class="dot ${dotClass(t)}"></span><span>${escapeHtml(t.name)}</span>` + (c?.battery ? `<span class="sub">· ${escapeHtml(c.battery)}</span>` : "");
+  $("stSd").hidden = !c?.sd_free;
+  if (c?.sd_free) $("stSd").textContent = `SD card: ${c.sd_free} free of ${c.sd_total}`;
+  drawCrumbs();
+}
+
+// one server at a time: picking another closes the one open
+const closeAll = () => [...tabs.keys()].forEach(closeTab);
+function renderStart() {
+  if (!simple) return;
+  const box = $("startSites");
+  box.innerHTML = "";
+  for (const s of sites) {
+    const b = document.createElement("button");
+    b.className = "start-site";
+    b.innerHTML =
+      `<span class="dot ${dotClass(tabOfSite(s.id))}"></span>` +
+      `<span class="txt"><b>${escapeHtml(s.name)}</b><span class="sub">${PROTO[s.protocol] || s.protocol} · ${escapeHtml(s.host)}</span></span><span class="go">Open</span>`;
+    b.onclick = () => (closeAll(), openSite(s.id));
+    box.appendChild(b);
+  }
+}
+$("startGo").onclick = async () => {
+  const url = $("startAddr").value.trim();
+  if (!url) return;
+  try {
+    closeAll();
+    addTab(await invoke("open_url", { url, pass: "" }));
+    $("startAddr").value = "";
+  } catch (e) {
+    tell(e);
+  }
+};
+$("startAddr").addEventListener("keydown", (ev) => ev.key === "Enter" && $("startGo").click());
+$("simpleServer").onclick = closeAll;
+
+function setView(view) {
+  $("paneRemote").classList.toggle("tiles", view === "tiles");
+  for (const b of document.querySelectorAll(".view-switch button")) b.setAttribute("aria-pressed", String(b.dataset.view === view));
+  store("simpleView", view);
+}
+for (const b of document.querySelectorAll(".view-switch button")) b.onclick = () => setView(b.dataset.view);
+
+$("btnSendFiles").onclick = async () => {
+  if (!tab()) return;
+  const paths = await invoke("browse_files", { title: "Send files" });
+  if (paths.length) invoke("upload", { tab: active, paths, dir: remotePane.st.path }).catch(tell);
+};
+
 // ---------------------------------------------------------------------------
 // start
 
@@ -1360,6 +1443,9 @@ listen("list", (ev) => {
   baguetteProtocol = init.protocol;
   baguetteVersion = init.version;
   settings = init.settings;
+  simple = init.simple;
+  document.body.classList.toggle("simple", simple);
+  if (simple) setView(recall("simpleView", "list"));
   sites = init.sites;
   renderSites();
   showTab();
@@ -1372,9 +1458,9 @@ listen("list", (ev) => {
   bundles = init.bundles;
   if (checkUpdates) setTimeout(lookForUpdate, 2500); // after the window is up, never in its way
   localPane.navigate(init.local_dir);
-  localPane.focus();
-  // the sites that were open last time
-  for (const id of recall("openSites", sites.length === 1 ? [sites[0].id] : [])) {
-    if (sites.some((s) => s.id === id)) await openSite(id);
-  }
+  (simple ? remotePane : localPane).focus();
+  // the sites that were open last time (Simple mode: the first one)
+  let reopen = recall("openSites", sites.length === 1 ? [sites[0].id] : []).filter((id) => sites.some((s) => s.id === id));
+  if (simple) reopen = reopen.slice(0, 1);
+  for (const id of reopen) await openSite(id);
 })();

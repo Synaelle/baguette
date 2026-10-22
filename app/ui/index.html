@@ -13,6 +13,7 @@
 <header id="titlebar" data-tauri-drag-region>
   <svg class="logo" viewBox="0 0 100 100" aria-hidden="true" data-tauri-drag-region><rect x="2" y="2" width="96" height="96" rx="24" fill="var(--accent)"/><g transform="rotate(-38 50 50)"><rect x="13" y="39" width="74" height="22" rx="11" fill="var(--text)"/><path d="M27 44 L34 56 M42 44 L49 56 M57 44 L64 56" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" fill="none"/><circle cx="86" cy="40" r="7" fill="var(--accent)"/><circle cx="78" cy="36" r="4.5" fill="var(--accent)"/></g></svg>
   <span class="brand" data-tauri-drag-region>baguette</span>
+  <button id="simpleServer" class="server-chip" title="Choose another server" hidden></button>
   <span id="version" class="chip" data-tauri-drag-region></span>
   <button id="updateChip" class="chip update" hidden></button>
   <div class="grow" data-tauri-drag-region></div>
@@ -47,6 +48,19 @@
           <p>Open one from the list, add a new one, or type an address in Quick connect.<br>Connected to Cement, the 3DS tools show up on the right.</p>
           <button id="btnEmptyNew" class="pill accent">+ New site</button>
         </div>
+        <div class="empty-card simple-start">
+          <svg class="logo big" viewBox="0 0 100 100" aria-hidden="true"><rect x="2" y="2" width="96" height="96" rx="24" fill="var(--accent)"/><g transform="rotate(-38 50 50)"><rect x="13" y="39" width="74" height="22" rx="11" fill="var(--text)"/><path d="M27 44 L34 56 M42 44 L49 56 M57 44 L64 56" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" fill="none"/><circle cx="86" cy="40" r="7" fill="var(--accent)"/><circle cx="78" cy="36" r="4.5" fill="var(--accent)"/></g></svg>
+          <h1>Where are your files?</h1>
+          <div class="start-box">
+            <div id="startSites"></div>
+            <div class="start-addr">
+              <label for="startAddr">Address</label>
+              <input id="startAddr" spellcheck="false" placeholder="192.168.1.42:5000">
+              <button id="startGo" class="pill">Connect</button>
+            </div>
+          </div>
+          <p class="small">The sites saved in Advanced mode show up here</p>
+        </div>
       </div>
       <div id="toolbar">
         <button id="btnUpload" class="pill accent" title="Send the selected PC items to the server">
@@ -78,6 +92,12 @@
             <span class="pane-title" id="remoteTitle">Server</span>
             <span id="roTag" class="ro-tag" title="A protected 3DS folder: it can be looked at and downloaded, not changed. The protection is in the settings." hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.8"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>read-only</span>
             <input class="path" spellcheck="false">
+            <span id="crumbs" class="crumbs"></span>
+            <div class="view-switch" role="group" aria-label="View">
+              <button data-view="list" title="List" aria-label="List"><svg viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h10"/></svg></button>
+              <button data-view="tiles" title="Tiles" aria-label="Tiles"><svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="9" width="4.5" height="4.5" rx="1.2"/></svg></button>
+            </div>
+            <button id="btnSendFiles" class="pill accent">Send files</button>
           </div>
           <div class="cols"><span class="c-name">Name</span><span class="c-size">Size</span><span class="c-date">Modified</span></div>
           <div class="list" tabindex="0"><div class="rows"></div></div>
@@ -98,7 +118,9 @@
       <span id="stDot" class="dot"></span>
       <span id="st0"></span>
       <span id="st1" class="dim"></span>
+      <span id="stSd" class="dim" hidden></span>
     </footer>
+    <div id="simpleHint">Drag files in to send them, drag them out to save them on the PC</div>
   </main>
 
   <aside id="cement" aria-label="3DS tools" hidden>
