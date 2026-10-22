@@ -641,6 +641,15 @@ let checkUpdates = true;
 let bundles = false;
 let bmpToPng = false;
 let sendToPc = false;
+let theme = "red";
+let pickedTheme = "red";
+// the window's red: a class on <body> swaps the palette (app.css)
+function applyTheme(t) {
+  document.body.classList.remove("theme-blood", "theme-maroon");
+  if (t !== "red") document.body.classList.add("theme-" + t);
+  for (const b of document.querySelectorAll("#themes button")) b.setAttribute("aria-checked", String(b.dataset.theme === t));
+}
+for (const b of document.querySelectorAll("#themes button")) b.onclick = () => applyTheme((pickedTheme = b.dataset.theme)); // shown at once, kept on Save
 
 async function lookForUpdate() {
   const u = await invoke("check_update").catch(() => null);
@@ -704,6 +713,8 @@ function openPrefs() {
   $("bundles").checked = bundles;
   $("bmpToPng").checked = bmpToPng;
   $("sendToPc").checked = sendToPc;
+  pickedTheme = theme;
+  applyTheme(theme);
   const custom = localStart !== "home" && localStart !== "last";
   $("localStart").value = custom ? "dir" : localStart;
   $("localDir").value = custom ? localStart : localPane.st.path;
@@ -711,6 +722,7 @@ function openPrefs() {
   $("prefs").hidden = false;
 }
 $("prefsCancel").onclick = () => {
+  applyTheme(theme);
   $("prefs").hidden = true;
 };
 $("prefsOk").onclick = async () => {
@@ -727,6 +739,10 @@ $("prefsOk").onclick = async () => {
   protect3ds = $("protect3ds").checked;
   invoke("set_protect_3ds", { on: protect3ds });
   updateToolbar();
+  if (pickedTheme !== theme) {
+    theme = pickedTheme;
+    invoke("set_theme", { theme });
+  }
   if ($("sendToPc").checked !== sendToPc) {
     sendToPc = $("sendToPc").checked;
     invoke("set_send_to_pc", { on: sendToPc });
@@ -1472,6 +1488,8 @@ $("btnSendFiles").onclick = async () => {
   bundles = init.bundles;
   bmpToPng = init.bmp_to_png;
   sendToPc = init.send_to_pc;
+  theme = init.theme;
+  applyTheme(theme);
   drawCement();
   if (checkUpdates) setTimeout(lookForUpdate, 2500); // after the window is up, never in its way
   localPane.navigate(init.local_dir);

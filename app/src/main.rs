@@ -668,6 +668,7 @@ fn main() {
             commands::set_bundles,
             commands::set_bmp_to_png,
             commands::set_send_to_pc,
+            commands::set_theme,
             commands::check_update,
             commands::open_release,
             commands::remember_local,

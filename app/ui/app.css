@@ -393,3 +393,13 @@ body.simple #paneRemote.tiles .row-e .name span { max-width: 100%; }
 body.simple #paneRemote.tiles .row-e .date { display: none; }
 body.simple #paneRemote.tiles .row-e .size { font-size: 11px; color: var(--mute); }
 body.simple.notab #statusbar, body.simple.notab #simpleHint { visibility: hidden; }
+
+/* the colour setting: Blood and Maroon, darker reds to try out */
+body.theme-blood { --accent: #8b0d1f; --accent-hi: #a3142a; --hi: #c4313f; --soft: #e0868c; --sel: #4a0b14; --edge: #5e111c; --track: #33090f; }
+body.theme-maroon { --accent: #6b0b19; --accent-hi: #841226; --hi: #a8222f; --soft: #d07078; --sel: #3c0910; --edge: #520e18; --track: #2b080c; }
+.themes { display: flex; gap: 8px; flex-wrap: wrap; }
+.themes button { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 14px 0 10px; border-radius: 99px;
+  border: 1px solid var(--edge); background: var(--well); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.themes button:hover { background: var(--track); }
+.themes button[aria-checked="true"] { border-color: var(--text); background: var(--sel); }
+.swatch-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; }
