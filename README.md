@@ -4,7 +4,7 @@
 
 <h1 align="center">Baguette</h1>
 
-<p align="center">A cute little FTP, FTPS and SFTP client for Windows 🥖</p>
+<p align="center">FTP, FTPS and SFTP client for Windows</p>
 
 > The names and the design are a work in progress, nothing here is final yet.
 
