@@ -52,6 +52,8 @@ when there are uncommitted changes.
 - Tools for PS3, Xbox 360 (Aurora) and Switch
 - Full support for macOS, Linux and Android
 
+iOS isn't planned until I find a tester with an iPhone.
+
 ## License
 
 GPL-3.0 or later, see [LICENSE](LICENSE).
