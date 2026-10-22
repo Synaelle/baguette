@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "cli", "stub", "app"]
+members = ["core", "cli", "app"]
 
 [workspace.package]
 version = "0.0.0" # the real version comes from the build (BAGUETTE_VERSION)

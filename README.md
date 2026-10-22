@@ -31,10 +31,8 @@ baguette-cli --help                   everything else
 To type `baguette` instead of the full path in any terminal, run `add-to-path.bat` once
 (`add-to-path.bat remove` undoes it).
 
-Baguette was called Chomp until 2.1. `chomp-cli.exe` still comes with it and runs
-`baguette-cli.exe`, so older scripts keep working, and `chomp.ini` is picked up as `baguette.ini`
-the first time. `cement-cli.exe`, an even older name, isn't in the releases anymore: if a script
-still needs it, `build.bat stub` builds it.
+Baguette was called Chomp until 2.1: scripts that ran `chomp-cli.exe` or `cement-cli.exe` now run
+`baguette-cli.exe`, with the same commands. `chomp.ini` is picked up as `baguette.ini` the first time.
 
 ## Baguette + Cement
 
