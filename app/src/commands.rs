@@ -92,6 +92,7 @@ pub struct InitOut {
     protected_free: &'static [&'static str],
     check_updates: bool,
     bundles: bool,
+    bmp_to_png: bool,
     simple: bool, // started with --simple: only the server side
     settings: SettingsOut,
     sites: Vec<SiteOut>,
@@ -116,6 +117,7 @@ pub fn init(state: St) -> InitOut {
         protected_free: protect::FREE,
         check_updates: c.check_updates,
         bundles: c.bundles,
+        bmp_to_png: c.bmp_to_png,
         simple: std::env::args().any(|a| a == "--simple"),
         settings: SettingsOut::from(&*c), sites: sites_out(&state), home: win::home_dir() }
 }
@@ -182,6 +184,19 @@ pub fn set_bundles(state: St, on: bool) {
     }
     for t in state.tabs.lock().unwrap().iter() {
         t.client.shared.bundles.store(on, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// downloads save .bmp files as .png
+#[tauri::command]
+pub fn set_bmp_to_png(state: St, on: bool) {
+    {
+        let mut c = state.config.lock().unwrap();
+        c.bmp_to_png = on;
+        c.save();
+    }
+    for t in state.tabs.lock().unwrap().iter() {
+        t.client.shared.bmp_to_png.store(on, std::sync::atomic::Ordering::Relaxed);
     }
 }
 

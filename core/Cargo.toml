@@ -8,6 +8,7 @@ publish.workspace = true
 # The FTP engine and the transfer workers shared by Baguette.exe and baguette-cli.exe.
 
 [dependencies]
+image = { version = "0.25.10", default-features = false, features = ["bmp", "png"] }
 russh = { version = "0.64.1", default-features = false, features = ["ring", "flate2", "rsa"], optional = true }
 russh-sftp = { version = "3.0.1", optional = true }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"], optional = true }

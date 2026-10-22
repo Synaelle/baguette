@@ -639,6 +639,7 @@ $("localBrowse").onclick = async () => {
 let protect3ds = true;
 let checkUpdates = true;
 let bundles = false;
+let bmpToPng = false;
 
 async function lookForUpdate() {
   const u = await invoke("check_update").catch(() => null);
@@ -700,6 +701,7 @@ function openPrefs() {
   $("protect3ds").checked = protect3ds;
   $("checkUpdates").checked = checkUpdates;
   $("bundles").checked = bundles;
+  $("bmpToPng").checked = bmpToPng;
   const custom = localStart !== "home" && localStart !== "last";
   $("localStart").value = custom ? "dir" : localStart;
   $("localDir").value = custom ? localStart : localPane.st.path;
@@ -723,6 +725,10 @@ $("prefsOk").onclick = async () => {
   protect3ds = $("protect3ds").checked;
   invoke("set_protect_3ds", { on: protect3ds });
   updateToolbar();
+  if ($("bmpToPng").checked !== bmpToPng) {
+    bmpToPng = $("bmpToPng").checked;
+    invoke("set_bmp_to_png", { on: bmpToPng });
+  }
   if ($("bundles").checked !== bundles) {
     bundles = $("bundles").checked;
     invoke("set_bundles", { on: bundles });
@@ -1456,6 +1462,7 @@ $("btnSendFiles").onclick = async () => {
   windowsDir = init.windows_dir;
   checkUpdates = init.check_updates;
   bundles = init.bundles;
+  bmpToPng = init.bmp_to_png;
   if (checkUpdates) setTimeout(lookForUpdate, 2500); // after the window is up, never in its way
   localPane.navigate(init.local_dir);
   (simple ? remotePane : localPane).focus();

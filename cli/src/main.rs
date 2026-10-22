@@ -561,6 +561,7 @@ struct Options {
     busy_wait: u64,
     no_wait: bool,
     contents: bool, // get: copy a folder's contents, not the folder
+    png: bool,      // get: .bmp files are saved as .png
 }
 
 fn icompare(a: &str, b: &str) -> std::cmp::Ordering {
@@ -810,6 +811,13 @@ fn run(link: &mut Link, cmd: &str, args: &[String], opt: &Options) -> CliResult<
                 match download_file(link, it) {
                     Ok(()) => {
                         note(&format!("got {} ({})", it.remote, format_size(it.size)));
+                        if opt.png {
+                            match baguette_core::png::convert(&it.local) {
+                                Ok(Some(png)) => note(&format!("saved as {png}")),
+                                Ok(None) => {}
+                                Err(e) => t.errors.push(e),
+                            }
+                        }
                         t.files += 1;
                         t.bytes += it.size;
                         job_file_done(it.size);
@@ -938,6 +946,7 @@ options:
   --progress-json                implies --json; also print one JSON line per finished
                                  file (and every 5 s during long ones) before the summary
   --contents                     get: copy a folder's contents into local-dir, not the folder
+  --png                          get: save .bmp files (like 3DS screenshots) as .png
   --version                      print this tool's version
 
 exit codes: 0 ok, 1 usage, 2 3DS unreachable, 3 operation failed, 4 still busy after --busy-wait
@@ -963,7 +972,7 @@ fn main() -> ExitCode {
     let argv: Vec<String> = std::env::args_os().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
     let mut host = String::new();
     let (mut port, mut wait): (u16, u64) = (0, 20);
-    let mut opt = Options { busy_wait: 600, no_wait: false, contents: false };
+    let mut opt = Options { busy_wait: 600, no_wait: false, contents: false, png: false };
     let mut cmd = String::new();
     let mut args = Vec::new();
 
@@ -987,6 +996,7 @@ fn main() -> ExitCode {
                     JSON.store(true, Ordering::Relaxed);
                 }
                 "--contents" => opt.contents = true,
+                "--png" => opt.png = true,
                 "--no-wait" => opt.no_wait = true,
                 "--version" => {
                     out(&format!("baguette-cli {VERSION}\n"));

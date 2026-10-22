@@ -21,6 +21,7 @@ pub struct Config {
     pub protect_3ds: bool,       // refuse to delete or replace important 3DS files
     pub check_updates: bool,     // ask GitHub for a newer release at start
     pub bundles: bool,           // experimental: many files to Cement as one bundle
+    pub bmp_to_png: bool,        // downloaded .bmp files are saved as .png
 }
 
 pub const DEFAULT_ACCENT: &str = "b8283c";
@@ -46,6 +47,7 @@ impl Default for Config {
             protect_3ds: true,
             check_updates: true,
             bundles: false,
+            bmp_to_png: false,
         }
     }
 }
@@ -214,6 +216,7 @@ impl Config {
             protect_3ds: get_int(&path, "ui", "protect_3ds", 1) != 0,
             check_updates: get_int(&path, "ui", "check_updates", 1) != 0,
             bundles: get_int(&path, "experimental", "bundles", 0) != 0,
+            bmp_to_png: get_int(&path, "ui", "bmp_to_png", 0) != 0,
         };
         let count = get_int(&path, "sendtopc", "count", 0);
         for i in 0..count {
@@ -236,6 +239,7 @@ impl Config {
         put(&path, "ui", Some("protect_3ds"), Some(if self.protect_3ds { "1" } else { "0" }));
         put(&path, "ui", Some("check_updates"), Some(if self.check_updates { "1" } else { "0" }));
         put(&path, "experimental", Some("bundles"), Some(if self.bundles { "1" } else { "0" }));
+        put(&path, "ui", Some("bmp_to_png"), Some(if self.bmp_to_png { "1" } else { "0" }));
         put(&path, "ui", Some("local_last"), Some(&escape(&self.local_last)));
         put(&path, "transfer", Some("sendto"), Some(&self.send_dir));
         put(&path, "transfer", Some("replace"), Some(if self.send_replace { "1" } else { "0" }));

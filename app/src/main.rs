@@ -601,6 +601,7 @@ fn open_tab(state: &Arc<AppState>, saved_id: u32, name: String, site: Site) -> u
     {
         let c = state.config.lock().unwrap();
         client.shared.bundles.store(c.bundles, Ordering::Relaxed);
+        client.shared.bmp_to_png.store(c.bmp_to_png, Ordering::Relaxed);
     }
     state.tabs.lock().unwrap().push(Tab {
         id,
@@ -665,6 +666,7 @@ fn main() {
             commands::set_protect_3ds,
             commands::set_check_updates,
             commands::set_bundles,
+            commands::set_bmp_to_png,
             commands::check_update,
             commands::open_release,
             commands::remember_local,

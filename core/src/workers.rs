@@ -301,6 +301,8 @@ pub struct Shared {
     pub accent: Mutex<String>,
     /// experimental: many-file uploads to Cement go as one bundle
     pub bundles: AtomicBool,
+    /// downloaded .bmp files become .png
+    pub bmp_to_png: AtomicBool,
     pub browse: Worker,
     pub xfer: Worker,
     sink: Box<dyn Sink>,
@@ -345,6 +347,7 @@ impl Client {
             progress: Mutex::new(Progress::default()),
             accent: Mutex::new(String::new()),
             bundles: AtomicBool::new(false),
+            bmp_to_png: AtomicBool::new(false),
             browse: Worker::new(),
             xfer: Worker::new(),
             sink,
@@ -962,7 +965,13 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
             ftp.download(&it.remote, &it.local, offset, &mut progress)
         };
         match r {
-            Ok(()) => {}
+            Ok(()) => {
+                if !up && s.bmp_to_png.load(Ordering::Relaxed) {
+                    if let Err(e) = crate::png::convert(&it.local) {
+                        s.message(format!("Error: {e}"));
+                    }
+                }
+            }
             Err(Error::Ftp(msg)) => {
                 if battery_refusal(&msg) {
                     job.partial = false;

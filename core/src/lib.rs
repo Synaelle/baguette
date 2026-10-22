@@ -7,6 +7,7 @@ pub mod bundle;
 pub mod config;
 pub mod ftp;
 pub mod listing;
+pub mod png;
 pub mod protect;
 pub mod remote;
 pub mod sites;
