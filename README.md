@@ -52,6 +52,7 @@ when there are uncommitted changes.
 - Tools for PS3, Xbox 360 (Aurora) and Switch
 - Full support for macOS, Linux and Android
 - Custom skins
+- Plugins, shared with Cement
 
 iOS isn't planned until I find a tester with an iPhone.
 
