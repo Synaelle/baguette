@@ -646,15 +646,19 @@ fn main() {
         .manage(state.clone())
         .setup(move |app| {
             let _ = s.handle.set(app.handle().clone());
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+            let mut window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title(format!("Baguette v{VERSION}"))
                 .inner_size(1180.0, 720.0)
                 .min_inner_size(900.0, 480.0)
                 .decorations(false) // the title bar is drawn by the page
                 .theme(Some(tauri::Theme::Dark))
                 // portable: WebView2 keeps its data next to the exe, not in AppData
-                .data_directory(format!("{}\\webview", exe_dir()).into())
-                .build()?;
+                .data_directory(format!("{}\\webview", exe_dir()).into());
+            // tests: the page still runs, but off-screen, unfocused and out of the taskbar
+            if std::env::var_os("BAGUETTE_TEST_OFFSCREEN").is_some() {
+                window = window.position(-20000.0, -20000.0).focused(false).skip_taskbar(true);
+            }
+            window.build()?;
             let t = s.clone();
             std::thread::Builder::new().name("ticker".into()).spawn(move || ticker(t))?;
             Ok(())
