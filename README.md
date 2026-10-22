@@ -36,7 +36,15 @@ baguette-cli --help                          everything else
 
 ## Build
 
-Rust (MSVC) and the Visual Studio Build Tools, then `build.bat`.
+On Windows 10 or 11, install:
+
+- [Rust](https://rustup.rs) (rustup picks the stable MSVC toolchain from `rust-toolchain.toml`)
+- [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with
+  "Desktop development with C++"
+
+Then run `build.bat` in this folder. It builds `Baguette.exe` and `baguette-cli.exe` in release mode
+and copies them next to it. The version comes from the `VERSION` file, with `-<commit>-dev` added
+when there are uncommitted changes.
 
 ## Planned
 
