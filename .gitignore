@@ -25,4 +25,4 @@ GEMINI.md
 .windsurfrules
 .aider*
 .github/copilot-instructions.md
-bin/
+/bin/
