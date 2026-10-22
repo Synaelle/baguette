@@ -23,19 +23,9 @@ pub struct Config {
     pub bundles: bool,           // experimental: many files to Cement as one bundle
     pub bmp_to_png: bool,        // downloaded .bmp files are saved as .png
     pub send_to_pc: bool,        // the Send to PC button on the Cement card
-    pub theme: String,           // the window's red: "red", "blood" or "maroon"
 }
 
 pub const DEFAULT_ACCENT: &str = "b8283c";
-
-/// the window's reds to choose from, the first is the default
-pub const THEMES: [&str; 3] = ["red", "blood", "maroon"];
-
-/// a known theme name, else the default
-pub fn normalize_theme(s: &str) -> String {
-    let t = s.trim().to_ascii_lowercase();
-    if THEMES.contains(&t.as_str()) { t } else { THEMES[0].into() }
-}
 
 /// "#B8283C" or "b8283c" -> "b8283c"; None when it isn't a colour
 pub fn normalize_accent(s: &str) -> Option<String> {
@@ -60,7 +50,6 @@ impl Default for Config {
             bundles: false,
             bmp_to_png: false,
             send_to_pc: false,
-            theme: "red".into(),
         }
     }
 }
@@ -231,7 +220,6 @@ impl Config {
             bundles: get_int(&path, "experimental", "bundles", 0) != 0,
             bmp_to_png: get_int(&path, "ui", "bmp_to_png", 0) != 0,
             send_to_pc: get_int(&path, "ui", "send_to_pc", 0) != 0,
-            theme: normalize_theme(&get_str(&path, "ui", "theme", "")),
         };
         let count = get_int(&path, "sendtopc", "count", 0);
         for i in 0..count {
@@ -256,7 +244,6 @@ impl Config {
         put(&path, "experimental", Some("bundles"), Some(if self.bundles { "1" } else { "0" }));
         put(&path, "ui", Some("bmp_to_png"), Some(if self.bmp_to_png { "1" } else { "0" }));
         put(&path, "ui", Some("send_to_pc"), Some(if self.send_to_pc { "1" } else { "0" }));
-        put(&path, "ui", Some("theme"), Some(&self.theme));
         put(&path, "ui", Some("local_last"), Some(&escape(&self.local_last)));
         put(&path, "transfer", Some("sendto"), Some(&self.send_dir));
         put(&path, "transfer", Some("replace"), Some(if self.send_replace { "1" } else { "0" }));
