@@ -93,6 +93,7 @@ pub struct InitOut {
     check_updates: bool,
     bundles: bool,
     bmp_to_png: bool,
+    send_to_pc: bool,
     simple: bool, // started with --simple: only the server side
     settings: SettingsOut,
     sites: Vec<SiteOut>,
@@ -118,6 +119,7 @@ pub fn init(state: St) -> InitOut {
         check_updates: c.check_updates,
         bundles: c.bundles,
         bmp_to_png: c.bmp_to_png,
+        send_to_pc: c.send_to_pc,
         simple: std::env::args().any(|a| a == "--simple"),
         settings: SettingsOut::from(&*c), sites: sites_out(&state), home: win::home_dir() }
 }
@@ -185,6 +187,14 @@ pub fn set_bundles(state: St, on: bool) {
     for t in state.tabs.lock().unwrap().iter() {
         t.client.shared.bundles.store(on, std::sync::atomic::Ordering::Relaxed);
     }
+}
+
+/// the Send to PC button on the Cement card
+#[tauri::command]
+pub fn set_send_to_pc(state: St, on: bool) {
+    let mut c = state.config.lock().unwrap();
+    c.send_to_pc = on;
+    c.save();
 }
 
 /// downloads save .bmp files as .png

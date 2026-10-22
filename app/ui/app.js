@@ -613,7 +613,7 @@ document.addEventListener("keydown", (ev) => {
   if (ev.key === "F5" || (ev.ctrlKey && ["r", "p", "f", "g", "u", "j"].includes(ev.key))) ev.preventDefault(); // no browser shortcuts
   if (ev.ctrlKey && ev.key === "s" && !anyModal()) {
     ev.preventDefault();
-    if (tab()?.cement) $("btnSend").click();
+    if (tab()?.cement && sendToPc) $("btnSend").click();
   }
   if (ev.ctrlKey && ev.key === "w" && !anyModal() && active) {
     ev.preventDefault();
@@ -640,6 +640,7 @@ let protect3ds = true;
 let checkUpdates = true;
 let bundles = false;
 let bmpToPng = false;
+let sendToPc = false;
 
 async function lookForUpdate() {
   const u = await invoke("check_update").catch(() => null);
@@ -702,6 +703,7 @@ function openPrefs() {
   $("checkUpdates").checked = checkUpdates;
   $("bundles").checked = bundles;
   $("bmpToPng").checked = bmpToPng;
+  $("sendToPc").checked = sendToPc;
   const custom = localStart !== "home" && localStart !== "last";
   $("localStart").value = custom ? "dir" : localStart;
   $("localDir").value = custom ? localStart : localPane.st.path;
@@ -725,6 +727,11 @@ $("prefsOk").onclick = async () => {
   protect3ds = $("protect3ds").checked;
   invoke("set_protect_3ds", { on: protect3ds });
   updateToolbar();
+  if ($("sendToPc").checked !== sendToPc) {
+    sendToPc = $("sendToPc").checked;
+    invoke("set_send_to_pc", { on: sendToPc });
+    drawCement();
+  }
   if ($("bmpToPng").checked !== bmpToPng) {
     bmpToPng = $("bmpToPng").checked;
     invoke("set_bmp_to_png", { on: bmpToPng });
@@ -1245,6 +1252,7 @@ function drawCement() {
   $("cement").hidden = !c;
   if (!c) return;
   $("cBatteryBox").hidden = !c.battery;
+  $("btnSend").hidden = $("btnSendSettings").hidden = !sendToPc;
   $("cBattery").textContent = c.battery + (c.charging ? ", charging" : c.plugged ? ", plugged in" : "");
   $("cBattery").classList.toggle("low", c.low);
   $("cBatteryFill").style.width = Math.max(0, c.battery_percent) + "%";
@@ -1463,6 +1471,8 @@ $("btnSendFiles").onclick = async () => {
   checkUpdates = init.check_updates;
   bundles = init.bundles;
   bmpToPng = init.bmp_to_png;
+  sendToPc = init.send_to_pc;
+  drawCement();
   if (checkUpdates) setTimeout(lookForUpdate, 2500); // after the window is up, never in its way
   localPane.navigate(init.local_dir);
   (simple ? remotePane : localPane).focus();

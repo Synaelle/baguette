@@ -22,6 +22,7 @@ pub struct Config {
     pub check_updates: bool,     // ask GitHub for a newer release at start
     pub bundles: bool,           // experimental: many files to Cement as one bundle
     pub bmp_to_png: bool,        // downloaded .bmp files are saved as .png
+    pub send_to_pc: bool,        // the Send to PC button on the Cement card
 }
 
 pub const DEFAULT_ACCENT: &str = "b8283c";
@@ -48,6 +49,7 @@ impl Default for Config {
             check_updates: true,
             bundles: false,
             bmp_to_png: false,
+            send_to_pc: false,
         }
     }
 }
@@ -217,6 +219,7 @@ impl Config {
             check_updates: get_int(&path, "ui", "check_updates", 1) != 0,
             bundles: get_int(&path, "experimental", "bundles", 0) != 0,
             bmp_to_png: get_int(&path, "ui", "bmp_to_png", 0) != 0,
+            send_to_pc: get_int(&path, "ui", "send_to_pc", 0) != 0,
         };
         let count = get_int(&path, "sendtopc", "count", 0);
         for i in 0..count {
@@ -240,6 +243,7 @@ impl Config {
         put(&path, "ui", Some("check_updates"), Some(if self.check_updates { "1" } else { "0" }));
         put(&path, "experimental", Some("bundles"), Some(if self.bundles { "1" } else { "0" }));
         put(&path, "ui", Some("bmp_to_png"), Some(if self.bmp_to_png { "1" } else { "0" }));
+        put(&path, "ui", Some("send_to_pc"), Some(if self.send_to_pc { "1" } else { "0" }));
         put(&path, "ui", Some("local_last"), Some(&escape(&self.local_last)));
         put(&path, "transfer", Some("sendto"), Some(&self.send_dir));
         put(&path, "transfer", Some("replace"), Some(if self.send_replace { "1" } else { "0" }));
