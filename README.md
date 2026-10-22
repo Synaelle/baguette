@@ -51,6 +51,7 @@ when there are uncommitted changes.
 - Updating from within the app
 - Tools for PS3, Xbox 360 (Aurora) and Switch
 - Full support for macOS, Linux and Android
+- Custom skins
 
 iOS isn't planned until I find a tester with an iPhone.
 
