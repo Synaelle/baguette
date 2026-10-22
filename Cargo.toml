@@ -29,3 +29,12 @@ opt-level = 2
 lto = true
 codegen-units = 1
 strip = true
+
+# "build.bat fast": for trying changes, rebuilds in seconds. Same code, a bit
+# bigger and slower exes; releases always use the release profile above.
+[profile.fast]
+inherits = "release"
+lto = false
+codegen-units = 16
+incremental = true
+strip = false
