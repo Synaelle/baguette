@@ -600,7 +600,6 @@ fn open_tab(state: &Arc<AppState>, saved_id: u32, name: String, site: Site) -> u
     let client = Client::start_site(site.clone(), Box::new(Bridge(state.clone(), id)));
     {
         let c = state.config.lock().unwrap();
-        *client.shared.accent.lock().unwrap() = c.accent.clone();
         client.shared.bundles.store(c.bundles, Ordering::Relaxed);
     }
     state.tabs.lock().unwrap().push(Tab {
@@ -662,7 +661,6 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::init,
             commands::save_settings,
-            commands::set_accent,
             commands::set_local_start,
             commands::set_protect_3ds,
             commands::set_check_updates,

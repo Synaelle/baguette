@@ -171,27 +171,14 @@
     <div class="prefs-head">
       <h2>Settings</h2>
       <div class="seg" role="tablist" aria-label="Settings">
-        <button role="tab" data-tab="design" aria-selected="true">Design</button>
-        <button role="tab" data-tab="general" aria-selected="false">Preferences</button>
+        <button role="tab" data-tab="general" aria-selected="true">Preferences</button>
         <button role="tab" data-tab="3ds" aria-selected="false">3DS</button>
         <button role="tab" data-tab="lab" aria-selected="false">Experimental</button>
         <button role="tab" data-tab="about" aria-selected="false">About</button>
       </div>
     </div>
 
-    <section class="prefs-tab" data-tab="design" role="tabpanel">
-      <div class="setting">
-        <div class="setting-text"><b>Colour</b><span>The whole window follows it, and Cement uses it on the 3DS screens too.</span></div>
-        <div id="accents" class="swatches" role="radiogroup" aria-label="Colour"></div>
-        <div class="custom-colour">
-          <label for="accentCustom">Your own</label>
-          <input id="accentCustom" type="color">
-          <span class="note" id="accentHex"></span>
-        </div>
-      </div>
-    </section>
-
-    <section class="prefs-tab" data-tab="general" role="tabpanel" hidden>
+    <section class="prefs-tab" data-tab="general" role="tabpanel">
       <div class="setting">
         <div class="setting-text"><label for="localStart"><b>PC side opens in</b></label><span>Where the left side starts when Baguette opens.</span></div>
         <select id="localStart">

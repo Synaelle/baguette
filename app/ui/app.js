@@ -620,71 +620,11 @@ document.addEventListener("keydown", (ev) => {
 });
 
 // ---------------------------------------------------------------------------
-// the colour: every red of the palette follows the accent's hue
-
-const DEFAULT_ACCENT = "b8283c";
-const PALETTE = {
-  "--accent-hi": "#cc3a48", "--hi": "#d8676a", "--soft": "#e9a9a3", "--bg": "#0e0a0a", "--blob": "#1a1112",
-  "--surface": "#1d1414", "--well": "#120c0c", "--quick": "#171010", "--track": "#2a1516", "--sel": "#3d1418", "--edge": "#4d1d21",
-  "--line": "#2e1f1f", "--input": "#3a2828", "--text": "#f2e7e4", "--dim": "#a8928e", "--mute": "#594544",
-};
-const ACCENTS = ["b8283c", "951d2e", "d0503a", "c27a1e", "3f9a5a", "1f8f8a", "2f6fd0", "7a4cc4", "b8388f"];
-function toHsl(hex) {
-  const n = parseInt(hex.replace("#", ""), 16);
-  const r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
-  if (max === min) return [0, 0, l];
-  const d = max - min, s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  return [h * 60, s, l];
-}
-const hsl = (h, s, l) => `hsl(${h.toFixed(1)} ${(s * 100).toFixed(1)}% ${(l * 100).toFixed(1)}%)`;
-let accent = DEFAULT_ACCENT;
-function applyAccent(hex) {
-  const root = document.documentElement.style;
-  if (hex === DEFAULT_ACCENT) {
-    // the hand-picked palette exactly
-    for (const name of ["--accent", ...Object.keys(PALETTE)]) root.removeProperty(name);
-    return;
-  }
-  const [h, sat] = toHsl(hex);
-  root.setProperty("--accent", "#" + hex);
-  for (const [name, value] of Object.entries(PALETTE)) {
-    const [h0, s0, l0] = toHsl(value);
-    // the default palette's lightness on the accent's hue; a greyer accent gives
-    // greyer surfaces
-    root.setProperty(name, hsl(h, s0 * Math.min(1, sat / 0.64), l0));
-  }
-}
-
-// ---------------------------------------------------------------------------
 // title bar
 
 $("winMin").onclick = () => appWindow.minimize();
 $("btnSettings").onclick = openPrefs;
 
-let pickedAccent = accent;
-function drawSwatches() {
-  const box = $("accents");
-  box.innerHTML = "";
-  for (const a of ACCENTS) {
-    const b = document.createElement("button");
-    b.className = "swatch";
-    b.style.background = "#" + a;
-    b.setAttribute("role", "radio");
-    b.setAttribute("aria-label", "#" + a);
-    b.setAttribute("aria-checked", String(a === pickedAccent));
-    b.onclick = () => pickAccent(a);
-    box.appendChild(b);
-  }
-  $("accentCustom").value = "#" + pickedAccent;
-  $("accentHex").textContent = "#" + pickedAccent;
-}
-function pickAccent(a) {
-  pickedAccent = a.replace("#", "").toLowerCase();
-  applyAccent(pickedAccent); // shown at once, kept on Save
-  drawSwatches();
-}
 let localStart = "home";
 function syncLocalStart() {
   $("localDirRow").hidden = $("localStart").value !== "dir";
@@ -753,22 +693,18 @@ function drawAbout() {
   $("aboutNote").textContent = c ? protocolHint(c) || "They speak the same protocol: everything works." : "";
 }
 function openPrefs() {
-  showPrefsTab("design");
+  showPrefsTab("general");
   drawAbout();
-  pickedAccent = accent;
   $("protect3ds").checked = protect3ds;
   $("checkUpdates").checked = checkUpdates;
   $("bundles").checked = bundles;
-  drawSwatches();
   const custom = localStart !== "home" && localStart !== "last";
   $("localStart").value = custom ? "dir" : localStart;
   $("localDir").value = custom ? localStart : localPane.st.path;
   syncLocalStart();
   $("prefs").hidden = false;
 }
-$("accentCustom").addEventListener("input", (ev) => pickAccent(ev.target.value));
 $("prefsCancel").onclick = () => {
-  applyAccent(accent);
   $("prefs").hidden = true;
 };
 $("prefsOk").onclick = async () => {
@@ -794,13 +730,6 @@ $("prefsOk").onclick = async () => {
     invoke("set_check_updates", { on: checkUpdates });
     if (checkUpdates) lookForUpdate();
     else $("updateChip").hidden = true;
-  }
-  try {
-    await invoke("set_accent", { accent: pickedAccent });
-    accent = pickedAccent;
-  } catch (e) {
-    applyAccent(accent);
-    tell(e);
   }
   $("prefs").hidden = true;
 };
@@ -1431,8 +1360,6 @@ listen("list", (ev) => {
   baguetteProtocol = init.protocol;
   baguetteVersion = init.version;
   settings = init.settings;
-  accent = init.accent;
-  applyAccent(accent);
   sites = init.sites;
   renderSites();
   showTab();

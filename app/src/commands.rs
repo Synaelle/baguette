@@ -84,7 +84,6 @@ pub struct SiteIn {
 pub struct InitOut {
     version: String,
     protocol: i32, // the newest Cement protocol this Baguette speaks
-    accent: String,
     local_start: String, // "home", "last" or a folder
     local_dir: String,   // where the PC side opens now
     windows_dir: Option<String>, // read-only on the PC side
@@ -108,7 +107,6 @@ pub fn init(state: St) -> InitOut {
     InitOut {
         version: VERSION.into(),
         protocol: baguette_core::PROTOCOL,
-        accent: c.accent.clone(),
         local_start: c.local_start.clone(),
         local_dir: c.local_start_dir(),
         windows_dir: state.windows_dir.clone(),
@@ -136,29 +134,6 @@ pub fn save_settings(state: St, s: SettingsOut) -> Result<(), String> {
     Ok(())
 }
 
-/// the window's red; Cement tabs get it too (their 3DS screens follow)
-#[tauri::command]
-pub fn set_accent(state: St, accent: String) -> Result<(), String> {
-    let hex = baguette_core::config::normalize_accent(&accent).ok_or("Not a colour")?;
-    {
-        let mut c = state.config.lock().unwrap();
-        c.accent = hex.clone();
-        c.save();
-    }
-    for t in state.tabs.lock().unwrap().iter() {
-        let sh = &t.client.shared;
-        *sh.accent.lock().unwrap() = hex.clone();
-        let info = sh.server_info.lock().unwrap().clone();
-        if sh.browse.connected() && info.cement && info.protocol >= baguette_core::RC2_PROTOCOL {
-            let mut j = Job::new(Kind::Color);
-            j.path = hex.clone();
-            sh.browse.push(j);
-        }
-    }
-    Ok(())
-}
-
-/// where the PC side opens: "home", "last" or a folder
 #[tauri::command]
 pub fn set_local_start(state: St, start: String) -> Result<(), String> {
     let start = start.trim().to_string();

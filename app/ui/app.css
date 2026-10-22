@@ -300,10 +300,6 @@ select option { padding: 3px 6px; border-radius: 6px; }
   .c-date, .row-e .date { display: none; }
 }
 
-/* settings: the colour swatches */
-.swatches { display: flex; gap: 8px; flex-wrap: wrap; }
-.swatch { width: 30px; height: 30px; border-radius: 99px; border: 2px solid transparent; padding: 0; cursor: pointer; }
-.swatch[aria-checked="true"] { border-color: var(--text); box-shadow: 0 0 0 2px var(--bg) inset; }
 input[type=color] { width: 44px; flex-grow: 0 !important; padding: 2px 4px; cursor: pointer; }
 #cCias .cia { align-items: center; }
 #cCias .cia .size { color: var(--dim); font-size: 11px; white-space: nowrap; }
@@ -325,9 +321,6 @@ input[type=color] { width: 44px; flex-grow: 0 !important; padding: 2px 4px; curs
 .setting-text b { font-weight: 800; }
 .setting-text span { color: var(--dim); font-size: 12px; }
 .setting-text label { cursor: pointer; }
-.swatches { gap: 10px; }
-.swatch { width: 34px; height: 34px; }
-.custom-colour { display: flex; align-items: center; gap: 10px; color: var(--dim); font-weight: 700; }
 .about-row { display: flex; justify-content: space-between; gap: 12px; }
 .about-row span { color: var(--dim); font-weight: 700; }
 .card-foot { color: var(--dim); font-size: 11px; font-weight: 700; border-top: 1px solid var(--line); padding-top: 10px; }
