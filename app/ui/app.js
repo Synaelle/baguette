@@ -56,7 +56,8 @@ let active = null;       // the tab on screen
 let settings = null;     // Send to PC
 let activePane = null;   // the pane the toolbar acts on
 let draggingOut = false;
-let simple = false;      // started with --simple
+let lite = false;      // Lite mode: only the server side
+let mode = "standard"; // "standard" or "lite"
 
 function newPaneState(path) {
   return { path, shown: null, entries: [], selected: new Set(), anchor: -1, focus: 0, selectNext: "" };
@@ -361,7 +362,7 @@ class Pane {
       else if (ev.key === "Delete") this.deleteSelected();
       else if (ev.key === "F2") this.startRename();
       else if (ev.key === "F5") this.refresh();
-      else if (ev.key === "Tab" && !simple) (this === localPane ? remotePane : localPane).focus();
+      else if (ev.key === "Tab" && !lite) (this === localPane ? remotePane : localPane).focus();
       else if (ev.key === "a" && ev.ctrlKey) this.setSelection(st.entries.map((e) => e.name));
       else if (ev.key === "ContextMenu") showMenu(this, this.el.getBoundingClientRect().left + 40, this.el.getBoundingClientRect().top + 80);
       else return;
@@ -704,6 +705,8 @@ function openPrefs() {
   $("bundles").checked = bundles;
   $("bmpToPng").checked = bmpToPng;
   $("sendToPc").checked = sendToPc;
+  pickedMode = mode;
+  drawModes();
   const custom = localStart !== "home" && localStart !== "last";
   $("localStart").value = custom ? "dir" : localStart;
   $("localDir").value = custom ? localStart : localPane.st.path;
@@ -727,6 +730,10 @@ $("prefsOk").onclick = async () => {
   protect3ds = $("protect3ds").checked;
   invoke("set_protect_3ds", { on: protect3ds });
   updateToolbar();
+  if (pickedMode !== mode) {
+    invoke("set_mode", { mode: pickedMode });
+    applyMode(pickedMode);
+  }
   if ($("sendToPc").checked !== sendToPc) {
     sendToPc = $("sendToPc").checked;
     invoke("set_send_to_pc", { on: sendToPc });
@@ -1246,7 +1253,7 @@ function drawProgress() {
 }
 
 function drawCement() {
-  drawSimple();
+  drawLite();
   const t = tab();
   const c = t && t.state === "connected" ? t.cement : null;
   $("cement").hidden = !c;
@@ -1370,12 +1377,12 @@ listen("list", (ev) => {
 
 
 // ---------------------------------------------------------------------------
-// Simple mode (--simple): the server side alone, its folders as crumbs, a list
+// Lite mode (--lite): the server side alone, its folders as crumbs, a list
 // or tiles, and a start screen with the saved sites instead of the sidebar
 
 
 function drawCrumbs() {
-  if (!simple) return;
+  if (!lite) return;
   const t = tab();
   const parts = (remotePane.st.path || "/").split("/").filter(Boolean);
   const box = $("crumbs");
@@ -1391,11 +1398,11 @@ function drawCrumbs() {
   parts.forEach((p, i) => add(p, "/" + parts.slice(0, i + 1).join("/")));
 }
 
-function drawSimple() {
-  if (!simple) return;
+function drawLite() {
+  if (!lite) return;
   const t = tab();
   const c = t && t.state === "connected" ? t.cement : null;
-  const chip = $("simpleServer");
+  const chip = $("liteServer");
   chip.hidden = !t;
   document.body.classList.toggle("notab", !t);
   if (t) chip.innerHTML = `<span class="dot ${dotClass(t)}"></span><span>${escapeHtml(t.name)}</span>` + (c?.battery ? `<span class="sub">· ${escapeHtml(c.battery)}</span>` : "");
@@ -1407,7 +1414,7 @@ function drawSimple() {
 // one server at a time: picking another closes the one open
 const closeAll = () => [...tabs.keys()].forEach(closeTab);
 function renderStart() {
-  if (!simple) return;
+  if (!lite) return;
   const box = $("startSites");
   box.innerHTML = "";
   for (const s of sites) {
@@ -1432,12 +1439,46 @@ $("startGo").onclick = async () => {
   }
 };
 $("startAddr").addEventListener("keydown", (ev) => ev.key === "Enter" && $("startGo").click());
-$("simpleServer").onclick = closeAll;
+$("liteServer").onclick = closeAll;
+
+// switching between Standard and Lite while running (Lite keeps one tab)
+function applyMode(m) {
+  mode = m;
+  lite = m === "lite";
+  document.body.classList.toggle("lite", lite);
+  if (lite) {
+    setView(recall("liteView", "list"));
+    for (const id of [...tabs.keys()]) if (id !== active) closeTab(id);
+  }
+  renderSites();
+  showTab();
+  (lite ? remotePane : localPane).focus();
+}
+
+// the Mode setting
+let pickedMode = "standard";
+function drawModes() {
+  for (const b of document.querySelectorAll("#modes button")) b.setAttribute("aria-checked", String(b.dataset.mode === pickedMode));
+}
+for (const b of document.querySelectorAll("#modes button")) b.onclick = () => ((pickedMode = b.dataset.mode), drawModes());
+
+// first launch: Standard or Lite
+let setupPick = "standard";
+function drawSetup() {
+  for (const b of document.querySelectorAll(".setup-card")) b.setAttribute("aria-pressed", String(b.dataset.mode === setupPick));
+  $("setupGo").textContent = "Start with " + (setupPick === "lite" ? "Lite" : "Standard");
+}
+for (const b of document.querySelectorAll(".setup-card")) b.onclick = () => ((setupPick = b.dataset.mode), drawSetup());
+$("setupGo").onclick = async () => {
+  await invoke("set_mode", { mode: setupPick });
+  $("setup").hidden = true;
+  applyMode(setupPick);
+};
 
 function setView(view) {
   $("paneRemote").classList.toggle("tiles", view === "tiles");
   for (const b of document.querySelectorAll(".view-switch button")) b.setAttribute("aria-pressed", String(b.dataset.view === view));
-  store("simpleView", view);
+  store("liteView", view);
 }
 for (const b of document.querySelectorAll(".view-switch button")) b.onclick = () => setView(b.dataset.view);
 
@@ -1457,9 +1498,15 @@ $("btnSendFiles").onclick = async () => {
   baguetteProtocol = init.protocol;
   baguetteVersion = init.version;
   settings = init.settings;
-  simple = init.simple;
-  document.body.classList.toggle("simple", simple);
-  if (simple) setView(recall("simpleView", "list"));
+  // --lite / --standard win for this run; with neither and nothing saved, ask (first launch)
+  mode = init.mode_arg || init.mode || "standard";
+  lite = mode === "lite";
+  document.body.classList.toggle("lite", lite);
+  if (lite) setView(recall("liteView", "list"));
+  if (!init.mode_arg && !init.mode) {
+    drawSetup();
+    $("setup").hidden = false;
+  }
   sites = init.sites;
   renderSites();
   showTab();
@@ -1475,9 +1522,9 @@ $("btnSendFiles").onclick = async () => {
   drawCement();
   if (checkUpdates) setTimeout(lookForUpdate, 2500); // after the window is up, never in its way
   localPane.navigate(init.local_dir);
-  (simple ? remotePane : localPane).focus();
-  // the sites that were open last time (Simple mode: the first one)
+  (lite ? remotePane : localPane).focus();
+  // the sites that were open last time (Lite mode: the first one)
   let reopen = recall("openSites", sites.length === 1 ? [sites[0].id] : []).filter((id) => sites.some((s) => s.id === id));
-  if (simple) reopen = reopen.slice(0, 1);
+  if (lite) reopen = reopen.slice(0, 1);
   for (const id of reopen) await openSite(id);
 })();

@@ -23,9 +23,16 @@ pub struct Config {
     pub bundles: bool,           // experimental: many files to Cement as one bundle
     pub bmp_to_png: bool,        // downloaded .bmp files are saved as .png
     pub send_to_pc: bool,        // the Send to PC button on the Cement card
+    pub mode: String,            // "standard" or "lite"; empty until chosen at first launch
 }
 
 pub const DEFAULT_ACCENT: &str = "b8283c";
+
+/// "standard" or "lite" (any case); None for anything else
+pub fn normalize_mode(s: &str) -> Option<String> {
+    let m = s.trim().to_ascii_lowercase();
+    matches!(m.as_str(), "standard" | "lite").then_some(m)
+}
 
 /// "#B8283C" or "b8283c" -> "b8283c"; None when it isn't a colour
 pub fn normalize_accent(s: &str) -> Option<String> {
@@ -50,6 +57,7 @@ impl Default for Config {
             bundles: false,
             bmp_to_png: false,
             send_to_pc: false,
+            mode: String::new(),
         }
     }
 }
@@ -220,6 +228,7 @@ impl Config {
             bundles: get_int(&path, "experimental", "bundles", 0) != 0,
             bmp_to_png: get_int(&path, "ui", "bmp_to_png", 0) != 0,
             send_to_pc: get_int(&path, "ui", "send_to_pc", 0) != 0,
+            mode: normalize_mode(&get_str(&path, "ui", "mode", "")).unwrap_or_default(),
         };
         let count = get_int(&path, "sendtopc", "count", 0);
         for i in 0..count {
@@ -244,6 +253,9 @@ impl Config {
         put(&path, "experimental", Some("bundles"), Some(if self.bundles { "1" } else { "0" }));
         put(&path, "ui", Some("bmp_to_png"), Some(if self.bmp_to_png { "1" } else { "0" }));
         put(&path, "ui", Some("send_to_pc"), Some(if self.send_to_pc { "1" } else { "0" }));
+        if !self.mode.is_empty() {
+            put(&path, "ui", Some("mode"), Some(&self.mode));
+        }
         put(&path, "ui", Some("local_last"), Some(&escape(&self.local_last)));
         put(&path, "transfer", Some("sendto"), Some(&self.send_dir));
         put(&path, "transfer", Some("replace"), Some(if self.send_replace { "1" } else { "0" }));

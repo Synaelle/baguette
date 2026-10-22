@@ -94,7 +94,8 @@ pub struct InitOut {
     bundles: bool,
     bmp_to_png: bool,
     send_to_pc: bool,
-    simple: bool, // started with --simple: only the server side
+    mode: String,             // "standard", "lite", or empty: not chosen yet (first launch)
+    mode_arg: Option<String>, // started with --lite or --standard: wins for this run
     settings: SettingsOut,
     sites: Vec<SiteOut>,
     home: String,
@@ -120,7 +121,8 @@ pub fn init(state: St) -> InitOut {
         bundles: c.bundles,
         bmp_to_png: c.bmp_to_png,
         send_to_pc: c.send_to_pc,
-        simple: std::env::args().any(|a| a == "--simple"),
+        mode: c.mode.clone(),
+        mode_arg: std::env::args().find_map(|a| a.strip_prefix("--").and_then(baguette_core::config::normalize_mode)),
         settings: SettingsOut::from(&*c), sites: sites_out(&state), home: win::home_dir() }
 }
 
@@ -187,6 +189,16 @@ pub fn set_bundles(state: St, on: bool) {
     for t in state.tabs.lock().unwrap().iter() {
         t.client.shared.bundles.store(on, std::sync::atomic::Ordering::Relaxed);
     }
+}
+
+/// Standard or Lite, chosen at first launch or in the settings
+#[tauri::command]
+pub fn set_mode(state: St, mode: String) -> Result<(), String> {
+    let m = baguette_core::config::normalize_mode(&mode).ok_or("Not a mode")?;
+    let mut c = state.config.lock().unwrap();
+    c.mode = m;
+    c.save();
+    Ok(())
 }
 
 /// the Send to PC button on the Cement card
@@ -548,7 +560,7 @@ pub async fn browse_folder(app: AppHandle, title: String) -> Result<Option<Strin
     Ok(pick_folder(&app, &title))
 }
 
-/// files to send (Simple mode has no PC side to pick them from)
+/// files to send (Lite mode has no PC side to pick them from)
 #[tauri::command]
 pub async fn browse_files(app: AppHandle, title: String) -> Result<Vec<String>, ()> {
     use tauri_plugin_dialog::DialogExt;
