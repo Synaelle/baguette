@@ -70,7 +70,7 @@ Later:
 
 - Updating from within the app (for now, Baguette tells you when a new version is out)
 - Tools for other consoles: PS3, Xbox 360 (with Aurora) and Switch
-- An Android version
+- Full support for macOS, Linux and Android
 
 ## License
 
