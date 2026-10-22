@@ -54,6 +54,11 @@ when there are uncommitted changes.
 
 iOS isn't planned until I find a tester with an iPhone.
 
+## Contributing
+
+Contributions are welcome, as long as they stay within what Baguette is for and don't break how
+Baguette and Cement talk to each other.
+
 ## License
 
 GPL-3.0 or later, see [LICENSE](LICENSE).
