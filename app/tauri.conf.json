@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Chomp",
-  "version": "2.0.1",
-  "identifier": "fr.synaelle.chomp",
+  "productName": "Baguette",
+  "version": "2.1.0",
+  "identifier": "fr.synaelle.baguette",
   "build": {
     "frontendDist": "ui"
   },

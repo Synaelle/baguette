@@ -1,12 +1,12 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Chomp - a file transfer client for Windows: FTP, FTPS and SFTP, with the
+//! Baguette - a file transfer client for Windows: FTP, FTPS and SFTP, with the
 //! 3DS tools showing up when the server is Cement, the FTP server on the 3DS.
 //!
 //! The window is HTML/CSS (ui/) shown by WebView2; everything else is Rust.
-//! Each tab is one site with two connections (chomp_core::workers), one for
+//! Each tab is one site with two connections (baguette_core::workers), one for
 //! browsing and one for transfers, both reconnecting and resuming interrupted
-//! transfers. Chomp is portable: chomp.ini, temp files and WebView2's data stay
+//! transfers. Baguette is portable: baguette.ini, temp files and WebView2's data stay
 //! next to the exe.
 
 #![windows_subsystem = "windows"]
@@ -20,14 +20,14 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use chomp_core::config::{Config, exe_dir};
-use chomp_core::ftp::Entry;
-use chomp_core::remote::Site;
-use chomp_core::sites::Saved;
-use chomp_core::status::battery_text;
-use chomp_core::util::{base_name, format_size, stamp_text};
-use chomp_core::workers::{CONNECTED, Client, Event, Job, Kind, REFUSED, Sink};
-use chomp_core::{RC2_PROTOCOL, REQUIRED_PROTOCOL, VERSION, win};
+use baguette_core::config::{Config, exe_dir};
+use baguette_core::ftp::Entry;
+use baguette_core::remote::Site;
+use baguette_core::sites::Saved;
+use baguette_core::status::battery_text;
+use baguette_core::util::{base_name, format_size, stamp_text};
+use baguette_core::workers::{CONNECTED, Client, Event, Job, Kind, REFUSED, Sink};
+use baguette_core::{RC2_PROTOCOL, REQUIRED_PROTOCOL, VERSION, win};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State, WebviewUrl, WebviewWindowBuilder};
 
@@ -63,7 +63,7 @@ pub struct Tab {
 }
 
 pub struct AppState {
-    /// kept read-only on the PC side; None only when Chomp was started with
+    /// kept read-only on the PC side; None only when Baguette was started with
     /// --allow-windows-folder
     windows_dir: Option<String>,
     tabs: Mutex<Vec<Tab>>,
@@ -81,8 +81,8 @@ impl AppState {
     /// folder holding it
     pub fn windows_guard(&self, path: &str, holding: bool) -> Result<(), String> {
         let Some(w) = &self.windows_dir else { return Ok(()) };
-        let hit = if holding { chomp_core::protect::local_hit(path, w) } else { chomp_core::protect::local_inside(path, w) };
-        if hit { Err(format!("{w} is read-only in Chomp: it is the Windows folder")) } else { Ok(()) }
+        let hit = if holding { baguette_core::protect::local_hit(path, w) } else { baguette_core::protect::local_inside(path, w) };
+        if hit { Err(format!("{w} is read-only in Baguette: it is the Windows folder")) } else { Ok(()) }
     }
 
     fn with_tab<T>(&self, tab: u32, f: impl FnOnce(&mut Tab) -> T) -> Option<T> {
@@ -194,7 +194,7 @@ impl AppState {
                     version: info.version.clone(),
                     protocol: info.protocol,
                     login: full.login,
-                    can_login: info.protocol >= chomp_core::LOGIN_PROTOCOL,
+                    can_login: info.protocol >= baguette_core::LOGIN_PROTOCOL,
                 });
             }
             (
@@ -216,7 +216,7 @@ impl AppState {
             self.message(tab, m);
         }
         if let Some((host, port)) = cement_addr {
-            // chomp-cli talks to the last Cement the window reached
+            // baguette-cli talks to the last Cement the window reached
             let mut c = self.config.lock().unwrap();
             if c.host != host || c.port != port {
                 c.host = host;
@@ -255,7 +255,7 @@ struct CementOut {
     version: String, // Cement's own version
     protocol: i32,   // its protocol level
     login: bool,     // Cement asks for a user name and password
-    can_login: bool, // and Chomp can change that (protocol 3)
+    can_login: bool, // and Baguette can change that (protocol 3)
 }
 
 #[derive(Serialize, Clone)]
@@ -351,8 +351,8 @@ impl Sink for Bridge {
                     let pruned = app.with_tab(tab, |t| {
                         let before = t.cias.len();
                         t.cias.retain(|c| {
-                            chomp_core::util::parent_remote(c) != l.path
-                                || l.entries.iter().any(|e| e.name == chomp_core::util::base_name(c))
+                            baguette_core::util::parent_remote(c) != l.path
+                                || l.entries.iter().any(|e| e.name == baguette_core::util::base_name(c))
                         });
                         before != t.cias.len()
                     });
@@ -385,7 +385,7 @@ impl Sink for Bridge {
                     if let Some(s) = all.iter_mut().find(|s| s.id == id) {
                         s.site.user = user;
                         s.site.pass = pass;
-                        chomp_core::sites::save(&all);
+                        baguette_core::sites::save(&all);
                     }
                 }
                 app.emit("sites-changed", ());
@@ -470,7 +470,7 @@ fn ticker(app: Arc<AppState>) {
     let mut rates: std::collections::HashMap<u32, Rate> = Default::default();
     loop {
         std::thread::sleep(Duration::from_millis(250));
-        let tabs: Vec<(u32, chomp_core::workers::Progress, bool)> = app
+        let tabs: Vec<(u32, baguette_core::workers::Progress, bool)> = app
             .tabs
             .lock()
             .unwrap()
@@ -582,7 +582,7 @@ pub fn start_download(
     entries: Vec<Entry>,
     to: String,
     open_after: bool,
-) -> Option<chomp_core::workers::JobPtr> {
+) -> Option<baguette_core::workers::JobPtr> {
     state.with_client(tab, |c| {
         let mut j = Job::new(Kind::Download);
         j.path = dir.to_string();
@@ -621,14 +621,14 @@ fn main() {
     win::delete_tree(&win::temp_root());
 
     let (config, _) = Config::load();
-    let sites = chomp_core::sites::load();
-    // the Windows folder stays read-only, unless Chomp is started with this
+    let sites = baguette_core::sites::load();
+    // the Windows folder stays read-only, unless Baguette is started with this
     // argument on purpose (there is no setting for it). Tests protect a
     // stand-in folder instead of the real one.
     let windows_dir = if std::env::args().any(|a| a == "--allow-windows-folder") {
         None
     } else {
-        std::env::var("CHOMP_TEST_WINDOWS_DIR").ok().or_else(win::windows_dir)
+        std::env::var("BAGUETTE_TEST_WINDOWS_DIR").ok().or_else(win::windows_dir)
     };
     let state = Arc::new(AppState {
         windows_dir,
@@ -647,7 +647,7 @@ fn main() {
         .setup(move |app| {
             let _ = s.handle.set(app.handle().clone());
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title(format!("Chomp v{VERSION}"))
+                .title(format!("Baguette v{VERSION}"))
                 .inner_size(1180.0, 720.0)
                 .min_inner_size(900.0, 480.0)
                 .decorations(false) // the title bar is drawn by the page
@@ -707,7 +707,7 @@ fn main() {
             local::local_join,
         ])
         .run(tauri::generate_context!())
-        .expect("Chomp");
+        .expect("Baguette");
 
     for mut t in state.tabs.lock().unwrap().drain(..) {
         t.client.stop();

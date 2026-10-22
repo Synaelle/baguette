@@ -8,12 +8,12 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use chomp_core::ftp::{Error, Ftp};
-use chomp_core::remote::{self, Protocol, Remote, Site};
+use baguette_core::ftp::{Error, Ftp};
+use baguette_core::remote::{self, Protocol, Remote, Site};
 use common::{ftpd, sftpd};
 
 fn temp(name: &str) -> PathBuf {
-    let p = std::env::temp_dir().join(format!("chomp-proto-{name}-{}", std::process::id()));
+    let p = std::env::temp_dir().join(format!("baguette-proto-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&p);
     std::fs::create_dir_all(&p).unwrap();
     p
@@ -23,7 +23,7 @@ fn site(protocol: Protocol, port: u16) -> Site {
     Site { protocol, host: "127.0.0.1".into(), port, user: "pi".into(), pass: "secret".into(), ..Default::default() }
 }
 
-fn none(_: u64) -> chomp_core::ftp::Result<()> {
+fn none(_: u64) -> baguette_core::ftp::Result<()> {
     Ok(())
 }
 
@@ -162,7 +162,7 @@ fn ftps_explicit() {
     let mut r = remote::for_site(&s);
     match r.open(&s) {
         Err(Error::Untrusted { fingerprint, .. }) => {
-            assert_eq!(fingerprint, chomp_core::tls::fingerprint(&srv.cert));
+            assert_eq!(fingerprint, baguette_core::tls::fingerprint(&srv.cert));
             s.trusted.push(fingerprint);
         }
         other => panic!("expected an untrusted certificate, got {other:?}"),
@@ -182,7 +182,7 @@ fn ftps_implicit() {
     let (root, local) = (temp("ftps-root"), temp("ftps-local"));
     let srv = ftpd::start(&root, ftpd::Options { mlsd: false, pasv: true, implicit: true, ..Default::default() });
     let mut s = site(Protocol::FtpsImplicit, srv.port);
-    s.trusted.push(chomp_core::tls::fingerprint(&srv.cert));
+    s.trusted.push(baguette_core::tls::fingerprint(&srv.cert));
     let mut r = remote::for_site(&s);
     r.open(&s).unwrap();
     exercise(r.as_mut(), &root, &local);
@@ -190,7 +190,7 @@ fn ftps_implicit() {
 
 #[test]
 fn cement_style_ftp_still_works_without_login() {
-    // the plain Ftp API chomp-cli uses keeps anonymous logins
+    // the plain Ftp API baguette-cli uses keeps anonymous logins
     let root = temp("anon-root");
     let srv = ftpd::start(&root, ftpd::Options { mlsd: true, pasv: true, ..Default::default() });
     let mut f = Ftp::new();

@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! The saved settings: chomp.ini next to the exe (Chomp is portable), or the
-//! file named by CHOMP_CONFIG. Same format as the C++ Chomp's config.ini.
+//! The saved settings: baguette.ini next to the exe (Baguette is portable), or the
+//! file named by BAGUETTE_CONFIG. Same format as the C++ Chomp's config.ini.
 
 use windows_sys::Win32::System::WindowsProgramming::{GetPrivateProfileIntW, GetPrivateProfileStringW, WritePrivateProfileStringW};
 
@@ -50,7 +50,7 @@ impl Default for Config {
     }
 }
 
-/// the folder holding the running exe: Chomp is portable, everything stays there
+/// the folder holding the running exe: Baguette is portable, everything stays there
 pub fn exe_dir() -> String {
     std::env::current_exe()
         .ok()
@@ -58,8 +58,17 @@ pub fn exe_dir() -> String {
         .unwrap_or_else(|| ".".into())
 }
 
-/// settings saved by earlier versions in %APPDATA% (read once, never written)
+/// chomp.ini: the settings of a portable Chomp, Baguette's name until 2.1
+fn chomp_ini() -> String {
+    format!("{}\\chomp.ini", exe_dir())
+}
+
+/// settings saved by earlier versions: chomp.ini next to the exe, else in
+/// %APPDATA% (read once, never written)
 fn legacy_config() -> Option<String> {
+    if std::fs::metadata(chomp_ini()).is_ok() {
+        return Some(chomp_ini());
+    }
     let base = roaming_app_data()?;
     ["\\Chomp\\config.ini", "\\Cement\\config.ini", "\\Syna 3DS Tools\\config.ini", "\\synaftp\\config.ini"]
         .iter()
@@ -67,30 +76,39 @@ fn legacy_config() -> Option<String> {
         .find(|p| std::fs::metadata(p).is_ok())
 }
 
-/// the settings file: chomp.ini next to the exe (or CHOMP_CONFIG). The first
-/// time, settings from an earlier, non-portable version are copied over.
+/// the settings file: baguette.ini next to the exe (or BAGUETTE_CONFIG). The first
+/// time, chomp.ini is renamed to it, or settings from an earlier, non-portable
+/// version are copied over.
 pub fn config_path() -> String {
-    if let Some(custom) = std::env::var_os("CHOMP_CONFIG") {
+    if let Some(custom) = std::env::var_os("BAGUETTE_CONFIG") {
         return custom.to_string_lossy().into_owned();
     }
-    let path = format!("{}\\chomp.ini", exe_dir());
+    let path = format!("{}\\baguette.ini", exe_dir());
     if std::fs::metadata(&path).is_err() {
-        if let Some(old) = legacy_config() {
-            let _ = std::fs::copy(old, &path);
+        if std::fs::rename(chomp_ini(), &path).is_err() {
+            if let Some(old) = legacy_config() {
+                let _ = std::fs::copy(old, &path);
+            }
         }
     }
     path
 }
 
-/// the server address only, without writing anything (chomp-cli)
-pub fn read_address() -> Option<(String, u16)> {
-    let file = match std::env::var_os("CHOMP_CONFIG") {
-        Some(f) => f.to_string_lossy().into_owned(),
+/// the settings file to read, without renaming or copying anything
+/// (baguette-cli): baguette.ini, else the one an earlier version left
+pub fn existing_config() -> Option<String> {
+    match std::env::var_os("BAGUETTE_CONFIG") {
+        Some(f) => Some(f.to_string_lossy().into_owned()),
         None => {
-            let file = format!("{}\\chomp.ini", exe_dir());
-            if std::fs::metadata(&file).is_ok() { file } else { legacy_config()? }
+            let file = format!("{}\\baguette.ini", exe_dir());
+            if std::fs::metadata(&file).is_ok() { Some(file) } else { legacy_config() }
         }
-    };
+    }
+}
+
+/// the server address only, without writing anything (baguette-cli)
+pub fn read_address() -> Option<(String, u16)> {
+    let file = existing_config()?;
     let host = get_str(&file, "server", "host", "");
     if host.is_empty() {
         return None;

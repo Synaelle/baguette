@@ -75,7 +75,7 @@ pub struct Login {
 impl Default for Login {
     /// what Cement expects: anonymous, plain FTP
     fn default() -> Login {
-        Login { user: "anonymous".into(), pass: "chomp".into(), tls: Tls::None, trusted: Vec::new() }
+        Login { user: "anonymous".into(), pass: "baguette".into(), tls: Tls::None, trusted: Vec::new() }
     }
 }
 

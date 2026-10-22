@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! chomp-cli - command-line access to Cement, the FTP server on the 3DS, for
-//! scripts and automation. Uses the same FTP engine and saved settings as Chomp.exe.
+//! baguette-cli - command-line access to Cement, the FTP server on the 3DS, for
+//! scripts and automation. Uses the same FTP engine and saved settings as Baguette.exe.
 //!
 //! Non-interactive: results on stdout (text or --json), progress on stderr.
 //! Exit codes: 0 ok, 1 usage, 2 3DS unreachable, 3 operation failed, 4 still busy.
@@ -14,10 +14,10 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use chomp_core::ftp::{Entry, Error, Ftp, first_line};
-use chomp_core::status::{Battery, Status, battery_refusal, battery_text, parse_status};
-use chomp_core::util::{base_name, format_size, join_remote, json_str, parent_remote, parse_i64};
-use chomp_core::{REQUIRED_PROTOCOL, VERSION, config};
+use baguette_core::ftp::{Entry, Error, Ftp, first_line};
+use baguette_core::status::{Battery, Status, battery_refusal, battery_text, parse_status};
+use baguette_core::util::{base_name, format_size, join_remote, json_str, parent_remote, parse_i64};
+use baguette_core::{REQUIRED_PROTOCOL, VERSION, config};
 
 const EXIT_OK: u8 = 0;
 const EXIT_USAGE: u8 = 1;
@@ -100,9 +100,9 @@ impl Link {
         }
         let deadline = Instant::now() + Duration::from_secs(self.wait);
         let mut told = false;
-        // a 3DS with a login: the one saved with its site in Chomp
-        let mut login = chomp_core::ftp::Login::default();
-        if let Some((user, pass)) = chomp_core::sites::find_login(&self.host, self.port) {
+        // a 3DS with a login: the one saved with its site in Baguette
+        let mut login = baguette_core::ftp::Login::default();
+        if let Some((user, pass)) = baguette_core::sites::find_login(&self.host, self.port) {
             login.user = user;
             login.pass = pass;
         }
@@ -110,7 +110,7 @@ impl Link {
             match self.ftp.open(&self.host, self.port, login.clone()) {
                 Ok(()) => break,
                 Err(Error::Ftp(m)) => {
-                    return Err(Fail::Ftp(format!("{m} (save the 3DS's user name and password with its site in Chomp)")));
+                    return Err(Fail::Ftp(format!("{m} (save the 3DS's user name and password with its site in Baguette)")));
                 }
                 Err(_) => {}
             }
@@ -130,7 +130,7 @@ impl Link {
     }
 
     /// runs f, reconnecting (up to --wait seconds) whenever the connection drops
-    fn run<T>(&mut self, mut f: impl FnMut(&mut Ftp) -> chomp_core::ftp::Result<T>) -> CliResult<T> {
+    fn run<T>(&mut self, mut f: impl FnMut(&mut Ftp) -> baguette_core::ftp::Result<T>) -> CliResult<T> {
         loop {
             self.connect()?;
             if !self.ftp.connected() {
@@ -420,7 +420,7 @@ fn progress_event(event: &str, path: &str, file_done: u64, file_size: u64, error
 }
 
 /// progress callback: one redrawn line on a console, nothing when captured
-fn progress_line(name: &str, size: u64, start: u64) -> impl FnMut(u64) -> chomp_core::ftp::Result<()> {
+fn progress_line(name: &str, size: u64, start: u64) -> impl FnMut(u64) -> baguette_core::ftp::Result<()> {
     let name = name.to_string();
     let mut done = start;
     let mut last: Option<Instant> = None;
@@ -911,9 +911,9 @@ fn run(link: &mut Link, cmd: &str, args: &[String], opt: &Options) -> CliResult<
     }
 }
 
-const USAGE: &str = "chomp-cli - talk to Cement, the FTP server app on the 3DS (SD card only)
+const USAGE: &str = "baguette-cli - talk to Cement, the FTP server app on the 3DS (SD card only)
 
-usage: chomp-cli [options] <command> [arguments]
+usage: baguette-cli [options] <command> [arguments]
 
 commands:
   status                         reachable? busy (transfers, ETA, CIA install)? SD space, battery
@@ -928,7 +928,7 @@ commands:
   mv <from> <to>                 rename or move
 
 options:
-  --host <ip> --port <n>         3DS address (default: the one saved by Chomp.exe)
+  --host <ip> --port <n>         3DS address (default: the one saved by Baguette.exe)
   --wait <seconds>               keep retrying an unreachable 3DS / dropped link (default 20)
   --busy-wait <seconds>          how long put/get/rm/mkdir/mv and wait wait for other
                                  transfers to finish (default 600)
@@ -989,7 +989,7 @@ fn main() -> ExitCode {
                 "--contents" => opt.contents = true,
                 "--no-wait" => opt.no_wait = true,
                 "--version" => {
-                    out(&format!("chomp-cli {VERSION}\n"));
+                    out(&format!("baguette-cli {VERSION}\n"));
                     return Ok(Some(EXIT_OK));
                 }
                 "-h" | "--help" | "help" => {
@@ -1011,7 +1011,7 @@ fn main() -> ExitCode {
         if json() {
             out(&format!("{{\"ok\":false,\"error\":{}}}\n", json_str(msg)));
         } else {
-            eprint!("chomp-cli: {msg}\n\n{USAGE}");
+            eprint!("baguette-cli: {msg}\n\n{USAGE}");
         }
         ExitCode::from(EXIT_USAGE)
     };
@@ -1025,7 +1025,7 @@ fn main() -> ExitCode {
     if host.is_empty() {
         match &saved {
             Some((h, _)) => host = h.clone(),
-            None => return usage("no 3DS address saved yet: open Chomp.exe once or pass --host and --port"),
+            None => return usage("no 3DS address saved yet: open Baguette.exe once or pass --host and --port"),
         }
     }
     if port == 0 {

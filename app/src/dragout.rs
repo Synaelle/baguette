@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //! Dragging 3DS files out to Explorer. The drag offers temp-file paths
 //! (CF_HDROP); the files are only downloaded when the mouse button is released
-//! over a drop target outside Chomp, then the drop goes through.
+//! over a drop target outside Baguette, then the drop goes through.
 
 use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
 use std::time::Duration;
 
-use chomp_core::ftp::Entry;
-use chomp_core::win;
+use baguette_core::ftp::Entry;
+use baguette_core::win;
 use windows::Win32::Foundation::*;
 use windows::Win32::System::Com::*;
 use windows::Win32::System::Memory::*;

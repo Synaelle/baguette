@@ -171,6 +171,44 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "baguette"
+version = "0.0.0"
+dependencies = [
+ "baguette-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "ureq",
+ "windows 0.61.3",
+ "windows-core 0.61.2",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "baguette-cli"
+version = "0.0.0"
+dependencies = [
+ "baguette-core",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "baguette-core"
+version = "0.0.0"
+dependencies = [
+ "rcgen",
+ "russh",
+ "russh-sftp",
+ "rustls",
+ "rustls-platform-verifier",
+ "sha2 0.11.1",
+ "tokio",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "base16ct"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -504,44 +542,6 @@ dependencies = [
  "cpufeatures 0.3.1",
  "rand_core",
  "zeroize",
-]
-
-[[package]]
-name = "chomp"
-version = "0.0.0"
-dependencies = [
- "chomp-core",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "ureq",
- "windows 0.61.3",
- "windows-core 0.61.2",
- "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "chomp-cli"
-version = "0.0.0"
-dependencies = [
- "chomp-core",
- "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "chomp-core"
-version = "0.0.0"
-dependencies = [
- "rcgen",
- "russh",
- "russh-sftp",
- "rustls",
- "rustls-platform-verifier",
- "sha2 0.11.1",
- "tokio",
- "windows-sys 0.59.0",
 ]
 
 [[package]]

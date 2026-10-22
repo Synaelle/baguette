@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chomp</title>
+<title>Baguette</title>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -11,8 +11,8 @@
 <div class="blob b2" aria-hidden="true"></div>
 
 <header id="titlebar" data-tauri-drag-region>
-  <svg class="logo" viewBox="0 0 100 100" aria-hidden="true" data-tauri-drag-region><rect x="2" y="2" width="96" height="96" rx="24" fill="var(--accent)"/><path d="M68 33 A25 25 0 1 0 68 67" fill="none" stroke="var(--text)" stroke-width="15" stroke-linecap="round"/><circle cx="71" cy="27" r="7" fill="var(--accent)"/><circle cx="62" cy="23" r="4.5" fill="var(--accent)"/></svg>
-  <span class="brand" data-tauri-drag-region>chomp</span>
+  <svg class="logo" viewBox="0 0 100 100" aria-hidden="true" data-tauri-drag-region><rect x="2" y="2" width="96" height="96" rx="24" fill="var(--accent)"/><g transform="rotate(-38 50 50)"><rect x="13" y="39" width="74" height="22" rx="11" fill="var(--text)"/><path d="M27 44 L34 56 M42 44 L49 56 M57 44 L64 56" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" fill="none"/><circle cx="86" cy="40" r="7" fill="var(--accent)"/><circle cx="78" cy="36" r="4.5" fill="var(--accent)"/></g></svg>
+  <span class="brand" data-tauri-drag-region>baguette</span>
   <span id="version" class="chip" data-tauri-drag-region></span>
   <button id="updateChip" class="chip update" hidden></button>
   <div class="grow" data-tauri-drag-region></div>
@@ -66,7 +66,7 @@
           <div class="pane-head">
             <button class="up" title="Up (Backspace)" aria-label="Up"><svg viewBox="0 0 16 16"><path d="M8 13V4M4 8l4-4 4 4"/></svg></button>
             <span class="pane-title">This PC</span>
-            <span id="roTagLocal" class="ro-tag" title="The Windows folder: Chomp only reads it. Start Chomp with --allow-windows-folder to change that." hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.8"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>read-only</span>
+            <span id="roTagLocal" class="ro-tag" title="The Windows folder: Baguette only reads it. Start Baguette with --allow-windows-folder to change that." hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.8"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>read-only</span>
             <input class="path" spellcheck="false">
           </div>
           <div class="cols"><span class="c-name">Name</span><span class="c-size">Size</span><span class="c-date">Modified</span></div>
@@ -193,7 +193,7 @@
 
     <section class="prefs-tab" data-tab="general" role="tabpanel" hidden>
       <div class="setting">
-        <div class="setting-text"><label for="localStart"><b>PC side opens in</b></label><span>Where the left side starts when Chomp opens.</span></div>
+        <div class="setting-text"><label for="localStart"><b>PC side opens in</b></label><span>Where the left side starts when Baguette opens.</span></div>
         <select id="localStart">
           <option value="home">Your user folder</option>
           <option value="last">The folder you left it in</option>
@@ -202,7 +202,7 @@
         <div class="pair" id="localDirRow"><input id="localDir" spellcheck="false" aria-label="Folder"><button id="localBrowse" class="pill small">Browse...</button></div>
       </div>
       <div class="setting row-setting">
-        <div class="setting-text"><label for="checkUpdates"><b>Look for updates</b></label><span>Asks GitHub once when Chomp starts. Nothing is downloaded.</span></div>
+        <div class="setting-text"><label for="checkUpdates"><b>Look for updates</b></label><span>Asks GitHub once when Baguette starts. Nothing is downloaded.</span></div>
         <input id="checkUpdates" class="switch" type="checkbox" checked>
       </div>
     </section>
@@ -217,19 +217,19 @@
     <section class="prefs-tab" data-tab="lab" role="tabpanel" hidden>
       <p class="lab-note">Still being tried out: these may change or go away.</p>
       <div class="setting row-setting">
-        <div class="setting-text"><label for="bundles"><b>Send many files as one bundle</b></label><span>Chomp and Cement only (Cement 2.0-RC3 and later). Uploads of 8 files or more go as one stream that Cement unpacks as it arrives.</span></div>
+        <div class="setting-text"><label for="bundles"><b>Send many files as one bundle</b></label><span>Baguette and Cement only (Cement 2.0-RC3 and later). Uploads of 8 files or more go as one stream that Cement unpacks as it arrives.</span></div>
         <input id="bundles" class="switch" type="checkbox">
       </div>
     </section>
 
     <section class="prefs-tab" data-tab="about" role="tabpanel" hidden>
       <div class="setting">
-        <div class="about-row"><span>Chomp</span><b id="aboutChomp"></b></div>
+        <div class="about-row"><span>Baguette</span><b id="aboutBaguette"></b></div>
         <div class="about-row"><span>Cement protocol</span><b id="aboutProtocol"></b></div>
         <div class="about-row" id="aboutCementRow"><span>Cement on this tab</span><b id="aboutCement"></b></div>
         <p class="note" id="aboutNote"></p>
       </div>
-      <p class="note">Chomp and Cement each have their own version. The protocol level is what tells which ones work together: a Cement with a lower level still works, without the newer features.</p>
+      <p class="note">Baguette and Cement each have their own version. The protocol level is what tells which ones work together: a Cement with a lower level still works, without the newer features.</p>
     </section>
 
     <div class="buttons"><div class="grow"></div><button id="prefsCancel" class="pill">Cancel</button><button id="prefsOk" class="pill accent">Save</button></div>
@@ -297,7 +297,7 @@
 <div id="cementLogin" class="modal" hidden>
   <div class="dialog" style="width: 420px">
     <h2>3DS login</h2>
-    <p class="note">With a login, Cement only lets in this user name and password, from any FTP client. Chomp saves them with the site. On the 3DS they are kept in plain text on the SD card.</p>
+    <p class="note">With a login, Cement only lets in this user name and password, from any FTP client. Baguette saves them with the site. On the 3DS they are kept in plain text on the SD card.</p>
     <div class="form">
       <label for="clUser">User</label><input id="clUser" spellcheck="false">
       <label for="clPass">Password</label><input id="clPass" type="password">
@@ -309,7 +309,7 @@
 <!-- yes/no and messages -->
 <div id="ask" class="modal" hidden>
   <div class="dialog" style="width: 420px">
-    <h2 id="askTitle">Chomp</h2>
+    <h2 id="askTitle">Baguette</h2>
     <p id="askText"></p>
     <div class="buttons"><div class="grow"></div><button id="askNo" class="pill">No</button><button id="askYes" class="pill accent">Yes</button></div>
   </div>

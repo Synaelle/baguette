@@ -33,7 +33,7 @@ pub fn roaming_app_data() -> Option<String> {
     known_folder(&FOLDERID_RoamingAppData)
 }
 
-/// the temp folder next to the exe (Chomp is portable): drag-out downloads and
+/// the temp folder next to the exe (Baguette is portable): drag-out downloads and
 /// opened files; emptied at start
 pub fn temp_root() -> String {
     format!("{}\\temp", crate::config::exe_dir())
@@ -106,7 +106,7 @@ pub fn delete_tree(path: &str) {
 /// Err(text) when Windows could not open it.
 pub fn launch_file(path: &str) -> Result<(), String> {
     use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
-    if std::env::var_os("CHOMP_NO_LAUNCH").is_some() {
+    if std::env::var_os("BAGUETTE_NO_LAUNCH").is_some() {
         return Ok(()); // tests: download and watch only
     }
     let (verb, file) = (wide("open"), wide(path));

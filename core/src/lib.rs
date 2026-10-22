@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Chomp's engine: the FTP client, Cement's status extras, the saved settings
-//! and the two-connection transfer workers. Used by Chomp.exe and chomp-cli.exe.
+//! Baguette's engine: the FTP client, Cement's status extras, the saved settings
+//! and the two-connection transfer workers. Used by Baguette.exe and baguette-cli.exe.
 
 pub mod bundle;
 pub mod config;
@@ -20,20 +20,20 @@ pub mod win;
 pub mod workers;
 
 /// set by the build: the VERSION file (major.minor.micro), plus -<commit>-dev for a build with uncommitted changes
-pub const VERSION: &str = match option_env!("CHOMP_VERSION") {
+pub const VERSION: &str = match option_env!("BAGUETTE_VERSION") {
     Some(v) => v,
     None => "dev",
 };
 
 /// The 3DS app must report at least this protocol level (SITE STATUS
 /// "protocol="). Bump it together with PROTOCOL in Cement (src/main.rs), and only
-/// for changes that really need the new 3DS build: Chomp warns about an outdated
+/// for changes that really need the new 3DS build: Baguette warns about an outdated
 /// 3DS app only when it is below this level.
 pub const REQUIRED_PROTOCOL: i32 = 1;
 
-/// The newest Cement protocol level this Chomp speaks. The apps have their
-/// own version numbers: this is what tells which Chomp goes with which
-/// Cement. Raise it with each protocol level Chomp learns.
+/// The newest Cement protocol level this Baguette speaks. The apps have their
+/// own version numbers: this is what tells which Baguette goes with which
+/// Cement. Raise it with each protocol level Baguette learns.
 pub const PROTOCOL: i32 = 3;
 
 /// Installing CIAs and the synced accent colour need this level of Cement

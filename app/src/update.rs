@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Is there a newer Chomp? One request to GitHub's latest-release API when
+//! Is there a newer Baguette? One request to GitHub's latest-release API when
 //! the window opens (unless turned off). Nothing is downloaded: the window
 //! offers to open the release page in the browser.
 
@@ -9,8 +9,8 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-const LATEST: &str = "https://api.github.com/repos/Synaelle/chomp/releases/latest";
-pub const RELEASES: &str = "https://github.com/Synaelle/chomp/releases";
+const LATEST: &str = "https://api.github.com/repos/Synaelle/baguette/releases/latest";
+pub const RELEASES: &str = "https://github.com/Synaelle/baguette/releases";
 
 #[derive(Serialize, Clone)]
 pub struct Update {
@@ -78,11 +78,11 @@ pub fn check(current: &str) -> Option<Update> {
     }
     let agent = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(8)))
-        .user_agent(format!("Chomp/{current}"))
+        .user_agent(format!("Baguette/{current}"))
         .build()
         .new_agent();
     // tests answer from a local server
-    let latest = std::env::var("CHOMP_UPDATE_URL").unwrap_or_else(|_| LATEST.into());
+    let latest = std::env::var("BAGUETTE_UPDATE_URL").unwrap_or_else(|_| LATEST.into());
     let mut resp = agent.get(&latest).header("Accept", "application/vnd.github+json").call().ok()?;
     let r: Release = resp.body_mut().read_json().ok()?;
     if r.draft || !older(current, &r.tag_name) {

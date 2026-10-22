@@ -78,7 +78,7 @@ impl Default for Site {
 }
 
 impl Site {
-    /// Cement at host:port (what chomp.ini held before sites)
+    /// Cement at host:port (what baguette.ini held before sites)
     pub fn cement(host: &str, port: u16) -> Site {
         Site { host: host.into(), port, ..Default::default() }
     }

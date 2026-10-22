@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn layout() {
-        let dir = std::env::temp_dir().join(format!("chomp-bundle-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("baguette-bundle-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let a = dir.join("a.txt");
         std::fs::write(&a, b"hello").unwrap();

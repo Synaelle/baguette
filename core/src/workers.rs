@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! The two connections of a Chomp.exe tab: one for browsing, one for
+//! The two connections of a Baguette.exe tab: one for browsing, one for
 //! transfers, so the explorer stays responsive during uploads. Both reconnect
 //! until the server is reachable again (a refused login waits for the user);
 //! queued and interrupted transfers resume. Any protocol works through
@@ -460,7 +460,7 @@ fn run(s: &Arc<Shared>, transfer: bool) {
                     Some(Ok(i)) => i,
                     _ => ServerInfo { protocol: REQUIRED_PROTOCOL, ..Default::default() }, // unknown: do not warn
                 };
-                // the accent chosen in Chomp, when Cement shows another one
+                // the accent chosen in Baguette, when Cement shows another one
                 let accent = s.accent.lock().unwrap().clone();
                 if !accent.is_empty() && info.protocol >= RC2_PROTOCOL && !info.full.accent.eq_ignore_ascii_case(&accent) {
                     if let Some(f) = cement_of(&mut r) {

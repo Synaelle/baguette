@@ -1,21 +1,21 @@
 [package]
-name = "chomp"
+name = "baguette"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
-# Chomp.exe: the window (Tauri: Rust underneath, HTML/CSS for the looks).
+# Baguette.exe: the window (Tauri: Rust underneath, HTML/CSS for the looks).
 
 [[bin]]
-name = "Chomp"
+name = "Baguette"
 path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-chomp-core = { path = "../core", features = ["tls", "sftp"] }
+baguette-core = { path = "../core", features = ["tls", "sftp"] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }

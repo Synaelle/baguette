@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! The saved sites, in chomp.ini next to the exe like everything else.
+//! The saved sites, in baguette.ini next to the exe like everything else.
 //! Passwords and key passphrases are encrypted for the Windows user (DPAPI):
 //! copied to another PC or user, the file still opens, and those sites just
 //! ask for their password again.
@@ -87,9 +87,9 @@ pub fn save(sites: &[Saved]) {
 }
 
 /// the user name and password of the saved site at host:port, without
-/// writing anything (chomp-cli, when Cement asks for a login)
+/// writing anything (baguette-cli, when Cement asks for a login)
 pub fn find_login(host: &str, port: u16) -> Option<(String, String)> {
-    let path = config_path();
+    let path = crate::config::existing_config()?;
     let count = get_int(&path, "sites", "count", 0);
     (0..count).find_map(|i| {
         let sec = format!("site{i}");
@@ -171,10 +171,10 @@ mod tests {
 
     #[test]
     fn save_and_load() {
-        let file = std::env::temp_dir().join(format!("chomp-sites-{}.ini", std::process::id()));
+        let file = std::env::temp_dir().join(format!("baguette-sites-{}.ini", std::process::id()));
         let _ = std::fs::remove_file(&file);
         std::fs::write(&file, "[server]\r\nhost=192.168.1.10\r\nport=5000\r\n").unwrap();
-        unsafe { std::env::set_var("CHOMP_CONFIG", &file) };
+        unsafe { std::env::set_var("BAGUETTE_CONFIG", &file) };
         let first = load();
         assert_eq!(first.len(), 1, "the old Cement address became a site");
         assert_eq!((first[0].name.as_str(), first[0].site.port), ("My 3DS", 5000));

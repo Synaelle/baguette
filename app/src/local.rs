@@ -5,7 +5,7 @@
 
 use std::os::windows::fs::MetadataExt;
 
-use chomp_core::win;
+use baguette_core::win;
 use serde::Serialize;
 
 use crate::{EntryOut, St};

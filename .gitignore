@@ -4,7 +4,8 @@ target/
 release/
 app/gen/
 
-# what a portable Chomp keeps next to itself
+# what a portable Baguette keeps next to itself
+baguette.ini
 chomp.ini
 temp/
 webview/

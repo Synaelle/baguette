@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Headless test of Chomp's workers against Cement's PC test server
+//! Headless test of Baguette's workers against Cement's PC test server
 //! (cargo build --release in the cement repo). The server is found through
 //! CEMENT_SERVER, or next to this repo at ../cement/target/release/cement-server.exe;
 //! without it the test is skipped.
@@ -11,8 +11,8 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use chomp_core::ftp::Entry;
-use chomp_core::workers::{CONNECTED, Client, Event, Job, Kind, ListResult, Sink, WAITING};
+use baguette_core::ftp::Entry;
+use baguette_core::workers::{CONNECTED, Client, Event, Job, Kind, ListResult, Sink, WAITING};
 
 #[derive(Default)]
 struct Events(Mutex<Vec<ListResult>>);
@@ -73,7 +73,7 @@ fn server_exe() -> Option<PathBuf> {
     p.exists().then_some(p)
 }
 
-/// Chomp's tests run their Cement on 6000 (data 6001-6999): Cement's own tests
+/// Baguette's tests run their Cement on 6000 (data 6001-6999): Cement's own tests
 /// keep 5000, so both can run at the same time
 const DEV_PORT: u16 = 6000;
 
@@ -100,7 +100,7 @@ fn workers_against_cement() {
         println!("skipped: build cement-server (cargo build --release in the cement repo) or set CEMENT_SERVER");
         return;
     };
-    let base = std::env::temp_dir().join(format!("chomp-engine-test-{}", std::process::id()));
+    let base = std::env::temp_dir().join(format!("baguette-engine-test-{}", std::process::id()));
     let (root, local, back, flag) = (base.join("sd"), base.join("local"), base.join("back"), base.join("sleep.flag"));
     for d in [&root, &local, &back] {
         std::fs::create_dir_all(d).unwrap();
@@ -217,12 +217,12 @@ fn workers_against_cement() {
     );
     c.check(same(&dest.join("boot.firm"), &root.join("boot.firm")), "3DS content copied after emptying");
     c.check(dest.is_dir(), "the PC folder itself is kept");
-    let docs = chomp_core::win::known_folder(&windows_sys::Win32::UI::Shell::FOLDERID_Documents).unwrap_or_default();
+    let docs = baguette_core::win::known_folder(&windows_sys::Win32::UI::Shell::FOLDERID_Documents).unwrap_or_default();
     c.check(
-        chomp_core::win::unsafe_replace_target("C:\\")
-            && chomp_core::win::unsafe_replace_target(&docs)
-            && chomp_core::win::unsafe_replace_target(&format!("{docs}\\"))
-            && !chomp_core::win::unsafe_replace_target(&format!("{docs}\\3DS backup")),
+        baguette_core::win::unsafe_replace_target("C:\\")
+            && baguette_core::win::unsafe_replace_target(&docs)
+            && baguette_core::win::unsafe_replace_target(&format!("{docs}\\"))
+            && !baguette_core::win::unsafe_replace_target(&format!("{docs}\\3DS backup")),
         "drives and personal folders refused, subfolders allowed",
     );
     let mut j = job(Kind::SendToPc, "", "C:\\");

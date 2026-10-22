@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Chomp's window. The work happens in Rust (invoke = a command, listen = an event).
+// Baguette's window. The work happens in Rust (invoke = a command, listen = an event).
 // Each tab is one site: the PC side on the left, the server on the right.
 
 const { invoke } = window.__TAURI__.core;
@@ -509,7 +509,7 @@ function readOnly(path) {
   const t = tab();
   return protect3ds && !!t?.cement && protectedPaths.some((p) => inside(path, p)) && !freePaths.some((p) => inside(path, p));
 }
-// the Windows folder: read-only on the PC side (null when Chomp was started to allow it)
+// the Windows folder: read-only on the PC side (null when Baguette was started to allow it)
 let windowsDir = null;
 const winNorm = (p) => p.replaceAll("/", "\\").replace(/\\+$/, "").toLowerCase();
 function localReadOnly(path) {
@@ -703,11 +703,11 @@ async function lookForUpdate() {
   if (!u) return;
   const chip = $("updateChip");
   chip.textContent = `${u.version} is out`;
-  chip.title = "A new Chomp is on GitHub";
+  chip.title = "A new Baguette is on GitHub";
   chip.hidden = false;
   chip.onclick = async () => {
     const go = await ask(
-      `Chomp ${u.version} is available (you have ${$("version").textContent}).\n\nThis opens its release page on GitHub in your browser.`,
+      `Baguette ${u.version} is available (you have ${$("version").textContent}).\n\nThis opens its release page on GitHub in your browser.`,
       "Open GitHub", "Not now", "New version"
     );
     if (go) invoke("open_release", { url: u.url }).catch(tell);
@@ -717,7 +717,7 @@ $("protect3ds").addEventListener("change", async () => {
   if ($("protect3ds").checked) return;
   $("prefs").hidden = true;
   const ok = await ask(
-    "Without it, Chomp lets you delete, rename or replace the 3DS files that keep it working: " +
+    "Without it, Baguette lets you delete, rename or replace the 3DS files that keep it working: " +
       "/Nintendo 3DS (installed games and saves), /boot.firm (what the console boots), " +
       "/luma, /gm9 (NAND backups) and /boot.3dsx." +
       "\n\nA mistake there can lose your games and saves, " +
@@ -732,21 +732,21 @@ function showPrefsTab(name) {
   for (const p of document.querySelectorAll("#prefs .prefs-tab")) p.hidden = p.dataset.tab !== name;
 }
 for (const b of document.querySelectorAll("#prefs .seg button")) b.onclick = () => showPrefsTab(b.dataset.tab);
-let chompProtocol = 0;
-let chompVersion = "";
-// "Cement 2.0.58, protocol 3" and what it means next to this Chomp
+let baguetteProtocol = 0;
+let baguetteVersion = "";
+// "Cement 2.0.58, protocol 3" and what it means next to this Baguette
 function protocolLine(c) {
   const v = c.version ? `Cement ${c.version}` : "Cement";
   return `${v} · protocol ${c.protocol}`;
 }
 function protocolHint(c) {
-  if (c.protocol < chompProtocol) return "Update Cement to use everything this Chomp can do";
-  if (c.protocol > chompProtocol) return "This Cement is newer: update Chomp for its new features";
+  if (c.protocol < baguetteProtocol) return "Update Cement to use everything this Baguette can do";
+  if (c.protocol > baguetteProtocol) return "This Cement is newer: update Baguette for its new features";
   return "";
 }
 function drawAbout() {
-  $("aboutChomp").textContent = chompVersion;
-  $("aboutProtocol").textContent = String(chompProtocol);
+  $("aboutBaguette").textContent = baguetteVersion;
+  $("aboutProtocol").textContent = String(baguetteProtocol);
   const c = tab()?.state === "connected" ? tab().cement : null;
   $("aboutCementRow").hidden = !c;
   $("aboutCement").textContent = c ? protocolLine(c) : "";
@@ -1105,7 +1105,7 @@ listen("refused", (ev) => {
 
 const anyModal = () => [...document.querySelectorAll(".modal")].some((m) => !m.hidden);
 
-function ask(text, yes = "Yes", no = "No", title = "Chomp") {
+function ask(text, yes = "Yes", no = "No", title = "Baguette") {
   return new Promise((resolve) => {
     $("askTitle").textContent = title;
     $("askText").textContent = String(text);
@@ -1427,9 +1427,9 @@ listen("list", (ev) => {
 (async () => {
   const init = await invoke("init");
   $("version").textContent = init.version.replace(/-[0-9a-f]+-dev$/, "");
-  $("version").title = "Chomp v" + init.version + " · Cement protocol " + init.protocol;
-  chompProtocol = init.protocol;
-  chompVersion = init.version;
+  $("version").title = "Baguette v" + init.version + " · Cement protocol " + init.protocol;
+  baguetteProtocol = init.protocol;
+  baguetteVersion = init.version;
   settings = init.settings;
   accent = init.accent;
   applyAccent(accent);

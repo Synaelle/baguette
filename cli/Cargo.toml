@@ -1,12 +1,12 @@
 [package]
-name = "chomp-cli"
+name = "baguette-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
-# chomp-cli.exe: command-line access to Cement on the 3DS, for scripts and agents.
+# baguette-cli.exe: command-line access to Cement on the 3DS, for scripts and agents.
 
 [dependencies]
-chomp-core = { path = "../core" }
+baguette-core = { path = "../core" }
 windows-sys.workspace = true

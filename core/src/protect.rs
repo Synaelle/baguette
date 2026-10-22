@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Synaelle
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! The 3DS paths Chomp keeps read-only on Cement unless the user turns the
+//! The 3DS paths Baguette keeps read-only on Cement unless the user turns the
 //! protection off: losing them can wipe installed games and saves, or stop the
 //! console from booting into its custom firmware.
 

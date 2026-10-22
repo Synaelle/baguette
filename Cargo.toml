@@ -3,7 +3,7 @@ resolver = "2"
 members = ["core", "cli", "stub", "app"]
 
 [workspace.package]
-version = "0.0.0" # the real version comes from the build (CHOMP_VERSION)
+version = "0.0.0" # the real version comes from the build (BAGUETTE_VERSION)
 edition = "2024"
 license = "GPL-3.0-or-later"
 publish = false

@@ -1,11 +1,11 @@
 [package]
-name = "chomp-core"
+name = "baguette-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
-# The FTP engine and the transfer workers shared by Chomp.exe and chomp-cli.exe.
+# The FTP engine and the transfer workers shared by Baguette.exe and baguette-cli.exe.
 
 [dependencies]
 russh = { version = "0.64.1", default-features = false, features = ["ring", "flate2", "rsa"], optional = true }
@@ -25,7 +25,7 @@ tokio = { version = "1.53.3", features = ["rt-multi-thread", "net", "macros", "i
 windows-sys.workspace = true
 
 [features]
-# chomp-cli only speaks plain FTP to Cement: the window adds FTPS and SFTP
+# baguette-cli only speaks plain FTP to Cement: the window adds FTPS and SFTP
 tls = ["dep:rustls", "dep:rustls-platform-verifier", "dep:sha2"]
 sftp = ["dep:russh", "dep:russh-sftp", "dep:tokio", "dep:sha2"]
 

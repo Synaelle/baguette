@@ -6,14 +6,14 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-use chomp_core::config::Config;
-use chomp_core::ftp::Entry;
-use chomp_core::remote::{Protocol, Site};
-use chomp_core::sites::{self, Saved};
-use chomp_core::util::{join_remote, normalize_remote, parent_remote};
-use chomp_core::protect;
-use chomp_core::workers::{Job, Kind};
-use chomp_core::{VERSION, win};
+use baguette_core::config::Config;
+use baguette_core::ftp::Entry;
+use baguette_core::remote::{Protocol, Site};
+use baguette_core::sites::{self, Saved};
+use baguette_core::util::{join_remote, normalize_remote, parent_remote};
+use baguette_core::protect;
+use baguette_core::workers::{Job, Kind};
+use baguette_core::{VERSION, win};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -83,7 +83,7 @@ pub struct SiteIn {
 #[derive(Serialize)]
 pub struct InitOut {
     version: String,
-    protocol: i32, // the newest Cement protocol this Chomp speaks
+    protocol: i32, // the newest Cement protocol this Baguette speaks
     accent: String,
     local_start: String, // "home", "last" or a folder
     local_dir: String,   // where the PC side opens now
@@ -107,7 +107,7 @@ pub fn init(state: St) -> InitOut {
     let c = state.config.lock().unwrap();
     InitOut {
         version: VERSION.into(),
-        protocol: chomp_core::PROTOCOL,
+        protocol: baguette_core::PROTOCOL,
         accent: c.accent.clone(),
         local_start: c.local_start.clone(),
         local_dir: c.local_start_dir(),
@@ -139,7 +139,7 @@ pub fn save_settings(state: St, s: SettingsOut) -> Result<(), String> {
 /// the window's red; Cement tabs get it too (their 3DS screens follow)
 #[tauri::command]
 pub fn set_accent(state: St, accent: String) -> Result<(), String> {
-    let hex = chomp_core::config::normalize_accent(&accent).ok_or("Not a colour")?;
+    let hex = baguette_core::config::normalize_accent(&accent).ok_or("Not a colour")?;
     {
         let mut c = state.config.lock().unwrap();
         c.accent = hex.clone();
@@ -149,7 +149,7 @@ pub fn set_accent(state: St, accent: String) -> Result<(), String> {
         let sh = &t.client.shared;
         *sh.accent.lock().unwrap() = hex.clone();
         let info = sh.server_info.lock().unwrap().clone();
-        if sh.browse.connected() && info.cement && info.protocol >= chomp_core::RC2_PROTOCOL {
+        if sh.browse.connected() && info.cement && info.protocol >= baguette_core::RC2_PROTOCOL {
             let mut j = Job::new(Kind::Color);
             j.path = hex.clone();
             sh.browse.push(j);
@@ -221,11 +221,11 @@ pub async fn check_update() -> Option<crate::update::Update> {
     tauri::async_runtime::spawn_blocking(|| crate::update::check(VERSION)).await.ok().flatten()
 }
 
-/// the release page, in the browser (only Chomp's own releases)
+/// the release page, in the browser (only Baguette's own releases)
 #[tauri::command]
 pub fn open_release(url: String) -> Result<(), String> {
     if !url.starts_with(crate::update::RELEASES) {
-        return Err("Not a Chomp release page".into());
+        return Err("Not a Baguette release page".into());
     }
     win::launch_file(&url)
 }
@@ -490,13 +490,13 @@ pub fn upload(state: St, tab: u32, paths: Vec<String>, dir: String) -> Result<()
     if paths.is_empty() {
         return Ok(());
     }
-    let targets: Vec<String> = paths.iter().map(|p| join_remote(&dir, chomp_core::util::base_name(p))).collect();
+    let targets: Vec<String> = paths.iter().map(|p| join_remote(&dir, baguette_core::util::base_name(p))).collect();
     guard(&state, tab, &targets, protect::write)?;
     state.with_tab(tab, |t| {
         // CIAs sent to Cement show in its card until they are installed
         for p in &paths {
             if p.to_ascii_lowercase().ends_with(".cia") {
-                let remote = join_remote(&dir, chomp_core::util::base_name(p));
+                let remote = join_remote(&dir, baguette_core::util::base_name(p));
                 if !t.cias.contains(&remote) {
                     t.cias.push(remote);
                 }
