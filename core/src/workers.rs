@@ -966,7 +966,10 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
         };
         match r {
             Ok(()) => {
-                if !up && s.bmp_to_png.load(Ordering::Relaxed) {
+                // only for files saved into the user's folders: a file opened from the
+                // server or dragged out to Explorer must keep the name it was asked for
+                let saved = !job.open_after && !job.path2.starts_with(&crate::win::temp_root());
+                if !up && saved && s.bmp_to_png.load(Ordering::Relaxed) {
                     if let Err(e) = crate::png::convert(&it.local) {
                         s.message(format!("Error: {e}"));
                     }
