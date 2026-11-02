@@ -8,25 +8,55 @@ permissions:
   contents: read
 
 jobs:
+  draft:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(tr -d '\r\n' < VERSION)
+          if [ "v$version" != "$TAG" ]; then
+            echo "the tag $TAG doesn't match VERSION $version" >&2
+            exit 1
+          fi
+          # a draft written earlier keeps its notes
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" --draft --verify-tag --title "$version" --notes ""
+          fi
+
   windows:
+    needs: draft
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - name: build
         shell: cmd
         run: build.bat
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows
-          path: |
-            Baguette.exe
-            baguette-cli.exe
-            add-to-path.bat
-          if-no-files-found: error
+      - name: attach to the draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(tr -d '\r\n' < VERSION)
+          mkdir Baguette
+          cp Baguette.exe baguette-cli.exe add-to-path.bat Baguette/
+          7z a -tzip "Baguette-$version-windows.zip" Baguette
+          gh release upload "$TAG" "Baguette-$version-windows.zip" --clobber
 
   linux:
+    needs: draft
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: install packages
@@ -40,38 +70,32 @@ jobs:
       - run: cargo install tauri-cli --version "^2" --locked
       - name: build
         run: ./build.sh
-      - name: pack
+      - name: attach to the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         run: |
+          version=$(tr -d '\r\n' < VERSION)
           mkdir Baguette
           cp Baguette-x86_64.AppImage baguette-cli Baguette/
-          tar --owner=0 --group=0 --mode=755 -czf linux.tar.gz Baguette
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux
-          path: linux.tar.gz
-          if-no-files-found: error
+          tar --owner=0 --group=0 --mode=755 -czf "Baguette-$version-linux.tar.gz" Baguette
+          gh release upload "$TAG" "Baguette-$version-linux.tar.gz" --clobber
 
-  release:
+  publish:
     needs: [windows, linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-      - name: draft the release
+      - name: publish once both archives are on it
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
           version=$(tr -d '\r\n' < VERSION)
-          if [ "v$version" != "$TAG" ]; then
-            echo "the tag $TAG doesn't match VERSION $version" >&2
-            exit 1
-          fi
-          mkdir Baguette
-          cp windows/* Baguette/
-          python3 -m zipfile -c "Baguette-$version-windows.zip" Baguette
-          mv linux/linux.tar.gz "Baguette-$version-linux.tar.gz"
-          gh release create "$TAG" --draft --title "$version" --notes "" \
-            "Baguette-$version-windows.zip" "Baguette-$version-linux.tar.gz"
+          assets=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          for f in "Baguette-$version-windows.zip" "Baguette-$version-linux.tar.gz"; do
+            echo "$assets" | grep -qx "$f" || { echo "missing $f" >&2; exit 1; }
+          done
+          gh release edit "$TAG" --draft=false --latest
