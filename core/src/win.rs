@@ -158,6 +158,20 @@ pub fn hidden(_name: &str, m: &std::fs::Metadata) -> bool {
     m.file_attributes() & (HIDDEN | SYSTEM) != 0
 }
 
+/// now on the local wall clock, in seconds since 1970 (the clock Cement's
+/// colour times use: the 3DS keeps local time)
+pub fn local_now() -> u64 {
+    use windows_sys::Win32::Foundation::FILETIME;
+    use windows_sys::Win32::Storage::FileSystem::FileTimeToLocalFileTime;
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let ticks = (now + 11_644_473_600) * 10_000_000;
+    let a = FILETIME { dwLowDateTime: ticks as u32, dwHighDateTime: (ticks >> 32) as u32 };
+    let mut b = FILETIME { dwLowDateTime: 0, dwHighDateTime: 0 };
+    unsafe { FileTimeToLocalFileTime(&a, &mut b) };
+    let local = ((b.dwHighDateTime as u64) << 32) | b.dwLowDateTime as u64;
+    (local / 10_000_000).saturating_sub(11_644_473_600)
+}
+
 /// "YYYY-MM-DD hh:mm:ss" in local time, from a Windows file time
 pub fn local_time_text(ft: u64) -> String {
     use windows_sys::Win32::Foundation::{FILETIME, SYSTEMTIME};

@@ -549,9 +549,14 @@ impl Ftp {
         Ok(info)
     }
 
-    /// the accent colour of Cement's screens ("b8283c"), protocol 2
-    pub fn set_accent(&mut self, hex: &str) -> Result<()> {
-        self.simple(&format!("SITE COLOR #{}", hex.trim_start_matches('#')), 200)
+    /// the accent colour of Cement's screens ("b8283c"), protocol 2, with
+    /// when it was picked for a Cement that keeps that time
+    pub fn set_accent(&mut self, hex: &str, time: Option<u64>) -> Result<()> {
+        let hex = hex.trim_start_matches('#');
+        match time {
+            Some(t) => self.simple(&format!("SITE COLOR #{hex} {t}"), 200),
+            None => self.simple(&format!("SITE COLOR #{hex}"), 200),
+        }
     }
 
     /// sets Cement's user name and password (empty user: anyone can log in

@@ -179,6 +179,13 @@ fn tm_text(tm: &libc::tm, date_sep: &str, mid: &str) -> String {
     )
 }
 
+/// now on the local wall clock, in seconds since 1970 (the clock Cement's
+/// colour times use: the 3DS keeps local time)
+pub fn local_now() -> u64 {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    (now + local_tm(now).tm_gmtoff as i64).max(0) as u64
+}
+
 /// "YYYY-MM-DD hh:mm:ss" in local time, from a file_time
 pub fn local_time_text(ft: u64) -> String {
     tm_text(&local_tm((ft / 1_000_000_000) as i64), "-", " ")

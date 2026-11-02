@@ -84,6 +84,7 @@ pub struct SiteIn {
 pub struct InitOut {
     version: String,
     protocol: i32, // the newest Cement protocol this Baguette speaks
+    accent: String,
     local_start: String, // "home", "last" or a folder
     local_dir: String,   // where the PC side opens now
     windows_dir: Option<String>, // read-only on the PC side
@@ -113,6 +114,7 @@ pub fn init(state: St) -> InitOut {
     InitOut {
         version: VERSION.into(),
         protocol: baguette_core::PROTOCOL,
+        accent: c.accent.clone(),
         local_start: c.local_start.clone(),
         local_dir: c.local_start_dir(),
         windows_dir: state.windows_dir.clone(),
@@ -143,6 +145,35 @@ pub fn save_settings(state: St, s: SettingsOut) -> Result<(), String> {
     c.send_replace = s.send_replace;
     c.save();
     Ok(())
+}
+
+/// the window's colour, picked in the settings; Cement tabs get it too
+#[tauri::command]
+pub fn set_accent(state: St, accent: String) -> Result<(), String> {
+    let hex = baguette_core::config::normalize_accent(&accent).ok_or("Not a colour")?;
+    spread_accent(&state, &hex, os::local_now(), None);
+    Ok(())
+}
+
+/// keeps the colour and sends it to every Cement tab but `from` (the 3DS it
+/// came from)
+pub fn spread_accent(state: &AppState, hex: &str, time: u64, from: Option<u32>) {
+    {
+        let mut c = state.config.lock().unwrap();
+        c.accent = hex.to_string();
+        c.accent_time = time;
+        c.save();
+    }
+    for t in state.tabs.lock().unwrap().iter() {
+        let sh = &t.client.shared;
+        *sh.accent.lock().unwrap() = hex.to_string();
+        sh.accent_time.store(time, Ordering::Relaxed);
+        if Some(t.id) != from && sh.browse.connected() && sh.server_info.lock().unwrap().cement {
+            let mut j = Job::new(Kind::Color);
+            j.path = hex.to_string();
+            sh.browse.push(j);
+        }
+    }
 }
 
 #[tauri::command]

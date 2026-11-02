@@ -26,6 +26,7 @@ pub struct Config {
     pub bmp_to_png: bool,        // downloaded .bmp files are saved as .png
     pub send_to_pc: bool,        // the Send to PC button on the Cement card
     pub mode: String,            // "standard" or "lite"; empty until chosen at first launch
+    pub accent_time: u64,        // when the accent was picked (local clock, 0: never); the newer side wins
 }
 
 pub const DEFAULT_ACCENT: &str = "b8283c";
@@ -60,6 +61,7 @@ impl Default for Config {
             bmp_to_png: false,
             send_to_pc: false,
             mode: String::new(),
+            accent_time: 0,
         }
     }
 }
@@ -229,6 +231,7 @@ impl Config {
             bmp_to_png: get_int(&path, "ui", "bmp_to_png", 0) != 0,
             send_to_pc: get_int(&path, "ui", "send_to_pc", 0) != 0,
             mode: normalize_mode(&get_str(&path, "ui", "mode", "")).unwrap_or_default(),
+            accent_time: get_str(&path, "ui", "accent_time", "0").trim().parse().unwrap_or(0),
         };
         let count = get_int(&path, "sendtopc", "count", 0);
         for i in 0..count {
@@ -247,6 +250,7 @@ impl Config {
         put(&path, "server", Some("port"), Some(&self.port.to_string()));
         put(&path, "ui", Some("dark"), Some(if self.dark { "1" } else { "0" }));
         put(&path, "ui", Some("accent"), Some(&self.accent));
+        put(&path, "ui", Some("accent_time"), Some(&self.accent_time.to_string()));
         put(&path, "ui", Some("local_start"), Some(&escape(&self.local_start)));
         put(&path, "ui", Some("protect_3ds"), Some(if self.protect_3ds { "1" } else { "0" }));
         put(&path, "ui", Some("check_updates"), Some(if self.check_updates { "1" } else { "0" }));

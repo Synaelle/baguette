@@ -154,6 +154,9 @@ pub struct Status {
     pub install_file: String,
     /// accent colour of the 3DS screens, "b8283c" (protocol 2)
     pub accent: String,
+    /// when the accent last changed, on the 3DS's local clock (seconds since
+    /// 1970, 0: never); None from a Cement that doesn't say
+    pub accent_time: Option<u64>,
     /// Cement wants a user name and password (protocol 3)
     pub login: bool,
     /// CIA files waiting to be installed (protocol 2)
@@ -216,6 +219,7 @@ pub fn parse_status(code: i32, text: &str) -> Status {
                     "connections" => st.connections = parse_u64(&v) as i32,
                     "version" => st.version = v,
                     "accent" => st.accent = v.to_ascii_lowercase(),
+                    "accent_time" => st.accent_time = Some(parse_u64(&v)),
                     "login" => st.login = v == "1",
                     "sd_free" => st.sd_free = parse_u64(&v),
                     "sd_total" => {
@@ -321,6 +325,9 @@ mod tests {
         let st = parse_status(211, reply);
         assert_eq!(st.protocol, 2);
         assert_eq!(st.accent, "b8283c");
+        assert_eq!(st.accent_time, None, "an older Cement keeps no time");
+        let timed = reply.replace("accent=B8283C", "accent=2d6e40 accent_time=1793000000");
+        assert_eq!(parse_status(211, &timed).accent_time, Some(1793000000));
         assert_eq!(st.cias, vec![Cia { size: 680384, file: "/Cement.cia".into() }, Cia { size: 12, file: "/cias/a b.cia".into() }]);
         assert_eq!((st.install_done, st.install_size, st.install_file.as_str()), (10, 20, "/Cement.cia"));
         let r = st.install_result.unwrap();

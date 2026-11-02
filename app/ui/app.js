@@ -702,6 +702,103 @@ $("protect3ds").addEventListener("change", async () => {
   $("prefs").hidden = false;
   $("protect3ds").checked = !ok;
 });
+// ---------------------------------------------------------------------------
+// the colour: every colour of the palette takes the accent's hue, and keeps the
+// brightness of the hand-picked red one so everything stays as easy to read
+
+const DEFAULT_ACCENT = "b8283c";
+const PALETTE = {
+  "--accent": "#b8283c", "--accent-hi": "#cc3a48", "--hi": "#d8676a", "--soft": "#e9a9a3", "--bg": "#0e0a0a", "--blob": "#1a1112",
+  "--surface": "#1d1414", "--well": "#120c0c", "--quick": "#171010", "--track": "#2a1516", "--sel": "#3d1418", "--edge": "#4d1d21",
+  "--line": "#2e1f1f", "--input": "#3a2828", "--text": "#f2e7e4", "--dim": "#a8928e", "--mute": "#594544",
+};
+// the same list as in Cement, already as bright as the red
+const ACCENTS = [
+  ["b8283c", "Red"], ["9b4a22", "Orange"], ["895615", "Amber"], ["2d6e40", "Green"],
+  ["186d69", "Teal"], ["2960b3", "Blue"], ["7546c2", "Violet"], ["a63381", "Pink"],
+];
+const rgbOf = (hex) => { const n = parseInt(hex.replace("#", ""), 16); return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
+const hexOf = (c) => c.map((x) => Math.round(Math.min(1, Math.max(0, x)) * 255).toString(16).padStart(2, "0")).join("");
+function toHsl([r, g, b]) {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min, s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+function fromHsl(h, s, l) {
+  const k = (n) => (n + h * 12) % 12, a = s * Math.min(l, 1 - l);
+  return [0, 8, 4].map((n) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)));
+}
+// relative luminance, as in contrast ratios
+const luma = (c) => { const [r, g, b] = c.map((x) => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+// the colour of hue h and saturation s that is exactly as bright as `like`
+function asBright(h, s, like) {
+  const target = luma(rgbOf(like));
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 30; i++) {
+    const m = (lo + hi) / 2;
+    if (luma(fromHsl(h, s, m)) < target) lo = m; else hi = m;
+  }
+  return hexOf(fromHsl(h, s, (lo + hi) / 2));
+}
+// any picked colour, made as bright as the red (white text on it stays readable)
+function fitAccent(hex) {
+  const [h, s] = toHsl(rgbOf(hex));
+  return asBright(h, s, DEFAULT_ACCENT);
+}
+let accent = DEFAULT_ACCENT;
+function applyAccent(hex) {
+  const root = document.documentElement.style;
+  if (hex === DEFAULT_ACCENT) {
+    // the hand-picked palette exactly
+    for (const name of Object.keys(PALETTE)) root.removeProperty(name);
+    return;
+  }
+  const [h, sat] = toHsl(rgbOf(hex));
+  const s0 = toHsl(rgbOf(DEFAULT_ACCENT))[1];
+  root.setProperty("--accent", "#" + hex);
+  for (const [name, value] of Object.entries(PALETTE)) {
+    if (name === "--accent") continue;
+    // a greyer accent gives greyer surfaces
+    root.setProperty(name, "#" + asBright(h, toHsl(rgbOf(value))[1] * Math.min(1, sat / s0), value));
+  }
+}
+let pickedAccent = accent;
+function drawSwatches() {
+  const box = $("accents");
+  box.innerHTML = "";
+  for (const [a, name] of ACCENTS) {
+    const b = document.createElement("button");
+    b.className = "swatch";
+    b.style.background = "#" + a;
+    b.title = name;
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-label", name);
+    b.setAttribute("aria-checked", String(a === pickedAccent));
+    b.onclick = () => pickAccent(a);
+    box.appendChild(b);
+  }
+  const preset = ACCENTS.find(([a]) => a === pickedAccent);
+  $("accentCustom").value = "#" + pickedAccent;
+  $("accentName").textContent = preset ? preset[1] : "Your own, #" + pickedAccent;
+}
+function pickAccent(a) {
+  const hex = a.replace("#", "").toLowerCase();
+  // the presets are already right; a colour of your own is made as bright as the red
+  pickedAccent = ACCENTS.some(([p]) => p === hex) ? hex : fitAccent(hex);
+  applyAccent(pickedAccent); // shown at once, kept on Save
+  drawSwatches();
+}
+$("accentCustom").addEventListener("change", (ev) => pickAccent(ev.target.value));
+// the colour was changed on a 3DS after this one
+listen("accent", (ev) => {
+  accent = ev.payload;
+  pickedAccent = accent;
+  applyAccent(accent);
+  if (!$("prefs").hidden) drawSwatches();
+});
+
 function showPrefsTab(name) {
   for (const b of document.querySelectorAll("#prefs .seg button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
   for (const p of document.querySelectorAll("#prefs .prefs-tab")) p.hidden = p.dataset.tab !== name;
@@ -730,6 +827,8 @@ function drawAbout() {
 function openPrefs() {
   showPrefsTab("general");
   drawAbout();
+  pickedAccent = accent;
+  drawSwatches();
   $("protect3ds").checked = protect3ds;
   $("checkUpdates").checked = checkUpdates;
   $("bundles").checked = bundles;
@@ -744,6 +843,7 @@ function openPrefs() {
   $("prefs").hidden = false;
 }
 $("prefsCancel").onclick = () => {
+  applyAccent(accent);
   $("prefs").hidden = true;
 };
 $("prefsOk").onclick = async () => {
@@ -782,6 +882,15 @@ $("prefsOk").onclick = async () => {
     invoke("set_check_updates", { on: checkUpdates });
     if (checkUpdates) lookForUpdate();
     else $("updateChip").hidden = true;
+  }
+  if (pickedAccent !== accent) {
+    try {
+      await invoke("set_accent", { accent: pickedAccent });
+      accent = pickedAccent;
+    } catch (e) {
+      applyAccent(accent);
+      tell(e);
+    }
   }
   $("prefs").hidden = true;
 };
@@ -1542,6 +1651,8 @@ $("btnSendFiles").onclick = async () => {
   baguetteProtocol = init.protocol;
   baguetteVersion = init.version;
   settings = init.settings;
+  accent = init.accent;
+  applyAccent(accent);
   // --lite / --standard win for this run; with neither and nothing saved, ask (first launch)
   mode = init.mode_arg || init.mode || "standard";
   lite = mode === "lite";

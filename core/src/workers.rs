@@ -8,14 +8,14 @@
 //! They report to the window through `Sink`.
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 use crate::ftp::{Aborter, Entry, Error, Ftp, Result};
 use crate::remote::{self, Remote, Site};
-use crate::status::{ServerInfo, battery_refusal, battery_text};
+use crate::status::{ServerInfo, Status, battery_refusal, battery_text};
 use crate::util::{base_name, format_size, join_remote, parent_remote};
 use crate::{BUNDLE_MIN_FILES, REQUIRED_PROTOCOL, os};
 
@@ -66,6 +66,8 @@ pub enum Event {
     Refused { message: String, fingerprint: String },
     /// Cement took a new login (empty user: none): the site should use it now
     LoginChanged { user: String, pass: String },
+    /// the colour was changed on the 3DS after Baguette's: Baguette takes it
+    Accent { hex: String, time: u64 },
 }
 
 pub trait Sink: Send + Sync {
@@ -316,6 +318,8 @@ pub struct Shared {
     pub progress: Mutex<Progress>,
     /// the accent colour Cement should use ("b8283c"; empty: leave it)
     pub accent: Mutex<String>,
+    /// when that colour was picked (local clock, 0: never)
+    pub accent_time: AtomicU64,
     /// experimental: many-file uploads to Cement go as one bundle
     pub bundles: AtomicBool,
     /// downloaded .bmp files become .png
@@ -363,6 +367,7 @@ impl Client {
             cancel: AtomicBool::new(false),
             progress: Mutex::new(Progress::default()),
             accent: Mutex::new(String::new()),
+            accent_time: AtomicU64::new(0),
             bundles: AtomicBool::new(false),
             bmp_to_png: AtomicBool::new(false),
             browse: Worker::new(),
@@ -480,12 +485,8 @@ fn run(s: &Arc<Shared>, transfer: bool) {
                     Some(Ok(i)) => i,
                     _ => ServerInfo { protocol: REQUIRED_PROTOCOL, ..Default::default() }, // unknown: do not warn
                 };
-                // the accent chosen in Baguette, when Cement shows another one
-                let accent = s.accent.lock().unwrap().clone();
-                if !accent.is_empty() && !info.full.accent.eq_ignore_ascii_case(&accent) {
-                    if let Some(f) = cement_of(&mut r) {
-                        let _ = f.set_accent(&accent);
-                    }
+                if let Some(f) = cement_of(&mut r) {
+                    sync_accent(s, f, &info.full);
                 }
                 *s.server_info.lock().unwrap() = info;
                 if s.cwd().is_empty() {
@@ -599,9 +600,31 @@ fn idle_wait(s: &Shared, transfer: bool) -> Duration {
     }
 }
 
+/// Baguette and Cement show the same colour: the one picked last, on either side
+fn sync_accent(s: &Shared, c: &mut Ftp, full: &Status) {
+    let mine = s.accent.lock().unwrap().clone();
+    let Some(theirs) = crate::config::normalize_accent(&full.accent) else { return };
+    if mine.is_empty() || theirs == mine {
+        return;
+    }
+    let time = s.accent_time.load(Ordering::Relaxed);
+    match full.accent_time {
+        Some(t) if t > time => {
+            *s.accent.lock().unwrap() = theirs.clone();
+            s.accent_time.store(t, Ordering::Relaxed);
+            s.sink.emit(Event::Accent { hex: theirs, time: t });
+        }
+        // an older Cement keeps no time: it just takes Baguette's colour
+        t => {
+            let _ = c.set_accent(&mine, t.map(|_| time));
+        }
+    }
+}
+
 fn refresh_space(s: &Shared, r: &mut Box<dyn Remote>) -> Result<()> {
     let Some(ftp) = r.cement() else { return Ok(()) };
     let info = ftp.server_info()?;
+    sync_accent(s, ftp, &info.full);
     {
         let mut si = s.server_info.lock().unwrap();
         si.has_space = info.has_space;
@@ -660,7 +683,8 @@ fn execute(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
                 let answer = c.install(&job.path)?;
                 s.message(format!("{}: {}", base_name(&job.path), answer));
             } else {
-                c.set_accent(&job.path)?;
+                let timed = s.server_info.lock().unwrap().full.accent_time.is_some();
+                c.set_accent(&job.path, timed.then(|| s.accent_time.load(Ordering::Relaxed)))?;
             }
             refresh_space(s, ftp)?;
         }

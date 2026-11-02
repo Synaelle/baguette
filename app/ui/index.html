@@ -220,6 +220,14 @@
 
     <section class="prefs-tab" data-tab="general" role="tabpanel">
       <div class="setting">
+        <div class="setting-text"><b>Colour</b><span>The whole window follows it, and so do Cement's screens. A colour picked on the 3DS comes here too.</span></div>
+        <div class="colour-row">
+          <div id="accents" class="swatches" role="radiogroup" aria-label="Colour"></div>
+          <input id="accentCustom" type="color" title="Your own colour" aria-label="Your own colour">
+          <span class="note" id="accentName"></span>
+        </div>
+      </div>
+      <div class="setting">
         <div class="setting-text"><b>Mode</b><span>Standard has your PC and the server side by side. Lite shows only the server's files.</span></div>
         <div id="modes" class="modes" role="radiogroup" aria-label="Mode">
           <button role="radio" data-mode="standard">Standard</button>

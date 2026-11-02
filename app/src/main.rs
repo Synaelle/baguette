@@ -356,6 +356,10 @@ impl Sink for Bridge {
                     RefusedOut { tab, message, fingerprint, host: site.host, protocol: site.protocol.name().into() },
                 );
             }
+            Event::Accent { hex, time } => {
+                commands::spread_accent(app, &hex, time, Some(tab));
+                app.emit("accent", hex);
+            }
             Event::LoginChanged { user, pass } => {
                 // the tab and its saved site use the new login from now on
                 let saved = app.with_tab(tab, |t| {
@@ -592,6 +596,8 @@ fn open_tab(state: &Arc<AppState>, saved_id: u32, name: String, site: Site) -> u
     let client = Client::start_site(site.clone(), Box::new(Bridge(state.clone(), id)));
     {
         let c = state.config.lock().unwrap();
+        *client.shared.accent.lock().unwrap() = c.accent.clone();
+        client.shared.accent_time.store(c.accent_time, Ordering::Relaxed);
         client.shared.bundles.store(c.bundles, Ordering::Relaxed);
         client.shared.bmp_to_png.store(c.bmp_to_png, Ordering::Relaxed);
     }
@@ -654,6 +660,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::init,
             commands::save_settings,
+            commands::set_accent,
             commands::set_local_start,
             commands::set_protect_3ds,
             commands::set_check_updates,

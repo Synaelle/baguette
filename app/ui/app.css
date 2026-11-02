@@ -300,7 +300,13 @@ select option { padding: 3px 6px; border-radius: 6px; }
   .c-date, .row-e .date { display: none; }
 }
 
-input[type=color] { width: 44px; flex-grow: 0 !important; padding: 2px 4px; cursor: pointer; }
+/* settings: the colour */
+.colour-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.swatch { width: 28px; height: 28px; border-radius: 99px; border: 2px solid transparent; padding: 0; cursor: pointer; }
+.swatch:hover { border-color: var(--dim); }
+.swatch[aria-checked="true"] { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface) inset; }
+input[type=color] { width: 44px; height: 28px; flex-grow: 0 !important; padding: 2px 4px; cursor: pointer; }
 #cCias .cia { align-items: center; }
 #cCias .cia .size { color: var(--dim); font-size: 11px; white-space: nowrap; }
 #cCias .cia .pill { height: 22px; padding: 0 10px; font-size: 11px; }
@@ -408,7 +414,7 @@ body.lite.notab #statusbar, body.lite.notab #liteHint { visibility: hidden; }
 .setup-in h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 32px; }
 .setup-in > p { margin: -14px 0 0; color: var(--dim); font-size: 15px; }
 .setup-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; width: 100%; }
-.setup-card { text-align: left; font: inherit; color: inherit; cursor: pointer; background: #170f0f; border: 2px solid var(--line); border-radius: 20px;
+.setup-card { text-align: left; font: inherit; color: inherit; cursor: pointer; background: var(--quick); border: 2px solid var(--line); border-radius: 20px;
   padding: 18px; display: flex; flex-direction: column; gap: 14px; }
 .setup-card:hover { border-color: var(--edge); }
 .setup-card[aria-pressed="true"] { background: var(--surface); border-color: var(--accent); }
