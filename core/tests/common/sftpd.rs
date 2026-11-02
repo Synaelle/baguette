@@ -64,8 +64,8 @@ impl russh::server::Handler for Ssh {
         Ok(if user == "pi" && password == "secret" { Auth::Accept } else { Auth::reject() })
     }
 
-    async fn auth_publickey(&mut self, user: &str, key: &PublicKey) -> Result<Auth, Self::Error> {
-        Ok(if user == "pi" && key.key_data() == self.client.key_data() { Auth::Accept } else { Auth::reject() })
+    async fn auth_publickey(&mut self, user: &str, key: russh::server::VerifiedPublicKey<'_>) -> Result<Auth, Self::Error> {
+        Ok(if user == "pi" && key.public_key.key_data() == self.client.key_data() { Auth::Accept } else { Auth::reject() })
     }
 
     async fn channel_open_session(
