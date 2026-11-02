@@ -9,7 +9,7 @@ publish.workspace = true
 
 [dependencies]
 image = { version = "0.25.10", default-features = false, features = ["bmp", "png"] }
-russh = { version = "0.64.1", default-features = false, features = ["ring", "flate2", "rsa"], optional = true }
+russh = { version = "0.65.0", default-features = false, features = ["ring", "flate2", "rsa"], optional = true }
 russh-sftp = { version = "3.0.1", optional = true }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"], optional = true }
 rustls-platform-verifier = { version = "0.7.1", optional = true }
@@ -25,7 +25,7 @@ ring = "0.17.14" # the saved passwords' encryption (Windows uses DPAPI)
 
 [dev-dependencies]
 rcgen = "0.14.10"
-russh = { version = "0.64.1", default-features = false, features = ["ring", "flate2", "rsa"] }
+russh = { version = "0.65.0", default-features = false, features = ["ring", "flate2", "rsa"] }
 russh-sftp = "3.0.1"
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 tokio = { version = "1.53.3", features = ["rt-multi-thread", "net", "macros", "io-util", "sync", "time"] }
