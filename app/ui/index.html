@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baguette</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="blob b1" aria-hidden="true"></div>
+<div class="blob b2" aria-hidden="true"></div>
+
+<header id="titlebar" data-tauri-drag-region>
+  <svg class="logo" viewBox="0 0 100 100" aria-hidden="true" data-tauri-drag-region><rect x="2" y="2" width="96" height="96" rx="24" fill="var(--accent)"/><g transform="rotate(-38 50 50)"><rect x="13" y="39" width="74" height="22" rx="11" fill="var(--text)"/><path d="M27 44 L34 56 M42 44 L49 56 M57 44 L64 56" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" fill="none"/><circle cx="86" cy="40" r="7" fill="var(--accent)"/><circle cx="78" cy="36" r="4.5" fill="var(--accent)"/></g></svg>
+  <span class="brand" data-tauri-drag-region>baguette</span>
+  <button id="liteServer" class="server-chip" title="Choose another server" hidden></button>
+  <span id="version" class="chip" data-tauri-drag-region></span>
+  <button id="updateChip" class="chip update" hidden></button>
+  <div class="grow" data-tauri-drag-region></div>
+  <button id="btnSettings" class="win" aria-label="Settings" title="Settings"><svg class="gear" viewBox="0 0 16 16" aria-hidden="true"><mask id="gearHole"><rect width="16" height="16" fill="#fff"/><circle cx="8" cy="8" r="2.1" fill="#000"/></mask><g mask="url(#gearHole)"><circle cx="8" cy="8" r="4.9"/><circle cx="13.3" cy="8" r="1.75"/><circle cx="11.75" cy="11.75" r="1.75"/><circle cx="8" cy="13.3" r="1.75"/><circle cx="4.25" cy="11.75" r="1.75"/><circle cx="2.7" cy="8" r="1.75"/><circle cx="4.25" cy="4.25" r="1.75"/><circle cx="8" cy="2.7" r="1.75"/><circle cx="11.75" cy="4.25" r="1.75"/></g></svg></button>
+  <button id="winMin" class="win" aria-label="Minimize"><svg viewBox="0 0 12 12"><path d="M2 6h8"/></svg></button>
+  <button id="winMax" class="win" aria-label="Maximize"><svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1.5"/></svg></button>
+  <button id="winClose" class="win close" aria-label="Close"><svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6"/></svg></button>
+</header>
+
+<div id="body">
+  <nav id="sidebar" aria-label="Sites">
+    <div class="side-head">
+      <span class="h">Sites</span>
+      <button id="btnNewSite" class="pill accent small">+ New</button>
+    </div>
+    <div id="siteList"></div>
+    <div class="grow"></div>
+    <div class="quick">
+      <span class="h">Quick connect</span>
+      <label for="qc">sftp://user@host or 192.168.1.10:5000</label>
+      <input id="qc" spellcheck="false" placeholder="sftp://pi@pi.local">
+    </div>
+  </nav>
+
+  <main id="main">
+    <div id="tabs"></div>
+    <div id="work">
+      <div id="empty">
+        <div class="empty-card">
+          <svg class="bite big" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="var(--accent)"/><circle cx="11" cy="2" r="2.6" fill="var(--surface)"/></svg>
+          <h1>Pick a site to start</h1>
+          <p>Open one from the list, add a new one, or type an address in Quick connect.<br>Connected to Cement, the 3DS tools show up on the right.</p>
+          <button id="btnEmptyNew" class="pill accent">+ New site</button>
+        </div>
+        <div class="empty-card lite-start">
+          <svg class="logo big" viewBox="0 0 100 100" aria-hidden="true"><rect x="2" y="2" width="96" height="96" rx="24" fill="var(--accent)"/><g transform="rotate(-38 50 50)"><rect x="13" y="39" width="74" height="22" rx="11" fill="var(--text)"/><path d="M27 44 L34 56 M42 44 L49 56 M57 44 L64 56" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" fill="none"/><circle cx="86" cy="40" r="7" fill="var(--accent)"/><circle cx="78" cy="36" r="4.5" fill="var(--accent)"/></g></svg>
+          <h1>Where are your files?</h1>
+          <div class="start-box">
+            <div id="startSites"></div>
+            <div class="start-addr">
+              <label for="startAddr">Address</label>
+              <input id="startAddr" spellcheck="false" placeholder="192.168.1.42:5000">
+              <button id="startGo" class="pill">Connect</button>
+            </div>
+          </div>
+          <p class="small">The sites saved in Advanced mode show up here</p>
+        </div>
+      </div>
+      <div id="toolbar">
+        <button id="btnUpload" class="pill accent" title="Send the selected PC items to the server">
+          <svg viewBox="0 0 16 16"><path d="M8 13V3M4 7l4-4 4 4"/></svg>Upload</button>
+        <button id="btnDownload" class="pill" title="Copy the selected server items to the PC folder">
+          <svg viewBox="0 0 16 16"><path d="M8 3v10M4 9l4 4 4-4"/></svg>Download</button>
+        <button id="btnMkdir" class="pill">New folder</button>
+        <button id="btnRename" class="pill" title="Rename (F2)">Rename</button>
+        <button id="btnDelete" class="pill" title="Delete (Del)">Delete</button>
+        <button id="btnRefresh" class="pill icon" title="Refresh (F5)" aria-label="Refresh">
+          <svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5"/></svg></button>
+        <div class="grow"></div>
+        <button id="btnReconnect" class="pill ghost" title="Drop the connection and connect again">Reconnect</button>
+      </div>
+      <div id="panes">
+        <section id="paneLocal" class="pane" aria-label="This PC">
+          <div class="pane-head">
+            <button class="up" title="Up (Backspace)" aria-label="Up"><svg viewBox="0 0 16 16"><path d="M8 13V4M4 8l4-4 4 4"/></svg></button>
+            <span class="pane-title">This PC</span>
+            <span id="roTagLocal" class="ro-tag" title="The Windows folder: Baguette only reads it. Start Baguette with --allow-windows-folder to change that." hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.8"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>read-only</span>
+            <input class="path" spellcheck="false">
+          </div>
+          <div class="cols"><span class="c-name">Name</span><span class="c-size">Size</span><span class="c-date">Modified</span></div>
+          <div class="list" tabindex="0"><div class="rows"></div></div>
+        </section>
+        <section id="paneRemote" class="pane" aria-label="Server">
+          <div class="pane-head">
+            <button class="up" title="Up (Backspace)" aria-label="Up"><svg viewBox="0 0 16 16"><path d="M8 13V4M4 8l4-4 4 4"/></svg></button>
+            <span class="pane-title" id="remoteTitle">Server</span>
+            <span id="roTag" class="ro-tag" title="A protected 3DS folder: it can be looked at and downloaded, not changed. The protection is in the settings." hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.8"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>read-only</span>
+            <input class="path" spellcheck="false">
+            <span id="crumbs" class="crumbs"></span>
+            <div class="view-switch" role="group" aria-label="View">
+              <button data-view="list" title="List" aria-label="List"><svg viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h10"/></svg></button>
+              <button data-view="tiles" title="Tiles" aria-label="Tiles"><svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="9" width="4.5" height="4.5" rx="1.2"/></svg></button>
+            </div>
+            <button id="btnSendFiles" class="pill accent">Send files</button>
+          </div>
+          <div class="cols"><span class="c-name">Name</span><span class="c-size">Size</span><span class="c-date">Modified</span></div>
+          <div class="list" tabindex="0"><div class="rows"></div></div>
+          <div class="offline" hidden><span class="offline-text"></span></div>
+        </section>
+      </div>
+      <div id="queue" hidden>
+        <div class="q-line">
+          <span class="h">Queue</span>
+          <span id="qName" class="q-name"></span>
+          <span id="qDetail" class="dim"></span>
+          <button id="btnCancel" class="pill small">Cancel</button>
+        </div>
+        <div class="bar"><div id="qFill"></div></div>
+      </div>
+    </div>
+    <footer id="statusbar">
+      <span id="stDot" class="dot"></span>
+      <span id="st0"></span>
+      <span id="st1" class="dim"></span>
+      <span id="stSd" class="dim" hidden></span>
+    </footer>
+    <div id="liteHint">Drag files in to send them, drag them out to save them on the PC</div>
+  </main>
+
+  <aside id="cement" aria-label="3DS tools" hidden>
+    <div class="card strong">
+      <div class="card-title"><svg class="bite" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="var(--accent)"/><circle cx="11" cy="2" r="2.6" fill="var(--surface)"/></svg>Cement</div>
+      <div id="cBatteryBox">
+        <div class="kv"><span>Battery</span><span id="cBattery"></span></div>
+        <div class="bar thin"><div id="cBatteryFill" class="soft"></div></div>
+      </div>
+      <div id="cSdBox">
+        <div class="kv"><span>SD card</span><span id="cSd"></span></div>
+        <div class="bar thin"><div id="cSdFill"></div></div>
+        <div id="cSdTotal" class="dim small"></div>
+      </div>
+      <button id="btnSend" class="pill accent wide" title="Send to PC (Ctrl+S)">Send to PC</button>
+      <button id="btnSendSettings" class="link">Choose what to send...</button>
+      <div id="cLoginBox" class="kv"><span>Login</span><button id="btnCementLogin" class="link"></button></div>
+      <button id="btnCementUpdate" class="pill accent wide" hidden></button>
+      <div id="cVersion" class="card-foot"></div>
+    </div>
+    <div class="card">
+      <div class="card-title light">CIAs on the 3DS</div>
+      <div id="cInstalling" hidden>
+        <div class="kv"><span>Installing</span><span id="cInstName"></span></div>
+        <div class="bar thin"><div id="cInstFill"></div></div>
+      </div>
+      <div id="cCias"></div>
+      <div id="cCiaHint" class="dim small">Or press A on the 3DS</div>
+    </div>
+  </aside>
+</div>
+
+<!-- first launch: Standard or Lite -->
+<div id="setup" class="modal" hidden>
+  <div class="setup-in">
+    <h1>Welcome to Baguette</h1>
+    <p>How do you want it? You can switch any time in the settings.</p>
+    <div class="setup-cards">
+      <button class="setup-card" data-mode="standard"><img src="preview-standard.png" alt="Standard: your PC and the server side by side">
+        <span class="setup-name"><span class="radio" aria-hidden="true"></span>Standard</span>
+        <span class="setup-text">Your PC and the server side by side, saved sites, tabs, and the 3DS tools: battery, SD card, CIA installs.</span></button>
+      <button class="setup-card" data-mode="lite"><img src="preview-lite.png" alt="Lite: one window with the server's files">
+        <span class="setup-name"><span class="radio" aria-hidden="true"></span>Lite</span>
+        <span class="setup-text">Just the files on your 3DS or server. Drag files in to send them, drag them out to save them.</span></button>
+    </div>
+    <button id="setupGo" class="pill accent">Start with Standard</button>
+  </div>
+</div>
+
+<div id="menu" class="menu" hidden></div>
+
+<!-- site editor -->
+<div id="siteDlg" class="modal" hidden>
+  <div class="dialog" style="width: 460px">
+    <h2 id="siteDlgTitle">New site</h2>
+    <div class="form">
+      <label for="sName">Name</label><input id="sName" placeholder="My 3DS">
+      <label for="sProto">Protocol</label>
+      <select id="sProto">
+        <option value="ftp">FTP (Cement, plain FTP servers)</option>
+        <option value="sftp">SFTP (SSH)</option>
+        <option value="ftps">FTPS (explicit TLS)</option>
+        <option value="ftps-implicit">FTPS (implicit TLS, port 990)</option>
+      </select>
+      <label for="sHost">Address</label>
+      <div class="pair"><input id="sHost" spellcheck="false" placeholder="192.168.1.10"><input id="sPort" type="number" min="1" max="65535" placeholder="5000"></div>
+      <label for="sUser">User</label><input id="sUser" spellcheck="false" placeholder="empty: anonymous (Cement)">
+      <label for="sPass">Password</label><input id="sPass" type="password" placeholder="">
+      <label for="sKey" class="sftp-only">Key file</label>
+      <div class="pair sftp-only"><input id="sKey" spellcheck="false" placeholder="optional: id_ed25519"><button id="sKeyBrowse" class="pill small">Browse...</button></div>
+      <label for="sPassphrase" class="sftp-only">Passphrase</label><input id="sPassphrase" class="sftp-only" type="password">
+      <label for="sStart">Start folder</label><input id="sStart" spellcheck="false" placeholder="empty: the server's home">
+    </div>
+    <p id="passNote" class="note">Passwords are saved encrypted for your Windows account.</p>
+    <div class="buttons">
+      <button id="siteDelete" class="pill ghost danger">Delete</button>
+      <div class="grow"></div>
+      <button id="siteCancel" class="pill">Cancel</button>
+      <button id="siteSave" class="pill accent">Save</button>
+      <button id="siteConnect" class="pill accent">Save and connect</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div id="prefs" class="modal" hidden>
+  <div class="dialog prefs">
+    <div class="prefs-head">
+      <h2>Settings</h2>
+      <div class="seg" role="tablist" aria-label="Settings">
+        <button role="tab" data-tab="general" aria-selected="true">Preferences</button>
+        <button role="tab" data-tab="3ds" aria-selected="false">3DS</button>
+        <button role="tab" data-tab="lab" aria-selected="false">Experimental</button>
+        <button role="tab" data-tab="about" aria-selected="false">About</button>
+      </div>
+    </div>
+
+    <section class="prefs-tab" data-tab="general" role="tabpanel">
+      <div class="setting">
+        <div class="setting-text"><b>Mode</b><span>Standard has your PC and the server side by side. Lite shows only the server's files.</span></div>
+        <div id="modes" class="modes" role="radiogroup" aria-label="Mode">
+          <button role="radio" data-mode="standard">Standard</button>
+          <button role="radio" data-mode="lite">Lite</button>
+        </div>
+      </div>
+      <div class="setting">
+        <div class="setting-text"><label for="localStart"><b>PC side opens in</b></label><span>Where the left side starts when Baguette opens.</span></div>
+        <select id="localStart">
+          <option value="home">Your user folder</option>
+          <option value="last">The folder you left it in</option>
+          <option value="dir">A folder you choose</option>
+        </select>
+        <div class="pair" id="localDirRow"><input id="localDir" spellcheck="false" aria-label="Folder"><button id="localBrowse" class="pill small">Browse...</button></div>
+      </div>
+      <div class="setting row-setting">
+        <div class="setting-text"><label for="sendToPc"><b>Send to PC</b></label><span>A button on the Cement card that copies the 3DS folders you choose to a PC folder in one go (Ctrl+S).</span></div>
+        <input id="sendToPc" class="switch" type="checkbox">
+      </div>
+      <div class="setting row-setting">
+        <div class="setting-text"><label for="bmpToPng"><b>Save BMP pictures as PNG</b></label><span>Downloads turn .bmp files (like the 3DS screenshots) into .png.</span></div>
+        <input id="bmpToPng" class="switch" type="checkbox">
+      </div>
+      <div class="setting row-setting">
+        <div class="setting-text"><label for="checkUpdates"><b>Look for updates</b></label><span>Asks GitHub once when Baguette starts. Updates only download when you click them.</span></div>
+        <input id="checkUpdates" class="switch" type="checkbox" checked>
+      </div>
+    </section>
+
+    <section class="prefs-tab" data-tab="3ds" role="tabpanel" hidden>
+      <div class="setting row-setting">
+        <div class="setting-text"><label for="protect3ds"><b>Protect important 3DS files</b></label><span>On Cement, /Nintendo 3DS, /boot.firm, /luma, /gm9 and /boot.3dsx are read-only: you can look and download, not change them. Luma's screenshots and crash dumps stay free.</span></div>
+        <input id="protect3ds" class="switch" type="checkbox" checked>
+      </div>
+    </section>
+
+    <section class="prefs-tab" data-tab="lab" role="tabpanel" hidden>
+      <p class="lab-note">Still being tried out: these may change or go away.</p>
+      <div class="setting row-setting">
+        <div class="setting-text"><label for="bundles"><b>Send many files as one bundle</b></label><span>Baguette and Cement only (Cement 2.0-RC3 and later). Uploads of 8 files or more go as one stream that Cement unpacks as it arrives.</span></div>
+        <input id="bundles" class="switch" type="checkbox">
+      </div>
+    </section>
+
+    <section class="prefs-tab" data-tab="about" role="tabpanel" hidden>
+      <div class="setting">
+        <div class="about-row"><span>Baguette</span><b id="aboutBaguette"></b></div>
+        <div class="about-row"><span>Cement protocol</span><b id="aboutProtocol"></b></div>
+        <div class="about-row" id="aboutCementRow"><span>Cement on this tab</span><b id="aboutCement"></b></div>
+        <p class="note" id="aboutNote"></p>
+      </div>
+      <p class="note">Baguette and Cement each have their own version. The protocol level is what tells which ones work together: a Cement with a lower level still works, without the newer features.</p>
+    </section>
+
+    <div class="buttons"><div class="grow"></div><button id="prefsCancel" class="pill">Cancel</button><button id="prefsOk" class="pill accent">Save</button></div>
+  </div>
+</div>
+
+<!-- Send to PC settings -->
+<div id="settings" class="modal" hidden>
+  <div class="dialog" style="width: 480px">
+    <h2>Send to PC</h2>
+    <p class="note">Copies these 3DS folders and files into one PC folder, in one click.</p>
+    <select id="sendItems" multiple size="6"></select>
+    <div class="row">
+      <button id="btnAddPick" class="pill small">Add from 3DS...</button>
+      <button id="btnRemoveItem" class="pill small">Remove</button>
+    </div>
+    <div class="row"><input id="newPath" spellcheck="false" placeholder="/path/to/folder or file"><button id="btnAddPath" class="pill small">Add</button></div>
+    <p id="sendNote" class="note"></p>
+    <div class="row"><label for="sendDir">PC folder</label><input id="sendDir" spellcheck="false"><button id="btnBrowse" class="pill small">Browse...</button></div>
+    <label class="check"><input id="replace" type="checkbox"> Replace the PC folder contents (old files go to <span class="bin-name">the Recycle Bin</span>)</label>
+    <div class="buttons"><div class="grow"></div><button id="settingsCancel" class="pill">Cancel</button><button id="settingsOk" class="pill accent">Save</button></div>
+  </div>
+</div>
+
+<!-- 3DS picker -->
+<div id="picker" class="modal" hidden>
+  <div class="dialog" style="width: 440px">
+    <h2>Add from 3DS</h2>
+    <div class="row"><button id="pickUp" class="pill small">Up</button><input id="pickPath" readonly></div>
+    <div id="pickWrap"><div id="pickRows"></div></div>
+    <div class="buttons"><div class="grow"></div><button id="pickCancel" class="pill">Cancel</button><button id="pickOk" class="pill accent">Add</button></div>
+  </div>
+</div>
+
+<!-- send an edited file back -->
+<div id="sendback" class="modal" hidden>
+  <div class="dialog" style="width: 480px">
+    <h2>Send your changes back?</h2>
+    <p id="sbPath" class="mono"></p>
+    <div class="grid">
+      <span class="dim">On the server:</span><span id="sbRemote"></span>
+      <span class="dim">Your edited file:</span><span id="sbLocal"></span>
+    </div>
+    <p id="sbWarn" class="warn"></p>
+    <div class="buttons"><div class="grow"></div><button id="sbKeep" class="pill">Don't send</button><button id="sbSend" class="pill accent">Send</button></div>
+  </div>
+</div>
+
+<!-- refused login, certificate or host key -->
+<div id="refusedDlg" class="modal" hidden>
+  <div class="dialog" style="width: 480px">
+    <h2 id="rfTitle"></h2>
+    <p id="rfText"></p>
+    <p id="rfFinger" class="mono"></p>
+    <div id="rfLogin" class="form">
+      <label for="rfUser">User</label><input id="rfUser" spellcheck="false">
+      <label for="rfPass" id="rfPassLabel">Password</label><input id="rfPass" type="password">
+    </div>
+    <label id="rfSaveRow" class="check"><input id="rfSave" type="checkbox" checked> Save it with the site</label>
+    <div class="buttons"><div class="grow"></div><button id="rfCancel" class="pill">Cancel</button><button id="rfOk" class="pill accent">Connect</button></div>
+  </div>
+</div>
+
+<!-- Cement's own login -->
+<div id="cementLogin" class="modal" hidden>
+  <div class="dialog" style="width: 420px">
+    <h2>3DS login</h2>
+    <p class="note">With a login, Cement only lets in this user name and password, from any FTP client. Baguette saves them with the site. On the 3DS, Cement 2.3.0 and later keep only a hash of the password on the SD card.</p>
+    <div class="form">
+      <label for="clUser">User</label><input id="clUser" spellcheck="false">
+      <label for="clPass">Password</label><input id="clPass" type="password">
+    </div>
+    <div class="buttons"><button id="clRemove" class="pill ghost danger">No login</button><div class="grow"></div><button id="clCancel" class="pill">Cancel</button><button id="clSave" class="pill accent">Save</button></div>
+  </div>
+</div>
+
+<!-- yes/no and messages -->
+<div id="ask" class="modal" hidden>
+  <div class="dialog" style="width: 420px">
+    <h2 id="askTitle">Baguette</h2>
+    <p id="askText"></p>
+    <div class="buttons"><div class="grow"></div><button id="askNo" class="pill">No</button><button id="askYes" class="pill accent">Yes</button></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

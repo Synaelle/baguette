@@ -1,0 +1,9 @@
+target/
+app/gen/
+*.exe
+*.AppImage
+/baguette-cli
+baguette.ini
+temp/
+webview/
+.atelier/
