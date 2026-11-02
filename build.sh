@@ -26,8 +26,6 @@ fi
 export BAGUETTE_VERSION
 echo "version $BAGUETTE_VERSION"
 
-# rust-toolchain.toml names Windows' MSVC toolchain: Linux builds use stable
-export RUSTUP_TOOLCHAIN=${RUSTUP_TOOLCHAIN:-stable}
 # a checkout on a Windows drive (WSL's /mnt/c) builds much faster with its
 # target folder on the Linux side, and keeps it apart from the Windows build's
 if [ -z "${CARGO_TARGET_DIR:-}" ]; then
