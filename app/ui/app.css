@@ -522,7 +522,9 @@ html.ficelle .setting + .setting { border-top: 1px solid var(--line); padding-to
 html.ficelle .setting-text b { font-weight: 600; }
 html.ficelle .seg { background: transparent; padding: 0; }
 html.ficelle .seg button[aria-selected="true"] { background: var(--sel); color: var(--text); }
-html.ficelle .modes button { background: transparent; border-color: var(--line); }
+/* square buttons need less side room than round pills: Ficelle's 0 12px */
+html.ficelle .modes button { height: 32px; padding: 0 12px; background: transparent; border-color: var(--line); }
+html.ficelle .seg button { padding: 0 12px; }
 html.ficelle .modes button[aria-checked="true"] { background: transparent; border-color: var(--accent); }
 
 /* one red button per view: Upload; New site is a quiet button with a red plus */
