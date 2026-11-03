@@ -17,24 +17,25 @@
 
 :root {
   /* the accent can change later (settings): everything red derives from it */
-  --accent: #b8283c;
-  --accent-hi: #cc3a48;
-  --hi: #d8676a;       /* warm highlight */
-  --soft: #e9a9a3;     /* soft text on red */
-  --bg: #0e0a0a;
-  --blob: #1a1112;
-  --surface: #1d1414;  /* cards */
-  --well: #120c0c;     /* lists inside cards */
-  --quick: #171010;    /* the Quick connect box */
-  --track: #2a1516;
-  --sel: #3d1418;
-  --edge: #4d1d21;
-  --line: #2e1f1f;
-  --input: #3a2828;
-  --text: #f2e7e4;
-  --dim: #a8928e;
-  --mute: #594544;
-  --ok: #6fcf8e;
+  --accent: #e44c3e;
+  --accent-hi: #ec6457;
+  --on-accent: #140b09; /* text on the accent */
+  --hi: #ec7366;       /* warm highlight */
+  --soft: #e8b4ab;     /* soft text on red */
+  --bg: #0e0d0d;
+  --blob: #131111;
+  --surface: #161414;  /* cards */
+  --well: #110f0f;     /* lists inside cards */
+  --quick: #131111;    /* the Quick connect box */
+  --track: #1f1c1b;
+  --sel: #3a1915;
+  --edge: #423b38;
+  --line: #2e2a28;
+  --input: #3a3431;
+  --text: #e6dfd8;
+  --dim: #9a918a;
+  --mute: #5f5752;
+  --ok: #8db07a;
   --display: "Fredoka", "Segoe UI Variable Display", sans-serif;
   --body: "Nunito", "Segoe UI Variable Text", sans-serif;
   color-scheme: dark;
@@ -59,7 +60,7 @@ body {
 .h { font-family: var(--display); font-weight: 600; font-size: 15px; }
 button { font: inherit; color: inherit; cursor: pointer; }
 input, select { font: inherit; color: var(--text); }
-::selection { background: var(--accent); color: #fff; }
+::selection { background: var(--accent); color: var(--on-accent); }
 
 .blob { position: fixed; background: var(--blob); pointer-events: none; z-index: 0; }
 .b1 { width: 620px; height: 620px; left: -300px; top: 300px; border-radius: 50%; }
@@ -76,14 +77,14 @@ input, select { font: inherit; color: var(--text); }
 .logo { width: 22px; height: 22px; }
 .brand { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: .3px; }
 button.chip { border: 0; cursor: pointer; }
-.chip.update { background: var(--accent); color: #fff; display: inline-flex; align-items: center; gap: 5px; }
+.chip.update { background: var(--accent); color: var(--on-accent); display: inline-flex; align-items: center; gap: 5px; }
 .chip.update:hover { background: var(--accent-hi); }
-.chip.update::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: #fff; }
+.chip.update::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: var(--on-accent); }
 .chip { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--track); color: var(--hi); }
 .win { width: 46px; height: 44px; border: 0; background: transparent; color: var(--dim); display: grid; place-items: center; }
 .win svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.3; }
 .win:hover { background: var(--track); color: var(--text); }
-.win.close:hover { background: var(--accent); color: #fff; }
+.win.close:hover { background: var(--accent); color: var(--on-accent); }
 
 /* ---- layout ---- */
 #body { position: relative; z-index: 1; flex-grow: 1; display: flex; min-height: 0; }
@@ -171,11 +172,11 @@ select option { padding: 3px 6px; border-radius: 6px; }
 .pill:disabled { opacity: .45; cursor: default; }
 .pill svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .pill.icon { padding: 0 9px; }
-.pill.accent { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 800; }
+.pill.accent { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 800; }
 .pill.accent:hover:not(:disabled) { background: var(--accent-hi); border-color: var(--accent-hi); }
 .pill.ghost { background: transparent; border-color: transparent; color: var(--dim); }
 .pill.ghost:hover { color: var(--text); background: var(--well); }
-.pill.danger:hover { color: #fff; background: var(--accent); }
+.pill.danger:hover { color: var(--on-accent); background: var(--accent); }
 .pill.small { height: 26px; padding: 0 12px; font-size: 12px; }
 .pill.wide { justify-content: center; height: 34px; }
 .link { border: 0; background: transparent; color: var(--hi); font-weight: 700; padding: 0; text-align: left; font-size: 12px; }
@@ -209,7 +210,7 @@ select option { padding: 3px 6px; border-radius: 6px; }
 .row-e.sel { background: var(--sel); }
 .row-e.sel .size, .row-e.sel .date { color: var(--soft); }
 .list:focus .row-e.focus { box-shadow: inset 0 0 0 1px var(--edge); }
-.row-e.drop { background: var(--accent); color: #fff; }
+.row-e.drop { background: var(--accent); color: var(--on-accent); }
 .row-e .name { display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; }
 .row-e .name span { overflow: hidden; text-overflow: ellipsis; }
 .row-e .size, .row-e .date { color: var(--dim); font-size: 12px; white-space: nowrap; overflow: hidden; }
@@ -319,7 +320,7 @@ input[type=color] { width: 44px; height: 28px; flex-grow: 0 !important; padding:
 .seg { display: flex; gap: 4px; padding: 4px; border-radius: 99px; background: var(--well); align-self: flex-start; }
 .seg button { height: 30px; padding: 0 14px; border: 0; border-radius: 99px; background: transparent; color: var(--dim); font-weight: 800; }
 .seg button:hover { color: var(--text); }
-.seg button[aria-selected="true"] { background: var(--accent); color: #fff; }
+.seg button[aria-selected="true"] { background: var(--accent); color: var(--on-accent); }
 .prefs-tab { display: flex; flex-direction: column; gap: 10px; min-height: 230px; }
 .setting { background: var(--well); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
 .setting.row-setting { flex-direction: row; align-items: center; gap: 16px; }
@@ -342,7 +343,7 @@ input.switch::after {
   background: var(--dim); transition: transform .15s, background .15s;
 }
 input.switch:checked { background: var(--accent); border-color: var(--accent); }
-input.switch:checked::after { transform: translateX(18px); background: #fff; }
+input.switch:checked::after { transform: translateX(18px); background: var(--on-accent); }
 input.switch:focus-visible { outline: 2px solid var(--hi); outline-offset: 2px; }
 
 /* Lite mode (--lite): only the server side, as a list or as tiles */
@@ -381,7 +382,7 @@ body.lite .lite-start { display: block; max-width: 440px; width: 100%; }
 .start-site:hover { background: var(--track); }
 .start-site .txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .start-site .sub { color: var(--dim); font-size: 12px; }
-.start-site .go { margin-left: auto; background: var(--accent); color: #fff; border-radius: 99px; padding: 4px 14px; font-weight: 800; }
+.start-site .go { margin-left: auto; background: var(--accent); color: var(--on-accent); border-radius: 99px; padding: 4px 14px; font-weight: 800; }
 .start-addr { display: flex; gap: 8px; }
 .start-addr label { position: absolute; left: -9999px; }
 .start-addr input { flex-grow: 1; border-radius: 99px; padding: 0 14px; }

@@ -706,16 +706,16 @@ $("protect3ds").addEventListener("change", async () => {
 // the colour: every colour of the palette takes the accent's hue, and keeps the
 // brightness of the hand-picked red one so everything stays as easy to read
 
-const DEFAULT_ACCENT = "b8283c";
+const DEFAULT_ACCENT = "e44c3e";
 const PALETTE = {
-  "--accent": "#b8283c", "--accent-hi": "#cc3a48", "--hi": "#d8676a", "--soft": "#e9a9a3", "--bg": "#0e0a0a", "--blob": "#1a1112",
-  "--surface": "#1d1414", "--well": "#120c0c", "--quick": "#171010", "--track": "#2a1516", "--sel": "#3d1418", "--edge": "#4d1d21",
-  "--line": "#2e1f1f", "--input": "#3a2828", "--text": "#f2e7e4", "--dim": "#a8928e", "--mute": "#594544",
+  "--accent": "#e44c3e", "--accent-hi": "#ec6457", "--hi": "#ec7366", "--soft": "#e8b4ab", "--bg": "#0e0d0d", "--blob": "#131111",
+  "--surface": "#161414", "--well": "#110f0f", "--quick": "#131111", "--track": "#1f1c1b", "--sel": "#3a1915", "--edge": "#423b38",
+  "--line": "#2e2a28", "--input": "#3a3431", "--text": "#e6dfd8", "--dim": "#9a918a", "--mute": "#5f5752",
 };
-// the same list as in Cement, already as bright as the red
+// the same list as in Cement, already as bright as the red (dark text on them reads at 5:1)
 const ACCENTS = [
-  ["b8283c", "Red"], ["9b4a22", "Orange"], ["895615", "Amber"], ["2d6e40", "Green"],
-  ["186d69", "Teal"], ["2960b3", "Blue"], ["7546c2", "Violet"], ["a63381", "Pink"],
+  ["e44c3e", "Red"], ["ce622d", "Orange"], ["b6721c", "Amber"], ["2b9349", "Green"],
+  ["20908a", "Teal"], ["4981d5", "Blue"], ["946dd5", "Violet"], ["cd53a6", "Pink"],
 ];
 const rgbOf = (hex) => { const n = parseInt(hex.replace("#", ""), 16); return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
 const hexOf = (c) => c.map((x) => Math.round(Math.min(1, Math.max(0, x)) * 255).toString(16).padStart(2, "0")).join("");
@@ -742,7 +742,7 @@ function asBright(h, s, like) {
   }
   return hexOf(fromHsl(h, s, (lo + hi) / 2));
 }
-// any picked colour, made as bright as the red (white text on it stays readable)
+// any picked colour, made as bright as the red (dark text on it stays readable)
 function fitAccent(hex) {
   const [h, s] = toHsl(rgbOf(hex));
   return asBright(h, s, DEFAULT_ACCENT);

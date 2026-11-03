@@ -17,7 +17,7 @@ pub struct Config {
     pub send_dir: String,        // "Send to PC" destination folder
     pub send_items: Vec<String>, // "Send to PC" 3DS paths
     pub send_replace: bool,      // "Send to PC" empties the PC folder first
-    pub accent: String,          // "b8283c": the window's red, also sent to Cement
+    pub accent: String,          // "e44c3e": the window's red, also sent to Cement
     pub local_start: String,     // where the PC side opens: "home", "last" or a folder
     pub local_last: String,      // the PC folder shown last
     pub protect_3ds: bool,       // refuse to delete or replace important 3DS files
@@ -29,7 +29,9 @@ pub struct Config {
     pub accent_time: u64,        // when the accent was picked (local clock, 0: never); the newer side wins
 }
 
-pub const DEFAULT_ACCENT: &str = "b8283c";
+pub const DEFAULT_ACCENT: &str = "e44c3e";
+/// the red before Ficelle's: a colour still set to it moves to the new one
+const OLD_DEFAULT_ACCENT: &str = "b8283c";
 
 /// "standard" or "lite" (any case); None for anything else
 pub fn normalize_mode(s: &str) -> Option<String> {
@@ -37,9 +39,10 @@ pub fn normalize_mode(s: &str) -> Option<String> {
     matches!(m.as_str(), "standard" | "lite").then_some(m)
 }
 
-/// "#B8283C" or "b8283c" -> "b8283c"; None when it isn't a colour
+/// "#2B9349" or "2b9349" -> "2b9349" (the old default red gives the new one); None when it isn't a colour
 pub fn normalize_accent(s: &str) -> Option<String> {
     let h = s.trim().trim_start_matches('#').to_ascii_lowercase();
+    let h = if h == OLD_DEFAULT_ACCENT { DEFAULT_ACCENT.to_string() } else { h };
     (h.len() == 6 && h.bytes().all(|c| c.is_ascii_hexdigit())).then_some(h)
 }
 
@@ -279,5 +282,12 @@ mod tests {
     fn escaping() {
         assert_eq!(escape("/été 100%"), "/%C3%A9t%C3%A9 100%25");
         assert_eq!(unescape(&escape("/été 100%")), "/été 100%");
+    }
+
+    #[test]
+    fn accents() {
+        assert_eq!(normalize_accent("#2B9349").as_deref(), Some("2b9349"));
+        assert_eq!(normalize_accent("b8283c").as_deref(), Some(DEFAULT_ACCENT), "the old red moves to the new one");
+        assert_eq!(normalize_accent("#12345"), None);
     }
 }
