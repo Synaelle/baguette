@@ -668,6 +668,7 @@ fn main() {
             commands::set_bmp_to_png,
             commands::set_send_to_pc,
             commands::set_mode,
+            commands::set_look,
             commands::check_update,
             commands::install_update,
             commands::update_cement,

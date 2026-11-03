@@ -85,6 +85,7 @@ pub struct InitOut {
     version: String,
     protocol: i32, // the newest Cement protocol this Baguette speaks
     accent: String,
+    look: String,
     local_start: String, // "home", "last" or a folder
     local_dir: String,   // where the PC side opens now
     windows_dir: Option<String>, // read-only on the PC side
@@ -115,6 +116,7 @@ pub fn init(state: St) -> InitOut {
         version: VERSION.into(),
         protocol: baguette_core::PROTOCOL,
         accent: c.accent.clone(),
+        look: c.look.clone(),
         local_start: c.local_start.clone(),
         local_dir: c.local_start_dir(),
         windows_dir: state.windows_dir.clone(),
@@ -223,6 +225,16 @@ pub fn set_bundles(state: St, on: bool) {
     for t in state.tabs.lock().unwrap().iter() {
         t.client.shared.bundles.store(on, std::sync::atomic::Ordering::Relaxed);
     }
+}
+
+/// Evil Twin, Ficelle or Ficelle light
+#[tauri::command]
+pub fn set_look(state: St, look: String) -> Result<(), String> {
+    let l = baguette_core::config::normalize_look(&look).ok_or("Not a look")?;
+    let mut c = state.config.lock().unwrap();
+    c.look = l;
+    c.save();
+    Ok(())
 }
 
 /// Standard or Lite, chosen at first launch or in the settings

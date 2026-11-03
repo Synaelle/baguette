@@ -712,6 +712,13 @@ const PALETTE = {
   "--surface": "#161414", "--well": "#110f0f", "--quick": "#131111", "--track": "#1f1c1b", "--sel": "#3a1915", "--edge": "#423b38",
   "--line": "#2e2a28", "--input": "#3a3431", "--text": "#e6dfd8", "--dim": "#9a918a", "--mute": "#5f5752",
 };
+// Ficelle's light room: the same names, the lights on
+const LIGHT_ACCENT = "c1271b";
+const LIGHT_PALETTE = {
+  "--accent": "#c1271b", "--accent-hi": "#ad2117", "--hi": "#c1271b", "--soft": "#7a2a20", "--bg": "#f1efea", "--blob": "#e9e6e0",
+  "--surface": "#fbfaf7", "--well": "#f1efea", "--quick": "#f6f4ef", "--track": "#e5e2db", "--sel": "#f5d5ce", "--edge": "#a9a298",
+  "--line": "#cbc6bc", "--input": "#cbc6bc", "--text": "#161413", "--dim": "#5e5853", "--mute": "#9c958c",
+};
 // the same list as in Cement, already as bright as the red (dark text on them reads at 5:1)
 const ACCENTS = [
   ["e44c3e", "Red"], ["ce622d", "Orange"], ["b6721c", "Amber"], ["2b9349", "Green"],
@@ -748,21 +755,50 @@ function fitAccent(hex) {
   return asBright(h, s, DEFAULT_ACCENT);
 }
 let accent = DEFAULT_ACCENT;
+let look = "evil-twin";
+const lightRoom = () => look === "ficelle-light";
+// the accent as shown: the light room wants it darker, as dark as its own red
+function shownAccent(hex) {
+  if (!lightRoom()) return hex;
+  const [h, s] = toHsl(rgbOf(hex));
+  return hex === DEFAULT_ACCENT ? LIGHT_ACCENT : asBright(h, s, LIGHT_ACCENT);
+}
 function applyAccent(hex) {
   const root = document.documentElement.style;
+  const base = lightRoom() ? LIGHT_PALETTE : PALETTE;
   if (hex === DEFAULT_ACCENT) {
-    // the hand-picked palette exactly
+    // the hand-picked palette of the room exactly
     for (const name of Object.keys(PALETTE)) root.removeProperty(name);
     return;
   }
-  const [h, sat] = toHsl(rgbOf(hex));
-  const s0 = toHsl(rgbOf(DEFAULT_ACCENT))[1];
-  root.setProperty("--accent", "#" + hex);
-  for (const [name, value] of Object.entries(PALETTE)) {
+  const shown = shownAccent(hex);
+  const [h, sat] = toHsl(rgbOf(shown));
+  const s0 = toHsl(rgbOf(base["--accent"]))[1];
+  root.setProperty("--accent", "#" + shown);
+  for (const [name, value] of Object.entries(base)) {
     if (name === "--accent") continue;
     // a greyer accent gives greyer surfaces
     root.setProperty(name, "#" + asBright(h, toHsl(rgbOf(value))[1] * Math.min(1, sat / s0), value));
   }
+}
+// Evil Twin, Ficelle or Ficelle light: classes on the page, then the colour again for that room
+function applyLook(l, hex) {
+  look = l;
+  document.documentElement.classList.toggle("ficelle", l.startsWith("ficelle"));
+  document.documentElement.classList.toggle("light", l === "ficelle-light");
+  applyAccent(hex);
+}
+let pickedLook = look;
+function drawLooks() {
+  for (const b of document.querySelectorAll("#looks button")) b.setAttribute("aria-checked", String(b.dataset.look === pickedLook));
+}
+for (const b of document.querySelectorAll("#looks button")) {
+  b.onclick = () => {
+    pickedLook = b.dataset.look;
+    applyLook(pickedLook, pickedAccent); // shown at once, kept on Save
+    drawLooks();
+    drawSwatches();
+  };
 }
 let pickedAccent = accent;
 function drawSwatches() {
@@ -771,7 +807,7 @@ function drawSwatches() {
   for (const [a, name] of ACCENTS) {
     const b = document.createElement("button");
     b.className = "swatch";
-    b.style.background = "#" + a;
+    b.style.background = "#" + shownAccent(a);
     b.title = name;
     b.setAttribute("role", "radio");
     b.setAttribute("aria-label", name);
@@ -783,6 +819,7 @@ function drawSwatches() {
   $("accentCustom").value = "#" + pickedAccent;
   $("accentName").textContent = preset ? preset[1] : "Your own, #" + pickedAccent;
 }
+const prefsOpen = () => !$("prefs").hidden;
 function pickAccent(a) {
   const hex = a.replace("#", "").toLowerCase();
   // the presets are already right; a colour of your own is made as bright as the red
@@ -795,7 +832,7 @@ $("accentCustom").addEventListener("change", (ev) => pickAccent(ev.target.value)
 listen("accent", (ev) => {
   accent = ev.payload;
   pickedAccent = accent;
-  applyAccent(accent);
+  applyLook(prefsOpen() ? pickedLook : look, accent);
   if (!$("prefs").hidden) drawSwatches();
 });
 
@@ -828,6 +865,8 @@ function openPrefs() {
   showPrefsTab("general");
   drawAbout();
   pickedAccent = accent;
+  pickedLook = look;
+  drawLooks();
   drawSwatches();
   $("protect3ds").checked = protect3ds;
   $("checkUpdates").checked = checkUpdates;
@@ -843,7 +882,7 @@ function openPrefs() {
   $("prefs").hidden = false;
 }
 $("prefsCancel").onclick = () => {
-  applyAccent(accent);
+  applyLook(look, accent);
   $("prefs").hidden = true;
 };
 $("prefsOk").onclick = async () => {
@@ -883,12 +922,16 @@ $("prefsOk").onclick = async () => {
     if (checkUpdates) lookForUpdate();
     else $("updateChip").hidden = true;
   }
+  if (pickedLook !== look) {
+    invoke("set_look", { look: pickedLook });
+    look = pickedLook;
+  }
   if (pickedAccent !== accent) {
     try {
       await invoke("set_accent", { accent: pickedAccent });
       accent = pickedAccent;
     } catch (e) {
-      applyAccent(accent);
+      applyLook(look, accent);
       tell(e);
     }
   }
@@ -1652,7 +1695,7 @@ $("btnSendFiles").onclick = async () => {
   baguetteVersion = init.version;
   settings = init.settings;
   accent = init.accent;
-  applyAccent(accent);
+  applyLook(init.look, accent);
   // --lite / --standard win for this run; with neither and nothing saved, ask (first launch)
   mode = init.mode_arg || init.mode || "standard";
   lite = mode === "lite";

@@ -26,12 +26,19 @@ pub struct Config {
     pub bmp_to_png: bool,        // downloaded .bmp files are saved as .png
     pub send_to_pc: bool,        // the Send to PC button on the Cement card
     pub mode: String,            // "standard" or "lite"; empty until chosen at first launch
-    pub accent_time: u64,        // when the accent was picked (local clock, 0: never); the newer side wins
+    pub accent_time: u64,
+    pub look: String,            // "evil-twin", "ficelle" or "ficelle-light"        // when the accent was picked (local clock, 0: never); the newer side wins
 }
 
 pub const DEFAULT_ACCENT: &str = "e44c3e";
 /// the red before Ficelle's: a colour still set to it moves to the new one
 const OLD_DEFAULT_ACCENT: &str = "b8283c";
+
+/// "evil-twin", "ficelle" or "ficelle-light" (any case); None for anything else
+pub fn normalize_look(s: &str) -> Option<String> {
+    let l = s.trim().to_ascii_lowercase();
+    matches!(l.as_str(), "evil-twin" | "ficelle" | "ficelle-light").then_some(l)
+}
 
 /// "standard" or "lite" (any case); None for anything else
 pub fn normalize_mode(s: &str) -> Option<String> {
@@ -65,6 +72,7 @@ impl Default for Config {
             send_to_pc: false,
             mode: String::new(),
             accent_time: 0,
+            look: "evil-twin".into(),
         }
     }
 }
@@ -235,6 +243,7 @@ impl Config {
             send_to_pc: get_int(&path, "ui", "send_to_pc", 0) != 0,
             mode: normalize_mode(&get_str(&path, "ui", "mode", "")).unwrap_or_default(),
             accent_time: get_str(&path, "ui", "accent_time", "0").trim().parse().unwrap_or(0),
+            look: normalize_look(&get_str(&path, "ui", "look", "")).unwrap_or_else(|| "evil-twin".into()),
         };
         let count = get_int(&path, "sendtopc", "count", 0);
         for i in 0..count {
@@ -254,6 +263,7 @@ impl Config {
         put(&path, "ui", Some("dark"), Some(if self.dark { "1" } else { "0" }));
         put(&path, "ui", Some("accent"), Some(&self.accent));
         put(&path, "ui", Some("accent_time"), Some(&self.accent_time.to_string()));
+        put(&path, "ui", Some("look"), Some(&self.look));
         put(&path, "ui", Some("local_start"), Some(&escape(&self.local_start)));
         put(&path, "ui", Some("protect_3ds"), Some(if self.protect_3ds { "1" } else { "0" }));
         put(&path, "ui", Some("check_updates"), Some(if self.check_updates { "1" } else { "0" }));
@@ -289,5 +299,12 @@ mod tests {
         assert_eq!(normalize_accent("#2B9349").as_deref(), Some("2b9349"));
         assert_eq!(normalize_accent("b8283c").as_deref(), Some(DEFAULT_ACCENT), "the old red moves to the new one");
         assert_eq!(normalize_accent("#12345"), None);
+    }
+
+    #[test]
+    fn looks() {
+        assert_eq!(normalize_look(" Ficelle-Light ").as_deref(), Some("ficelle-light"));
+        assert_eq!(normalize_look("evil-twin").as_deref(), Some("evil-twin"));
+        assert_eq!(normalize_look("miku"), None);
     }
 }
