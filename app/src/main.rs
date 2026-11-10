@@ -613,9 +613,26 @@ fn open_tab(state: &Arc<AppState>, saved_id: u32, name: String, site: Site) -> u
     id
 }
 
+/// in the temp folder Baguette made, so a folder of that name it didn't make is
+/// never emptied
+const TEMP_MARKER: &str = "made-by-baguette";
+
+/// clears the leftovers of drag-outs, opened files and updates from Baguette's own
+/// temp folder, and makes it (with its marker) when it isn't there
+fn reset_temp(root: &str) {
+    let marker = os::join(root, TEMP_MARKER);
+    if std::path::Path::new(&marker).is_file() {
+        os::delete_tree(root);
+    } else if std::path::Path::new(root).exists() {
+        return;
+    }
+    if std::fs::create_dir_all(root).is_ok() {
+        let _ = std::fs::write(&marker, "");
+    }
+}
+
 fn main() {
-    // leftovers from previous drag-out downloads and opened files, and from an update
-    os::delete_tree(&os::temp_root());
+    reset_temp(&os::temp_root());
     update::clean_old();
 
     let (config, _) = Config::load();
@@ -717,5 +734,31 @@ fn main() {
 
     for mut t in state.tabs.lock().unwrap().drain(..) {
         t.client.stop();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn temp_is_emptied_only_when_baguette_made_it() {
+        let base = std::env::temp_dir().join(format!("baguette-temp-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let root = base.join("Baguette.temp");
+        let root_s = root.to_string_lossy().into_owned();
+
+        reset_temp(&root_s);
+        assert!(root.join(TEMP_MARKER).is_file(), "made with its marker");
+        std::fs::write(root.join("left.bin"), b"x").unwrap();
+        reset_temp(&root_s);
+        assert!(!root.join("left.bin").exists() && root.join(TEMP_MARKER).is_file(), "leftovers cleared");
+
+        std::fs::remove_file(root.join(TEMP_MARKER)).unwrap();
+        std::fs::write(root.join("mine.txt"), b"user's").unwrap();
+        reset_temp(&root_s);
+        assert!(root.join("mine.txt").is_file(), "a folder without the marker is left alone");
+        assert!(!root.join(TEMP_MARKER).exists(), "and not claimed");
+        std::fs::remove_dir_all(&base).unwrap();
     }
 }

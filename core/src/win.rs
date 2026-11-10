@@ -43,9 +43,10 @@ pub fn known_folder(id: &GUID) -> Option<String> {
 }
 
 /// the temp folder next to the exe (Baguette is portable): drag-out downloads and
-/// opened files; emptied at start
+/// opened files; emptied at start. Named so it can't be a folder the user made
+/// beside a copy kept in Downloads or on the Desktop.
 pub fn temp_root() -> String {
-    format!("{}\\temp", crate::config::exe_dir())
+    format!("{}\\Baguette.temp", crate::config::exe_dir())
 }
 
 /// "Replace PC folder" must never empty a drive or a personal/system folder
