@@ -197,7 +197,10 @@ fn session(c: TcpStream, root: &Path, opt: &Options, cfg: &Arc<ServerConfig>) {
             "MLSD" if opt.mlsd => {
                 let p = path_of(root, &cwd, arg);
                 say(&mut r, "150 Here it comes");
-                let Some(mut d) = data(&mut pasv, prot) else { return };
+                let Some(mut d) = data(&mut pasv, prot) else {
+                    say(&mut r, "425 No data connection");
+                    continue;
+                };
                 for e in std::fs::read_dir(p).into_iter().flatten().flatten() {
                     let m = e.metadata().unwrap();
                     let t = if m.is_dir() { "dir".to_string() } else { format!("file;size={}", m.len()) };
@@ -209,7 +212,10 @@ fn session(c: TcpStream, root: &Path, opt: &Options, cfg: &Arc<ServerConfig>) {
             "LIST" => {
                 let p = path_of(root, &cwd, arg.trim_start_matches("-a").trim());
                 say(&mut r, "150 Here it comes");
-                let Some(mut d) = data(&mut pasv, prot) else { return };
+                let Some(mut d) = data(&mut pasv, prot) else {
+                    say(&mut r, "425 No data connection");
+                    continue;
+                };
                 let _ = write!(d, "total 8\r\n");
                 for e in std::fs::read_dir(p).into_iter().flatten().flatten() {
                     let m = e.metadata().unwrap();
@@ -230,7 +236,10 @@ fn session(c: TcpStream, root: &Path, opt: &Options, cfg: &Arc<ServerConfig>) {
                 f.seek(SeekFrom::Start(rest)).unwrap();
                 rest = 0;
                 say(&mut r, "150 Send it");
-                let Some(mut d) = data(&mut pasv, prot) else { return };
+                let Some(mut d) = data(&mut pasv, prot) else {
+                    say(&mut r, "425 No data connection");
+                    continue;
+                };
                 let mut buf = vec![0; 65536];
                 loop {
                     match d.read(&mut buf) {
@@ -250,7 +259,10 @@ fn session(c: TcpStream, root: &Path, opt: &Options, cfg: &Arc<ServerConfig>) {
                 f.seek(SeekFrom::Start(rest)).unwrap();
                 rest = 0;
                 say(&mut r, "150 Here it comes");
-                let Some(mut d) = data(&mut pasv, prot) else { return };
+                let Some(mut d) = data(&mut pasv, prot) else {
+                    say(&mut r, "425 No data connection");
+                    continue;
+                };
                 let mut buf = vec![0; 65536];
                 loop {
                     let n = f.read(&mut buf).unwrap();
