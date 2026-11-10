@@ -167,6 +167,14 @@ fn ftp_login_list_epsv() {
     s.pass = "secret".into();
     r.open(&s).unwrap();
     exercise(r.as_mut(), &root, &local);
+
+    // a name with a line break never reaches the server as a second command
+    let keep = root.join("home/pi/keep.txt");
+    std::fs::write(&keep, b"x").unwrap();
+    assert!(matches!(r.mkdir("/home/pi/a\r\nDELE /home/pi/keep.txt"), Err(Error::Ftp(_))));
+    assert!(matches!(r.rename("/home/pi/keep.txt", "/home/pi/b\nc"), Err(Error::Ftp(_))));
+    assert!(keep.is_file() && !root.join("home/pi/a").exists(), "nothing ran");
+    r.keepalive().unwrap();
 }
 
 #[test]

@@ -366,8 +366,12 @@ impl Ftp {
         self.aborter.set(self.ctrl.iter().chain(self.data.iter()).map(Conn::tcp).collect());
     }
 
-    /// sends a command; returns the reply code (and the whole reply text)
+    /// sends a command; returns the reply code (and the whole reply text). A line
+    /// break in a name would end the command early and start another one.
     pub fn cmd(&mut self, line: &str, text: Option<&mut String>) -> Result<i32> {
+        if line.contains(['\r', '\n', '\0']) {
+            return Err(Error::Ftp("FTP can't send a name with a line break in it".into()));
+        }
         let ctrl = self.ctrl.as_mut().ok_or(Error::Net)?;
         ctrl.write_all(format!("{line}\r\n").as_bytes())?;
         ctrl.flush()?;
