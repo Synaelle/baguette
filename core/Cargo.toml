@@ -45,3 +45,6 @@ required-features = ["tls", "sftp"]
 [[example]]
 name = "test_servers"
 required-features = ["tls", "sftp"]
+
+[lints]
+workspace = true

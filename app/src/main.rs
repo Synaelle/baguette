@@ -15,8 +15,10 @@
 
 mod commands;
 #[cfg(windows)]
+#[allow(unsafe_code)] // OLE drag and drop
 mod dragout;
 #[cfg(target_os = "linux")]
+#[allow(unsafe_code)] // GTK widgets destroyed by hand
 mod dragout_gtk;
 mod local;
 mod update;

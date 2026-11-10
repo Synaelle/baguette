@@ -342,6 +342,7 @@ fn replace(dest: &Path, data: &[u8]) -> Result<(), String> {
 /// a rename that also works on the running exe: std's rename asks for delete
 /// access, which Windows refuses for a running program, MoveFileEx doesn't
 #[cfg(windows)]
+#[allow(unsafe_code)]
 fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
     use windows_sys::Win32::Storage::FileSystem::{MOVEFILE_REPLACE_EXISTING, MoveFileExW};
     let (a, b) = (os::wide(&from.to_string_lossy()), os::wide(&to.to_string_lossy()));

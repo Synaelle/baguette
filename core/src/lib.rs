@@ -8,6 +8,7 @@ pub mod config;
 pub mod ftp;
 pub mod ini;
 #[cfg(not(windows))]
+#[allow(unsafe_code)] // libc calls
 pub mod linux;
 pub mod listing;
 pub mod png;
@@ -21,6 +22,7 @@ pub mod status;
 pub mod tls;
 pub mod util;
 #[cfg(windows)]
+#[allow(unsafe_code)] // Win32 calls
 pub mod win;
 pub mod workers;
 

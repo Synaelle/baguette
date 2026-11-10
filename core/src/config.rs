@@ -116,6 +116,7 @@ pub fn protect_3ds() -> bool {
 }
 
 #[cfg(windows)]
+#[allow(unsafe_code)]
 pub(crate) fn get_str(file: &str, section: &str, key: &str, default: &str) -> String {
     let mut buf = vec![0u16; 4096];
     let n = unsafe {
@@ -132,6 +133,7 @@ pub(crate) fn get_str(file: &str, section: &str, key: &str, default: &str) -> St
 }
 
 #[cfg(windows)]
+#[allow(unsafe_code)]
 pub(crate) fn get_int(file: &str, section: &str, key: &str, default: i32) -> i32 {
     unsafe { GetPrivateProfileIntW(wide(section).as_ptr(), wide(key).as_ptr(), default, wide(file).as_ptr()) as i32 }
 }
@@ -142,6 +144,7 @@ fn not_saved(file: &str, e: std::io::Error) -> String {
 }
 
 #[cfg(windows)]
+#[allow(unsafe_code)]
 pub(crate) fn put(file: &str, section: &str, key: Option<&str>, value: Option<&str>) -> Result<(), String> {
     let k = key.map(wide);
     let v = value.map(wide);

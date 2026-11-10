@@ -194,6 +194,7 @@ pub(crate) fn connect_to(host: &str, port: u16, timeout: Duration) -> Option<Tcp
 /// nothing else is sent on this one, and a delayed ACK of "150" made the server's
 /// stack hold "226" back (~200 ms per file)
 #[cfg(windows)]
+#[allow(unsafe_code)]
 fn ack_every_segment(s: &TcpStream) {
     use windows_sys::Win32::Networking::WinSock::{SIO_TCP_SET_ACK_FREQUENCY, WSAIoctl};
     let every: u32 = 1;
@@ -216,6 +217,7 @@ fn ack_every_segment(s: &TcpStream) {
 /// Linux: quick-ack mode. The kernel may leave it again on its own, but it
 /// keeps the first replies of each connection from waiting.
 #[cfg(not(windows))]
+#[allow(unsafe_code)]
 fn ack_every_segment(s: &TcpStream) {
     use std::os::fd::AsRawFd;
     let on: libc::c_int = 1;
@@ -226,6 +228,7 @@ fn ack_every_segment(s: &TcpStream) {
 
 /// close with a reset, so the server sees the transfer as broken
 #[cfg(not(windows))]
+#[allow(unsafe_code)]
 fn reset(s: TcpStream) {
     use std::os::fd::AsRawFd;
     let l = libc::linger { l_onoff: 1, l_linger: 0 };
@@ -236,6 +239,7 @@ fn reset(s: TcpStream) {
 
 /// close with a reset, so the server sees the transfer as broken
 #[cfg(windows)]
+#[allow(unsafe_code)]
 fn reset(s: TcpStream) {
     use windows_sys::Win32::Networking::WinSock::{LINGER, SO_LINGER, SOL_SOCKET, setsockopt};
     let l = LINGER { l_onoff: 1, l_linger: 0 };

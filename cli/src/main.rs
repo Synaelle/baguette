@@ -990,6 +990,7 @@ fn console_setup() {
 }
 
 #[cfg(windows)]
+#[allow(unsafe_code)]
 fn console_setup() {
     use windows_sys::Win32::System::Console::*;
     unsafe {

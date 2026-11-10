@@ -8,6 +8,14 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 publish = false
 
+# unsafe code only where a system call needs it, each place marked with
+# #[allow(unsafe_code)]; clippy's default lints, kept at zero warnings
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
 [workspace.dependencies]
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",

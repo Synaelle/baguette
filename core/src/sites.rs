@@ -177,6 +177,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(unsafe_code)] // set_var: no other test reads BAGUETTE_CONFIG
     fn save_and_load() {
         // a folder of its own: on Linux the password key is made next to the file
         let dir = std::env::temp_dir().join(format!("baguette-sites-{}", std::process::id()));
