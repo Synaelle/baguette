@@ -96,7 +96,10 @@ impl Sftp {
 
     async fn login(ssh: &mut Handle<Keys>, site: &Site) -> Result<()> {
         let net = |_| Error::Net;
-        let user = if site.user.is_empty() { "root".to_string() } else { site.user.clone() };
+        if site.user.is_empty() {
+            return Err(Error::Ftp("SFTP needs a user name: add one to the site".into()));
+        }
+        let user = site.user.clone();
         if !site.key.is_empty() {
             let pass = (!site.passphrase.is_empty()).then_some(site.passphrase.as_str());
             let key = load_secret_key(&site.key, pass).map_err(|e| {

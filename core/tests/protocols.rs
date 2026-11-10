@@ -120,6 +120,9 @@ fn sftp() {
     s.trusted.push(fp.clone());
     s.pass = "wrong".into();
     assert!(matches!(r.open(&s), Err(Error::Ftp(m)) if m.contains("Login refused")), "wrong password");
+    let mut nobody = s.clone();
+    nobody.user.clear();
+    assert!(matches!(r.open(&nobody), Err(Error::Ftp(m)) if m.contains("user name")), "no guessed user name");
     s.pass = "secret".into();
     r.open(&s).unwrap();
     assert!(r.connected());
