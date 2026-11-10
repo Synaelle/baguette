@@ -5,11 +5,14 @@ rem "build.bat fast" is for trying changes: rebuilds take seconds instead of
 rem minutes (no LTO, parallel and incremental), the exes are a bit bigger and
 rem slower, and their version always ends in -dev. Releases use plain build.bat.
 rem Needs Rust (MSVC toolchain) and the Visual Studio Build Tools.
-cd /d "%~dp0"
+setlocal
+cd /d "%~dp0" || exit /b 1
 
 rem version: the VERSION file (major.minor.micro, bumped by hand for each
 rem release), plus -<short commit>-dev for a build with uncommitted changes
+set BASEVER=
 set /p BASEVER=<VERSION
+if "%BASEVER%"=="" (echo no version in VERSION & exit /b 1)
 set COMMIT=
 set DIRTY=
 for /f %%h in ('git rev-parse --short HEAD 2^>nul') do set COMMIT=%%h
