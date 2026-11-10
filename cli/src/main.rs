@@ -16,8 +16,9 @@ use std::time::{Duration, Instant};
 
 use baguette_core::ftp::{Entry, Error, Ftp, first_line};
 use baguette_core::status::{Battery, Status, battery_refusal, battery_text, parse_status};
-use baguette_core::util::{base_name, format_size, join_remote, json_str, normalize_remote, parent_remote, parse_i64};
-use baguette_core::{REQUIRED_PROTOCOL, VERSION, config, os, protect};
+use baguette_core::plan::{self, Item};
+use baguette_core::util::{base_name, format_size, join_local, join_remote, json_str, normalize_remote, parent_remote, parse_i64};
+use baguette_core::{REQUIRED_PROTOCOL, VERSION, config, protect};
 
 const EXIT_OK: u8 = 0;
 const EXIT_USAGE: u8 = 1;
@@ -350,13 +351,6 @@ fn mkdirs(link: &mut Link, path: &str) -> CliResult<()> {
 }
 
 #[derive(Clone)]
-struct Item {
-    local: String,
-    remote: String,
-    dir: bool,
-    size: u64,
-}
-
 struct Totals {
     files: u64,
     folders: u64,
@@ -438,87 +432,33 @@ fn progress_line(name: &str, size: u64, start: u64) -> impl FnMut(u64) -> baguet
     }
 }
 
-fn collect_local(local: &str, remote_dir: &str, items: &mut Vec<Item>, t: &mut Totals) {
-    let Ok(meta) = std::fs::metadata(local) else {
-        t.errors.push(format!("local path not found: {local}"));
-        return;
-    };
-    let remote = join_remote(remote_dir, base_name(local));
-    if !meta.is_dir() {
-        items.push(Item { local: local.into(), remote, dir: false, size: meta.len() });
-        return;
-    }
-    items.push(Item { local: local.into(), remote: remote.clone(), dir: true, size: 0 });
-    let mut names: Vec<String> = std::fs::read_dir(local)
-        .map(|rd| rd.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect())
-        .unwrap_or_default();
-    names.sort(); // FindFirstFile order on NTFS
-    for name in names {
-        collect_local(&os::join(local, &name), &remote, items, t);
-    }
-}
-
-/// a local path for a name the 3DS listed
-fn local_child(dir: &str, name: &str) -> CliResult<String> {
-    baguette_core::util::join_local(dir, name).map_err(|_| Fail::Ftp(format!("refused the 3DS's file name {name:?}")))
-}
-
-fn collect_remote(link: &mut Link, remote: &str, e: &Entry, local: &str, items: &mut Vec<Item>) -> CliResult<()> {
-    items.push(Item { local: local.into(), remote: remote.into(), dir: e.dir, size: e.size });
-    if !e.dir {
-        return Ok(());
-    }
-    let children = link.run(|f| f.list(remote))?;
-    for c in children {
-        collect_remote(link, &join_remote(remote, &c.name), &c, &local_child(local, &c.name)?, items)?;
-    }
-    Ok(())
-}
-
-fn collect_delete(link: &mut Link, path: &str, dir: bool, items: &mut Vec<Item>) -> CliResult<()> {
-    if dir {
-        let children = link.run(|f| f.list(path))?;
-        for c in children {
-            collect_delete(link, &join_remote(path, &c.name), c.dir, items)?;
+/// the error of a step done outside `Link::run` (a server name refused by `join_local`)
+impl From<Error> for Fail {
+    fn from(e: Error) -> Fail {
+        match e {
+            Error::Net => Fail::Unreachable,
+            Error::Ftp(m) | Error::Untrusted { detail: m, .. } => Fail::Ftp(m),
+            Error::Cancel => Fail::Ftp("cancelled".into()),
         }
     }
-    items.push(Item { local: String::new(), remote: path.into(), dir, size: 0 }); // contents first, the folder last
-    Ok(())
 }
 
 fn upload_file(link: &mut Link, it: &Item) -> CliResult<()> {
     let mut retry = false;
     link.run(|f| {
-        let mut offset = 0;
-        if retry {
-            // resume after a dropped connection
-            if let Some(have) = f.size(&it.remote)?
-                && have <= it.size {
-                    offset = have;
-                }
-        }
+        // resume after a dropped connection
+        let offset = if retry { plan::upload_offset(f.size(&it.remote)?, it) } else { 0 };
         retry = true;
         let mut progress = progress_line(base_name(&it.remote), it.size, offset);
         f.upload(&it.local, &it.remote, offset, &mut progress)
     })?;
-    let have = link.run(|f| f.size(&it.remote))?.unwrap_or(0);
-    if have != it.size {
-        return Err(Fail::Ftp(format!(
-            "size check failed for {} ({have} of {} bytes on the 3DS)",
-            it.remote, it.size
-        )));
-    }
-    Ok(())
+    plan::check_uploaded(link.run(|f| f.size(&it.remote))?, it).map_err(Fail::Ftp)
 }
 
 fn download_file(link: &mut Link, it: &Item) -> CliResult<()> {
     let mut retry = false;
     let r = link.run(|f| {
-        let mut offset = 0;
-        if retry
-            && let Ok(m) = std::fs::metadata(baguette_core::util::part_path(&it.local)) {
-                offset = it.size.min(m.len());
-            }
+        let offset = if retry { plan::download_offset(it) } else { 0 };
         retry = true;
         let mut progress = progress_line(base_name(&it.remote), it.size, offset);
         f.download(&it.remote, &it.local, offset, &mut progress)
@@ -595,7 +535,9 @@ fn put(link: &mut Link, args: &[String], opt: &Options) -> CliResult<u8> {
         while local.len() > 1 && (local.ends_with('\\') || local.ends_with('/')) && !local[..local.len() - 1].ends_with(':') {
             local.pop();
         }
-        collect_local(&local, &dir, &mut items, &mut t);
+        if let Err(why) = plan::local_items(&local, &dir, &mut items) {
+            t.errors.push(why);
+        }
     }
     let targets: Vec<String> = items.iter().map(|i| i.remote.clone()).chain([dir.clone()]).collect();
     protected(&targets, protect::write)?;
@@ -667,10 +609,10 @@ fn get(link: &mut Link, args: &[String], opt: &Options) -> CliResult<u8> {
                 // --contents: the folder's contents go straight into local-dir
                 let children = link.run(|f| f.list(&remote))?;
                 for c in children {
-                    collect_remote(link, &join_remote(&remote, &c.name), &c, &local_child(&dir, &c.name)?, &mut items)?;
+                    plan::remote_items(&mut |p| link.run(|f| f.list(p)), &join_remote(&remote, &c.name), &c, &join_local(&dir, &c.name)?, &mut items)?;
                 }
             }
-            Some(e) => collect_remote(link, &remote, &e, &local_child(&dir, &e.name)?, &mut items)?,
+            Some(e) => plan::remote_items(&mut |p| link.run(|f| f.list(p)), &remote, &e, &join_local(&dir, &e.name)?, &mut items)?,
         }
     }
     let mut files = items.iter().filter(|i| !i.dir).count() as u64;
@@ -736,7 +678,7 @@ fn rm(link: &mut Link, args: &[String], opt: &Options) -> CliResult<u8> {
     for path in paths {
         match stat_remote(link, &path)? {
             None => t.errors.push(format!("not found on the 3DS: {path}")),
-            Some(e) => collect_delete(link, &path, e.dir, &mut items)?,
+            Some(e) => plan::delete_items(&mut |p| link.run(|f| f.list(p)), &path, e.dir, &mut items)?,
         }
     }
     idle(link, opt)?;

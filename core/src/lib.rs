@@ -11,6 +11,7 @@ pub mod ini;
 #[allow(unsafe_code)] // libc calls
 pub mod linux;
 pub mod listing;
+pub mod plan;
 pub mod png;
 pub mod protect;
 pub mod remote;

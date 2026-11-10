@@ -17,7 +17,7 @@ use crate::ftp::{Aborter, Entry, Error, Ftp, Result};
 use crate::remote::{self, Remote, Site};
 use crate::status::{ServerInfo, Status, battery_refusal, battery_text};
 use crate::util::{base_name, format_size, join_local, join_remote, parent_remote, part_path};
-use crate::{BUNDLE_MIN_FILES, REQUIRED_PROTOCOL, os};
+use crate::{BUNDLE_MIN_FILES, REQUIRED_PROTOCOL, os, plan};
 
 /// a listing for the main window (notify 0) or another view (the 3DS picker)
 #[derive(Clone, Debug)]
@@ -89,13 +89,7 @@ pub enum Kind {
     Login,   // Cement's login becomes path / path2 (empty path: none, protocol 3)
 }
 
-#[derive(Clone, Debug)]
-pub struct Item {
-    pub local: String,
-    pub remote: String,
-    pub dir: bool,
-    pub size: u64,
-}
+pub use crate::plan::Item;
 
 #[derive(Debug)]
 pub struct Job {
@@ -707,50 +701,11 @@ fn execute(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
     Ok(())
 }
 
-fn expand_local(job: &mut Job, local: &str, remote: &str) {
-    let Ok(meta) = std::fs::metadata(local) else { return };
-    if meta.is_dir() {
-        job.items.push(Item { local: local.into(), remote: remote.into(), dir: true, size: 0 });
-        let Ok(rd) = std::fs::read_dir(local) else { return };
-        for e in rd.flatten() {
-            let name = e.file_name().to_string_lossy().into_owned();
-            expand_local(job, &os::join(local, &name), &join_remote(remote, &name));
-        }
-    } else {
-        job.items.push(Item { local: local.into(), remote: remote.into(), dir: false, size: meta.len() });
-        job.total += meta.len();
-    }
-}
-
-fn expand_remote(ftp: &mut Box<dyn Remote>, job: &mut Job, remote: &str, local: &str, e: &Entry) -> Result<()> {
-    if e.dir {
-        job.items.push(Item { local: local.into(), remote: remote.into(), dir: true, size: 0 });
-        for child in ftp.list(remote)? {
-            expand_remote(ftp, job, &join_remote(remote, &child.name), &join_local(local, &child.name)?, &child)?;
-        }
-    } else {
-        job.items.push(Item { local: local.into(), remote: remote.into(), dir: false, size: e.size });
-        job.total += e.size;
-    }
-    Ok(())
-}
-
-/// folder contents first, the folder itself last
-fn expand_delete(ftp: &mut Box<dyn Remote>, job: &mut Job, remote: &str, dir: bool) -> Result<()> {
-    if dir {
-        for child in ftp.list(remote)? {
-            expand_delete(ftp, job, &join_remote(remote, &child.name), child.dir)?;
-        }
-    }
-    job.items.push(Item { local: String::new(), remote: remote.into(), dir, size: 0 });
-    Ok(())
-}
-
 /// file by file, so no single command runs long on the 3DS; resumable like transfers
 fn delete_items(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
     if !job.expanded {
         for e in job.remotes.clone() {
-            expand_delete(ftp, job, &join_remote(&job.path, &e.name), e.dir)?;
+            plan::delete_items(&mut |p| ftp.list(p), &join_remote(&job.path, &e.name), e.dir, &mut job.items)?;
         }
         job.expanded = true;
     }
@@ -815,7 +770,7 @@ fn expand_send_to_pc(ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
         if rp == "/" {
             // the whole SD card: its contents go straight into the PC folder
             let to = job.path2.clone();
-            expand_remote(ftp, job, &rp, &to, &Entry { dir: true, ..Default::default() })?;
+            plan::remote_items(&mut |p| ftp.list(p), &rp, &Entry { dir: true, ..Default::default() }, &to, &mut job.items)?;
             continue;
         }
         // each item lands directly in the PC folder: /openmw/logs -> <PC folder>\logs
@@ -828,7 +783,7 @@ fn expand_send_to_pc(ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
             Err(e) => return Err(e),
         };
         match siblings.into_iter().find(|e| e.name == name) {
-            Some(e) => expand_remote(ftp, job, &rp, &local, &e)?,
+            Some(e) => plan::remote_items(&mut |p| ftp.list(p), &rp, &e, &local, &mut job.items)?,
             None => job.missing += 1,
         }
     }
@@ -898,7 +853,7 @@ fn send_bundle(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job, file_count:
 
 /// the job's files and folders, listed once (a resumed job keeps its list), after
 /// checking the battery and, for an upload to Cement, the free space
-fn expand(ftp: &mut Box<dyn Remote>, job: &mut Job, up: bool) -> Result<()> {
+fn expand(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job, up: bool) -> Result<()> {
     // the 3DS refuses transfers on a nearly empty battery: say so before starting
     if let Some(c) = ftp.cement() {
         let bat = c.server_info()?.battery;
@@ -908,17 +863,20 @@ fn expand(ftp: &mut Box<dyn Remote>, job: &mut Job, up: bool) -> Result<()> {
     }
     if up {
         for l in job.locals.clone() {
-            let remote = join_remote(&job.path, base_name(&l));
-            expand_local(job, &l, &remote);
+            if let Err(why) = plan::local_items(&l, &job.path, &mut job.items) {
+                job.errors += 1;
+                s.message(format!("Error: {why}"));
+            }
         }
     } else if job.kind == Kind::SendToPc {
         expand_send_to_pc(ftp, job)?;
     } else {
         for e in job.remotes.clone() {
             let (remote, local) = (join_remote(&job.path, &e.name), join_local(&job.path2, &e.name)?);
-            expand_remote(ftp, job, &remote, &local, &e)?;
+            plan::remote_items(&mut |p| ftp.list(p), &remote, &e, &local, &mut job.items)?;
         }
     }
+    job.total = job.items.iter().map(|i| i.size).sum();
     job.expanded = true;
     if let (true, Some(c)) = (up, ftp.cement()) {
         // refuse up front what can't fit, instead of failing halfway with a full card
@@ -938,7 +896,7 @@ fn expand(ftp: &mut Box<dyn Remote>, job: &mut Job, up: bool) -> Result<()> {
 fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
     let up = job.kind == Kind::Upload;
     if !job.expanded {
-        expand(ftp, job, up)?;
+        expand(s, ftp, job, up)?;
     }
 
     let file_count = job.items.iter().filter(|i| !i.dir).count();
@@ -971,17 +929,11 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
         let index = job.items[..=job.next].iter().filter(|i| !i.dir).count();
 
         // resume an interrupted file where it stopped
-        let mut offset = 0;
-        if job.partial {
-            if up {
-                if let Some(remote) = ftp.size(&it.remote)?
-                    && remote <= it.size {
-                        offset = remote;
-                    }
-            } else if let Ok(m) = std::fs::metadata(part_path(&it.local)) {
-                offset = it.size.min(m.len());
-            }
-        }
+        let offset = match (job.partial, up) {
+            (false, _) => 0,
+            (true, true) => plan::upload_offset(ftp.size(&it.remote)?, &it),
+            (true, false) => plan::download_offset(&it),
+        };
 
         let base = job.done;
         {
@@ -1010,11 +962,9 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
         };
         match r {
             Ok(()) if up => {
-                // the server's size says whether the whole file arrived (a server
-                // without SIZE says nothing)
-                if let Some(have) = ftp.size(&it.remote)?.filter(|have| *have != it.size) {
+                if let Err(why) = plan::check_uploaded(ftp.size(&it.remote)?, &it) {
                     job.errors += 1;
-                    s.message(format!("Error: {} has {have} of {} bytes on the server", it.remote, it.size));
+                    s.message(format!("Error: {why}"));
                 }
             }
             Ok(()) => {
