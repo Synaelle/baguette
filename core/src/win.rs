@@ -94,7 +94,9 @@ fn shell_delete(paths: &[String], recycle: bool) -> bool {
     let mut op: SHFILEOPSTRUCTW = unsafe { std::mem::zeroed() };
     op.wFunc = FO_DELETE;
     op.pFrom = list.as_ptr();
-    op.fFlags = (FOF_NO_UI | if recycle { FOF_ALLOWUNDO } else { 0 }) as u16;
+    // a file that can't go to the Recycle Bin (too big, or a drive without one)
+    // would be deleted for good without a word: Windows asks first with this
+    op.fFlags = (FOF_NO_UI | if recycle { FOF_ALLOWUNDO | FOF_WANTNUKEWARNING } else { 0 }) as u16;
     unsafe { SHFileOperationW(&mut op) == 0 && op.fAnyOperationsAborted == 0 }
 }
 
