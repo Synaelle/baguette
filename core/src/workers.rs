@@ -897,42 +897,49 @@ fn send_bundle(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job, file_count:
     }
 }
 
+/// the job's files and folders, listed once (a resumed job keeps its list), after
+/// checking the battery and, for an upload to Cement, the free space
+fn expand(ftp: &mut Box<dyn Remote>, job: &mut Job, up: bool) -> Result<()> {
+    // the 3DS refuses transfers on a nearly empty battery: say so before starting
+    if let Some(c) = ftp.cement() {
+        let bat = c.server_info()?.battery;
+        if bat.low {
+            return Err(Error::Ftp(format!("3DS battery too low ({}): plug in the charger", battery_text(&bat))));
+        }
+    }
+    if up {
+        for l in job.locals.clone() {
+            let remote = join_remote(&job.path, base_name(&l));
+            expand_local(job, &l, &remote);
+        }
+    } else if job.kind == Kind::SendToPc {
+        expand_send_to_pc(ftp, job)?;
+    } else {
+        for e in job.remotes.clone() {
+            let (remote, local) = (join_remote(&job.path, &e.name), join_local(&job.path2, &e.name)?);
+            expand_remote(ftp, job, &remote, &local, &e)?;
+        }
+    }
+    job.expanded = true;
+    if let (true, Some(c)) = (up, ftp.cement()) {
+        // refuse up front what can't fit, instead of failing halfway with a full card
+        let sizes: Vec<(String, u64)> = job.items.iter().filter(|i| !i.dir).map(|i| (i.remote.clone(), i.size)).collect();
+        let (fits, need, avail) = c.fits(&sizes)?;
+        if !fits {
+            return Err(Error::Ftp(format!(
+                "not enough space on the SD card: needs {}, {} free",
+                format_size(need),
+                format_size(avail)
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
     let up = job.kind == Kind::Upload;
     if !job.expanded {
-        // the 3DS refuses transfers on a nearly empty battery: say so before starting
-        if let Some(c) = ftp.cement() {
-            let bat = c.server_info()?.battery;
-            if bat.low {
-                return Err(Error::Ftp(format!("3DS battery too low ({}): plug in the charger", battery_text(&bat))));
-            }
-        }
-        if up {
-            for l in job.locals.clone() {
-                let remote = join_remote(&job.path, base_name(&l));
-                expand_local(job, &l, &remote);
-            }
-        } else if job.kind == Kind::SendToPc {
-            expand_send_to_pc(ftp, job)?;
-        } else {
-            for e in job.remotes.clone() {
-                let (remote, local) = (join_remote(&job.path, &e.name), join_local(&job.path2, &e.name)?);
-                expand_remote(ftp, job, &remote, &local, &e)?;
-            }
-        }
-        job.expanded = true;
-        if let (true, Some(c)) = (up, ftp.cement()) {
-            // refuse up front what can't fit, instead of failing halfway with a full card
-            let sizes: Vec<(String, u64)> = job.items.iter().filter(|i| !i.dir).map(|i| (i.remote.clone(), i.size)).collect();
-            let (fits, need, avail) = c.fits(&sizes)?;
-            if !fits {
-                return Err(Error::Ftp(format!(
-                    "not enough space on the SD card: needs {}, {} free",
-                    format_size(need),
-                    format_size(avail)
-                )));
-            }
-        }
+        expand(ftp, job, up)?;
     }
 
     let file_count = job.items.iter().filter(|i| !i.dir).count();
