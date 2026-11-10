@@ -466,7 +466,6 @@ body.lite.notab #statusbar, body.lite.notab #liteHint { visibility: hidden; }
 html.ficelle {
   --r-99: 2px; --r-20: 6px; --r-18: 6px; --r-16: 6px; --r-14: 4px; --r-12: 4px;
   --r-10: 2px; --r-9: 2px; --r-8: 2px; --r-6: 2px;
-  --w-700: 500; --w-800: 600;
   --display: "Hanken Grotesk", "Segoe UI Variable Display", sans-serif;
   --body: "Hanken Grotesk", "Segoe UI Variable Text", sans-serif;
   --mono: "IBM Plex Mono", Consolas, monospace;

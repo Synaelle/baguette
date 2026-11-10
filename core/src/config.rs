@@ -26,8 +26,8 @@ pub struct Config {
     pub bmp_to_png: bool,        // downloaded .bmp files are saved as .png
     pub send_to_pc: bool,        // the Send to PC button on the Cement card
     pub mode: String,            // "standard" or "lite"; empty until chosen at first launch
-    pub accent_time: u64,
-    pub look: String,            // "evil-twin", "ficelle" or "ficelle-light"        // when the accent was picked (local clock, 0: never); the newer side wins
+    pub accent_time: u64,        // when the accent was picked (local clock, 0: never); the newer side wins
+    pub look: String,            // "evil-twin", "ficelle" or "ficelle-light"
 }
 
 pub const DEFAULT_ACCENT: &str = "e44c3e";
