@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 use baguette_core::ftp::{Error, Ftp};
 use baguette_core::remote::{self, Protocol, Remote, Site};
+use baguette_core::util::part_path;
 use common::{ftpd, sftpd};
 
 fn temp(name: &str) -> PathBuf {
@@ -62,10 +63,24 @@ fn exercise(r: &mut dyn Remote, root: &Path, local: &Path) {
     let top = r.list("/home/pi").unwrap();
     assert!(top.iter().any(|e| e.name == "new dir" && e.dir), "folders listed");
 
+    // resume: the .part file has the first 50000 bytes, the old file stays until the end
     let dst = local.join("down.bin");
-    std::fs::write(&dst, &data[..50_000]).unwrap();
+    let part = part_path(dst.to_str().unwrap());
+    std::fs::write(&dst, b"old").unwrap();
+    std::fs::write(&part, &data[..50_000]).unwrap();
     r.download("/home/pi/new dir/up.bin", dst.to_str().unwrap(), 50_000, &mut none).unwrap();
     assert_eq!(std::fs::read(&dst).unwrap(), data, "download resumed");
+    assert!(!Path::new(&part).exists(), "part file renamed");
+
+    // a refused or cancelled download leaves the local file as it was
+    std::fs::write(&dst, b"keep me").unwrap();
+    assert!(matches!(r.download("/home/pi/missing", dst.to_str().unwrap(), 0, &mut none), Err(Error::Ftp(_))));
+    assert_eq!(std::fs::read(&dst).unwrap(), b"keep me", "refused download kept the file");
+    assert!(!Path::new(&part).exists(), "no part file for a refused download");
+    let r3 = r.download("/home/pi/new dir/up.bin", dst.to_str().unwrap(), 0, &mut |_| Err(Error::Cancel));
+    assert_eq!(r3, Err(Error::Cancel));
+    assert_eq!(std::fs::read(&dst).unwrap(), b"keep me", "cancelled download kept the file");
+    let _ = std::fs::remove_file(&part);
 
     assert_eq!(r.size("/home/pi/missing").unwrap(), None);
     assert!(r.mtime("/home/pi/half.bin").unwrap().is_some());

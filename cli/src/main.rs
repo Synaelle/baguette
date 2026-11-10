@@ -518,17 +518,21 @@ fn upload_file(link: &mut Link, it: &Item) -> CliResult<()> {
 
 fn download_file(link: &mut Link, it: &Item) -> CliResult<()> {
     let mut retry = false;
-    link.run(|f| {
+    let r = link.run(|f| {
         let mut offset = 0;
         if retry {
-            if let Ok(m) = std::fs::metadata(&it.local) {
+            if let Ok(m) = std::fs::metadata(baguette_core::util::part_path(&it.local)) {
                 offset = it.size.min(m.len());
             }
         }
         retry = true;
         let mut progress = progress_line(base_name(&it.remote), it.size, offset);
         f.download(&it.remote, &it.local, offset, &mut progress)
-    })
+    });
+    if r.is_err() {
+        let _ = std::fs::remove_file(baguette_core::util::part_path(&it.local));
+    }
+    r
 }
 
 fn print_summary(verb: &str, t: &Totals) {

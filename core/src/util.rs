@@ -36,6 +36,12 @@ pub fn join_local(dir: &str, name: &str) -> crate::ftp::Result<String> {
     }
 }
 
+/// where a download is written until it is complete, so a failed or cancelled
+/// one never touches a file that was already there
+pub fn part_path(local: &str) -> String {
+    format!("{local}.part")
+}
+
 /// "1.23 GB", "4.5 MB", "12.0 KB", "512 B"
 pub fn format_size(v: u64) -> String {
     if v >= 1 << 30 {

@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use crate::listing::{parse_list, parse_mlsd};
 use crate::status::{ServerInfo, parse_server_info};
-use crate::util::parse_u64;
+use crate::util::{parse_u64, part_path};
 
 /// why an FTP call failed
 #[derive(Debug, Clone, PartialEq)]
@@ -715,6 +715,8 @@ impl Ftp {
         Ok(())
     }
 
+    /// writes `part_path(local)`, resumed from `offset`, and renames it to local
+    /// once the server says the whole file was sent
     pub fn download(
         &mut self,
         remote: &str,
@@ -722,16 +724,7 @@ impl Ftp {
         offset: u64,
         progress: &mut dyn FnMut(u64) -> Result<()>,
     ) -> Result<()> {
-        let cant = || Error::Ftp(format!("Can't create local file {local}"));
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(offset == 0)
-            .open(local)
-            .map_err(|_| cant())?;
-        file.set_len(offset).map_err(|_| cant())?;
-        file.seek(SeekFrom::Start(offset)).map_err(|_| cant())?;
-
+        let part = part_path(local);
         self.open_data()?;
         if offset != 0 {
             self.simple(&format!("REST {offset}"), 350)?;
@@ -741,6 +734,14 @@ impl Ftp {
             self.close_data();
             return Err(Error::Ftp(text));
         }
+        let mut file = match open_part(&part, offset) {
+            Ok(f) => f,
+            Err(e) => {
+                self.reset_data();
+                self.reply(None)?;
+                return Err(e);
+            }
+        };
         self.secure_data()?;
 
         let mut buf = vec![0u8; 1 << 20];
@@ -750,7 +751,7 @@ impl Ftp {
                 Ok(n) => n,
                 Err(_) => return Err(Error::Net),
             };
-            file.write_all(&buf[..n]).map_err(|_| Error::Ftp(format!("Can't write local file {local}")))?;
+            file.write_all(&buf[..n]).map_err(|_| Error::Ftp(format!("Can't write local file {part}")))?;
             if let Err(e) = progress(n as u64) {
                 if e == Error::Cancel {
                     self.reset_data();
@@ -764,6 +765,21 @@ impl Ftp {
         if self.reply(Some(&mut text))? / 100 != 2 {
             return Err(Error::Ftp(text));
         }
-        Ok(())
+        drop(file);
+        finish_part(&part, local)
     }
+}
+
+/// the download's .part file, cut to `offset` (what is already there)
+pub(crate) fn open_part(part: &str, offset: u64) -> Result<File> {
+    let cant = || Error::Ftp(format!("Can't create local file {part}"));
+    let mut file = OpenOptions::new().write(true).create(true).truncate(offset == 0).open(part).map_err(|_| cant())?;
+    file.set_len(offset).map_err(|_| cant())?;
+    file.seek(SeekFrom::Start(offset)).map_err(|_| cant())?;
+    Ok(file)
+}
+
+/// a complete download takes its real name, replacing the file there
+pub(crate) fn finish_part(part: &str, local: &str) -> Result<()> {
+    std::fs::rename(part, local).map_err(|_| Error::Ftp(format!("Can't replace local file {local}")))
 }

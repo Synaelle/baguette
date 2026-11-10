@@ -16,7 +16,7 @@ use std::time::Duration;
 use crate::ftp::{Aborter, Entry, Error, Ftp, Result};
 use crate::remote::{self, Remote, Site};
 use crate::status::{ServerInfo, Status, battery_refusal, battery_text};
-use crate::util::{base_name, format_size, join_local, join_remote, parent_remote};
+use crate::util::{base_name, format_size, join_local, join_remote, parent_remote, part_path};
 use crate::{BUNDLE_MIN_FILES, REQUIRED_PROTOCOL, os};
 
 /// a listing for the main window (notify 0) or another view (the 3DS picker)
@@ -964,7 +964,7 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
                         offset = remote;
                     }
                 }
-            } else if let Ok(m) = std::fs::metadata(&it.local) {
+            } else if let Ok(m) = std::fs::metadata(part_path(&it.local)) {
                 offset = it.size.min(m.len());
             }
         }
@@ -1006,6 +1006,9 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
                 }
             }
             Err(Error::Ftp(msg)) => {
+                if !up {
+                    let _ = std::fs::remove_file(part_path(&it.local));
+                }
                 if battery_refusal(&msg) {
                     job.partial = false;
                     return Err(Error::Ftp(msg)); // the rest would be refused too
@@ -1015,7 +1018,7 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
             }
             Err(Error::Cancel) => {
                 if !up {
-                    let _ = std::fs::remove_file(&it.local);
+                    let _ = std::fs::remove_file(part_path(&it.local));
                 }
                 return Err(Error::Cancel);
             }

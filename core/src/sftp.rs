@@ -304,19 +304,12 @@ impl Remote for Sftp {
     }
 
     fn download(&mut self, remote: &str, local: &str, offset: u64, progress: Progress) -> Result<()> {
-        use std::io::{Seek, Write};
-        let cant = || Error::Ftp(format!("Can't create local file {local}"));
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(offset == 0)
-            .open(local)
-            .map_err(|_| cant())?;
-        file.set_len(offset).map_err(|_| cant())?;
-        file.seek(SeekFrom::Start(offset)).map_err(|_| cant())?;
+        use std::io::Write;
+        let part = crate::util::part_path(local);
         let sftp = self.sftp()?;
         self.rt.block_on(async {
             let mut input = sftp.open_with_flags(remote, OpenFlags::READ).await.map_err(sftp_err)?;
+            let mut file = crate::ftp::open_part(&part, offset)?;
             if offset != 0 {
                 input.seek(SeekFrom::Start(offset)).await.map_err(|_| Error::Net)?;
             }
@@ -326,11 +319,12 @@ impl Remote for Sftp {
                 if n == 0 {
                     break;
                 }
-                file.write_all(&buf[..n]).map_err(|_| Error::Ftp(format!("Can't write local file {local}")))?;
+                file.write_all(&buf[..n]).map_err(|_| Error::Ftp(format!("Can't write local file {part}")))?;
                 progress(n as u64)?;
             }
-            Ok(())
-        })
+            Ok::<(), Error>(())
+        })?;
+        crate::ftp::finish_part(&part, local)
     }
 
     fn cement(&mut self) -> Option<&mut Ftp> {
