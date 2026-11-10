@@ -447,9 +447,9 @@ body.lite.notab #statusbar, body.lite.notab #liteHint { visibility: hidden; }
 .modes button[aria-checked="true"] { background: var(--sel); border-color: var(--accent); }
 
 /* first launch: Standard or Lite, over the window below the title bar */
-#setup { inset: 44px 0 0 0; background: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 60; }
+#setup { inset: 44px 0 0 0; background: var(--bg); display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; z-index: 60; }
 #setup[hidden] { display: none; }
-.setup-in { width: min(1068px, 100% - 64px); display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 12px 0 24px; }
+.setup-in { width: min(1068px, 100% - 64px); margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 12px 0 24px; }
 .setup-in h1 { margin: 0; font-family: var(--display); font-weight: var(--w-700); font-size: 32px; }
 .setup-in > p { margin: -14px 0 0; color: var(--dim); font-size: 15px; }
 .setup-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; width: 100%; }
