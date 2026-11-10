@@ -4,6 +4,8 @@
 //! protection off: losing them can wipe installed games and saves, or stop the
 //! console from booting into its custom firmware.
 
+use crate::util::normalize_remote;
+
 /// the protected paths, all read-only: no delete, rename or write, inside either
 pub const PATHS: &[(&str, &str)] = &[
     ("/Nintendo 3DS", "installed games, saves and extra data"),
@@ -31,9 +33,11 @@ fn within(a: &str, b: &str) -> bool {
 }
 
 /// Some(why) when deleting or renaming this path would hit a protected one
-/// (the path itself, something inside one, or a folder holding one)
+/// (the path itself, something inside one, or a folder holding one). The path
+/// is resolved first, so "/3ds/../boot.firm" is /boot.firm.
 pub fn delete_or_rename(path: &str) -> Option<String> {
-    let path = if path.is_empty() { "/" } else { path };
+    let path = normalize_remote(path);
+    let path = path.as_str();
     PATHS
         .iter()
         .find(|(p, _)| (within(path, p) && !free(path)) || within(p, path))
@@ -42,6 +46,8 @@ pub fn delete_or_rename(path: &str) -> Option<String> {
 
 /// Some(why) when writing or creating this path would change a protected one
 pub fn write(path: &str) -> Option<String> {
+    let path = normalize_remote(path);
+    let path = path.as_str();
     PATHS
         .iter()
         .find(|(p, _)| within(path, p) && !free(path))
@@ -100,6 +106,11 @@ mod tests {
         assert!(delete_or_rename("/luma/dumps/arm11/crash.dmp").is_none(), "and its crash dumps");
         assert!(delete_or_rename("/luma/screenshots").is_none());
         assert!(delete_or_rename("/luma/config.ini").is_some());
+        assert!(delete_or_rename("/3ds/../boot.firm").is_some(), "dot segments resolved");
+        assert!(delete_or_rename("/3ds/..").is_some(), "that is the root");
+        assert!(write("//luma/./payloads/x.firm").is_some());
+        assert!(write("/luma/screenshots/../config.ini").is_some(), "not free once resolved");
+        assert!(delete_or_rename("").is_some(), "empty is the root");
     }
 
     #[cfg(windows)]

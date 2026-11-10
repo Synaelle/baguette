@@ -55,19 +55,21 @@ pub fn format_size(v: u64) -> String {
     }
 }
 
-/// "/a/b" form: forward slashes, a leading slash, no doubled or trailing slash
+/// "/a/b" form: forward slashes, a leading slash, no doubled or trailing slash,
+/// and . and .. resolved (.. stops at the root)
 pub fn normalize_remote(p: &str) -> String {
     let p = p.trim().replace('\\', "/");
-    let mut out = String::new();
-    for c in format!("/{p}").chars() {
-        if !(c == '/' && out.ends_with('/')) {
-            out.push(c);
+    let mut parts: Vec<&str> = Vec::new();
+    for part in p.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            _ => parts.push(part),
         }
     }
-    if out.len() > 1 && out.ends_with('/') {
-        out.pop();
-    }
-    out
+    format!("/{}", parts.join("/"))
 }
 
 /// strtoull: leading spaces, digits, anything after ignored; 0 when there are none
@@ -146,6 +148,10 @@ mod tests {
         assert_eq!(parent_remote("/a"), "/");
         assert_eq!(normalize_remote(" a\\\\b// "), "/a/b");
         assert_eq!(normalize_remote(""), "/");
+        assert_eq!(normalize_remote("/3ds/../boot.firm"), "/boot.firm");
+        assert_eq!(normalize_remote("/a/./b/.."), "/a");
+        assert_eq!(normalize_remote("/../../x"), "/x");
+        assert_eq!(normalize_remote("/a/..."), "/a/...");
     }
 
     #[test]
