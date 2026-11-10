@@ -263,6 +263,13 @@ fn replace(dest: &Path, data: &[u8]) -> Result<(), String> {
         let old = dest.with_file_name(format!("{}.old", dest.file_name().unwrap_or_default().to_string_lossy()));
         let _ = std::fs::remove_file(&old);
         move_file(dest, &old).map_err(fail)?;
+        if let Err(e) = move_file(&new, dest) {
+            // never leave Baguette without its exe: the old one goes back
+            let _ = move_file(&old, dest);
+            let _ = std::fs::remove_file(&new);
+            return Err(fail(e));
+        }
+        return Ok(());
     }
     move_file(&new, dest).map_err(fail)
 }
