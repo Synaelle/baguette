@@ -155,6 +155,7 @@ class Pane {
           `<span class="size">${e.dir ? "" : formatSize(e.size)}</span><span class="date">${formatStamp(e.modified)}</span></div>`
       );
     });
+    if (this.st.shown === this.st.path && !this.st.entries.length) out.push('<div class="empty-row">This folder is empty</div>');
     this.rows.innerHTML = out.join("");
     this.pathInput.value = this.st.path || (this.kind === "local" ? "This PC" : "");
     if (this.kind === "remote") drawCrumbs();

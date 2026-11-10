@@ -242,6 +242,7 @@ select option { padding: 3px 6px; border-radius: var(--r-6); }
 .row-e .name span { overflow: hidden; text-overflow: ellipsis; }
 .row-e .size, .row-e .date { color: var(--dim); font-size: 12px; white-space: nowrap; overflow: hidden; }
 .ico { width: 16px; height: 16px; flex: none; }
+.empty-row { padding: 18px 10px; color: var(--dim); text-align: center; grid-column: 1 / -1; }
 .ico.dir path { fill: var(--hi); }
 .ico.file path { fill: none; stroke: var(--dim); stroke-width: 1.3; stroke-linejoin: round; }
 .ico.drive path { fill: none; stroke: var(--hi); stroke-width: 1.4; }
