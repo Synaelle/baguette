@@ -198,20 +198,11 @@ pub fn set_protect_3ds(state: St, on: bool) {
     c.save();
 }
 
-/// Err(why) when the protection is on, the tab is on Cement and one of the
-/// paths is protected (check: protect::delete_or_rename or protect::write)
+/// protect::guard for this tab's server
 fn guard(state: &AppState, tab: u32, paths: &[String], check: fn(&str) -> Option<String>) -> Result<(), String> {
-    if !state.config.lock().unwrap().protect_3ds {
-        return Ok(());
-    }
-    let cement = state.with_client(tab, |c| c.shared.server_info.lock().unwrap().cement).unwrap_or(false);
-    if !cement {
-        return Ok(());
-    }
-    match paths.iter().find_map(|p| check(p)) {
-        Some(why) => Err(format!("{why}. You can turn this protection off in the settings.")),
-        None => Ok(()),
-    }
+    let on = state.config.lock().unwrap().protect_3ds;
+    let cement = on && state.with_client(tab, |c| c.shared.server_info.lock().unwrap().cement).unwrap_or(false);
+    protect::guard(on, cement, paths, check)
 }
 
 /// experimental: many-file uploads to Cement go as one bundle

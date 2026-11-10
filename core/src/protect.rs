@@ -32,6 +32,18 @@ fn within(a: &str, b: &str) -> bool {
     a == b || a.starts_with(&format!("{b}/"))
 }
 
+/// Err(why) when the protection is on, the server is Cement and one of the
+/// paths is protected (check: `delete_or_rename` or `write`)
+pub fn guard(on: bool, cement: bool, paths: &[String], check: fn(&str) -> Option<String>) -> Result<(), String> {
+    if !on || !cement {
+        return Ok(());
+    }
+    match paths.iter().find_map(|p| check(p)) {
+        Some(why) => Err(format!("{why}. You can turn this protection off in the settings.")),
+        None => Ok(()),
+    }
+}
+
 /// Some(why) when deleting or renaming this path would hit a protected one
 /// (the path itself, something inside one, or a folder holding one). The path
 /// is resolved first, so "/3ds/../boot.firm" is /boot.firm.
@@ -111,6 +123,15 @@ mod tests {
         assert!(write("//luma/./payloads/x.firm").is_some());
         assert!(write("/luma/screenshots/../config.ini").is_some(), "not free once resolved");
         assert!(delete_or_rename("").is_some(), "empty is the root");
+    }
+
+    #[test]
+    fn guard_only_on_cement_with_the_protection_on() {
+        let p = ["/boot.firm".to_string()];
+        assert!(guard(true, true, &p, delete_or_rename).is_err());
+        assert!(guard(false, true, &p, delete_or_rename).is_ok());
+        assert!(guard(true, false, &p, delete_or_rename).is_ok());
+        assert!(guard(true, true, &["/3ds/x".to_string()], write).is_ok());
     }
 
     #[cfg(windows)]

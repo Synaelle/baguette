@@ -110,6 +110,11 @@ pub fn read_address() -> Option<(String, u16)> {
     Some((host, get_int(&file, "server", "port", 5000) as u16))
 }
 
+/// the app's "protect important 3DS files" setting (on when nothing is saved)
+pub fn protect_3ds() -> bool {
+    existing_config().is_none_or(|file| get_int(&file, "ui", "protect_3ds", 1) != 0)
+}
+
 #[cfg(windows)]
 pub(crate) fn get_str(file: &str, section: &str, key: &str, default: &str) -> String {
     let mut buf = vec![0u16; 4096];

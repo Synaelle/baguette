@@ -16,8 +16,8 @@ use std::time::{Duration, Instant};
 
 use baguette_core::ftp::{Entry, Error, Ftp, first_line};
 use baguette_core::status::{Battery, Status, battery_refusal, battery_text, parse_status};
-use baguette_core::util::{base_name, format_size, join_remote, json_str, parent_remote, parse_i64};
-use baguette_core::{REQUIRED_PROTOCOL, VERSION, config, os};
+use baguette_core::util::{base_name, format_size, join_remote, json_str, normalize_remote, parent_remote, parse_i64};
+use baguette_core::{REQUIRED_PROTOCOL, VERSION, config, os, protect};
 
 const EXIT_OK: u8 = 0;
 const EXIT_USAGE: u8 = 1;
@@ -303,24 +303,20 @@ fn wait_idle(link: &mut Link, budget: u64) -> CliResult<()> {
 // ---------------------------------------------------------------------------
 // helpers
 
-/// "/a/b": forward slashes, leading slash, no trailing slash. An "sd:" prefix
-/// (sd:/3ds/app) is accepted: shells like Git Bash rewrite a leading "/".
+/// "/a/b": forward slashes, leading slash, no trailing slash, dot segments
+/// resolved. An "sd:" prefix (sd:/3ds/app) is accepted: shells like Git Bash
+/// rewrite a leading "/".
 fn remote_path(arg: &str) -> String {
-    let mut p = arg.to_string();
-    if p.len() >= 3 && p.is_char_boundary(3) && p[..3].eq_ignore_ascii_case("sd:") {
-        p.drain(..3);
-    }
-    let p = p.replace('\\', "/");
-    let mut out = String::new();
-    for c in format!("/{p}").chars() {
-        if !(c == '/' && out.ends_with('/')) {
-            out.push(c);
-        }
-    }
-    if out.len() > 1 && out.ends_with('/') {
-        out.pop();
-    }
-    out
+    let p = match arg.get(..3) {
+        Some(head) if head.eq_ignore_ascii_case("sd:") => &arg[3..],
+        _ => arg,
+    };
+    normalize_remote(p)
+}
+
+/// the app's 3DS protection applies here too (this tool only talks to Cement)
+fn protected(paths: &[String], check: fn(&str) -> Option<String>) -> CliResult<()> {
+    protect::guard(config::protect_3ds(), true, paths, check).map_err(Fail::Ftp)
 }
 
 /// looks the item up in its parent folder; None if it does not exist
@@ -729,6 +725,8 @@ fn run(link: &mut Link, cmd: &str, args: &[String], opt: &Options) -> CliResult<
                 }
                 collect_local(&local, &dir, &mut items, &mut t);
             }
+            let targets: Vec<String> = items.iter().map(|i| i.remote.clone()).chain([dir.clone()]).collect();
+            protected(&targets, protect::write)?;
             let mut files = items.iter().filter(|i| !i.dir).count() as u64;
             let mut bytes: u64 = items.iter().map(|i| i.size).sum();
             idle(link)?;
@@ -858,11 +856,12 @@ fn run(link: &mut Link, cmd: &str, args: &[String], opt: &Options) -> CliResult<
             need(1)?;
             let mut t = Totals::new();
             let mut items = Vec::new();
-            for a in args {
-                let path = remote_path(a);
-                if path == "/" {
-                    return Err(Fail::Usage("refusing to delete the whole SD card".into()));
-                }
+            let paths: Vec<String> = args.iter().map(|a| remote_path(a)).collect();
+            if paths.iter().any(|p| p == "/") {
+                return Err(Fail::Usage("refusing to delete the whole SD card".into()));
+            }
+            protected(&paths, protect::delete_or_rename)?;
+            for path in paths {
                 match stat_remote(link, &path)? {
                     None => t.errors.push(format!("not found on the 3DS: {path}")),
                     Some(e) => collect_delete(link, &path, e.dir, &mut items)?,
@@ -904,9 +903,11 @@ fn run(link: &mut Link, cmd: &str, args: &[String], opt: &Options) -> CliResult<
 
         "mkdir" => {
             need(1)?;
+            let paths: Vec<String> = args.iter().map(|a| remote_path(a)).collect();
+            protected(&paths, protect::write)?;
             idle(link)?;
-            for a in args {
-                mkdirs(link, &remote_path(a))?;
+            for p in &paths {
+                mkdirs(link, p)?;
             }
             out(if json() { "{\"ok\":true}\n" } else { "ok\n" });
             Ok(EXIT_OK)
@@ -915,6 +916,7 @@ fn run(link: &mut Link, cmd: &str, args: &[String], opt: &Options) -> CliResult<
         "mv" => {
             need(2)?;
             let (from, to) = (remote_path(&args[0]), remote_path(&args[1]));
+            protected(&[from.clone(), to.clone()], protect::delete_or_rename)?;
             idle(link)?;
             link.run(|f| {
                 f.simple(&format!("RNFR {from}"), 350)?;
