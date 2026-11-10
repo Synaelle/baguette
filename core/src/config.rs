@@ -136,18 +136,24 @@ pub(crate) fn get_int(file: &str, section: &str, key: &str, default: i32) -> i32
     unsafe { GetPrivateProfileIntW(wide(section).as_ptr(), wide(key).as_ptr(), default, wide(file).as_ptr()) as i32 }
 }
 
+/// why the settings file couldn't be written
+fn not_saved(file: &str, e: std::io::Error) -> String {
+    format!("Could not save the settings to {file}: {e}")
+}
+
 #[cfg(windows)]
-pub(crate) fn put(file: &str, section: &str, key: Option<&str>, value: Option<&str>) {
+pub(crate) fn put(file: &str, section: &str, key: Option<&str>, value: Option<&str>) -> Result<(), String> {
     let k = key.map(wide);
     let v = value.map(wide);
-    unsafe {
+    let ok = unsafe {
         WritePrivateProfileStringW(
             wide(section).as_ptr(),
             k.as_ref().map_or(std::ptr::null(), |k| k.as_ptr()),
             v.as_ref().map_or(std::ptr::null(), |v| v.as_ptr()),
             wide(file).as_ptr(),
-        );
-    }
+        )
+    };
+    if ok == 0 { Err(not_saved(file, std::io::Error::last_os_error())) } else { Ok(()) }
 }
 
 #[cfg(not(windows))]
@@ -163,19 +169,22 @@ pub(crate) fn get_int(file: &str, section: &str, key: &str, default: i32) -> i32
 
 /// writes through a temp file and a rename: a crash never leaves half a file
 #[cfg(not(windows))]
-pub(crate) fn put(file: &str, section: &str, key: Option<&str>, value: Option<&str>) {
-    let text = std::fs::read_to_string(file).unwrap_or_default();
+pub(crate) fn put(file: &str, section: &str, key: Option<&str>, value: Option<&str>) -> Result<(), String> {
+    let text = match std::fs::read_to_string(file) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(not_saved(file, e)),
+    };
     let new = crate::ini::set(&text, section, key, value);
     if new == text {
-        return;
+        return Ok(());
     }
     if let Some(dir) = std::path::Path::new(file).parent().filter(|d| !d.as_os_str().is_empty()) {
-        let _ = std::fs::create_dir_all(dir);
+        std::fs::create_dir_all(dir).map_err(|e| not_saved(file, e))?;
     }
     let tmp = format!("{file}.tmp");
-    if std::fs::write(&tmp, new).is_ok() {
-        let _ = std::fs::rename(&tmp, file);
-    }
+    std::fs::write(&tmp, new).map_err(|e| not_saved(file, e))?;
+    std::fs::rename(&tmp, file).map_err(|e| not_saved(file, e))
 }
 
 /// "%XX"-escapes non-ASCII so the list survives an ANSI ini file
@@ -221,11 +230,12 @@ impl Config {
     }
 
     /// remembers the PC folder on screen (only written when it changed)
-    pub fn remember_local(&mut self, dir: &str) {
+    pub fn remember_local(&mut self, dir: &str) -> Result<(), String> {
         if self.local_last != dir {
             self.local_last = dir.to_string();
-            put(&config_path(), "ui", Some("local_last"), Some(&escape(dir)));
+            put(&config_path(), "ui", Some("local_last"), Some(&escape(dir)))?;
         }
+        Ok(())
     }
 
     /// None when no server address is saved yet
@@ -261,31 +271,32 @@ impl Config {
         (c, configured)
     }
 
-    pub fn save(&self) {
+    pub fn save(&self) -> Result<(), String> {
         let path = config_path();
-        put(&path, "server", Some("host"), Some(&self.host));
-        put(&path, "server", Some("port"), Some(&self.port.to_string()));
-        put(&path, "ui", Some("dark"), Some(if self.dark { "1" } else { "0" }));
-        put(&path, "ui", Some("accent"), Some(&self.accent));
-        put(&path, "ui", Some("accent_time"), Some(&self.accent_time.to_string()));
-        put(&path, "ui", Some("look"), Some(&self.look));
-        put(&path, "ui", Some("local_start"), Some(&escape(&self.local_start)));
-        put(&path, "ui", Some("protect_3ds"), Some(if self.protect_3ds { "1" } else { "0" }));
-        put(&path, "ui", Some("check_updates"), Some(if self.check_updates { "1" } else { "0" }));
-        put(&path, "experimental", Some("bundles"), Some(if self.bundles { "1" } else { "0" }));
-        put(&path, "ui", Some("bmp_to_png"), Some(if self.bmp_to_png { "1" } else { "0" }));
-        put(&path, "ui", Some("send_to_pc"), Some(if self.send_to_pc { "1" } else { "0" }));
+        put(&path, "server", Some("host"), Some(&self.host))?;
+        put(&path, "server", Some("port"), Some(&self.port.to_string()))?;
+        put(&path, "ui", Some("dark"), Some(if self.dark { "1" } else { "0" }))?;
+        put(&path, "ui", Some("accent"), Some(&self.accent))?;
+        put(&path, "ui", Some("accent_time"), Some(&self.accent_time.to_string()))?;
+        put(&path, "ui", Some("look"), Some(&self.look))?;
+        put(&path, "ui", Some("local_start"), Some(&escape(&self.local_start)))?;
+        put(&path, "ui", Some("protect_3ds"), Some(if self.protect_3ds { "1" } else { "0" }))?;
+        put(&path, "ui", Some("check_updates"), Some(if self.check_updates { "1" } else { "0" }))?;
+        put(&path, "experimental", Some("bundles"), Some(if self.bundles { "1" } else { "0" }))?;
+        put(&path, "ui", Some("bmp_to_png"), Some(if self.bmp_to_png { "1" } else { "0" }))?;
+        put(&path, "ui", Some("send_to_pc"), Some(if self.send_to_pc { "1" } else { "0" }))?;
         if !self.mode.is_empty() {
-            put(&path, "ui", Some("mode"), Some(&self.mode));
+            put(&path, "ui", Some("mode"), Some(&self.mode))?;
         }
-        put(&path, "ui", Some("local_last"), Some(&escape(&self.local_last)));
-        put(&path, "transfer", Some("sendto"), Some(&self.send_dir));
-        put(&path, "transfer", Some("replace"), Some(if self.send_replace { "1" } else { "0" }));
-        put(&path, "sendtopc", None, None); // drop the old list
-        put(&path, "sendtopc", Some("count"), Some(&self.send_items.len().to_string()));
+        put(&path, "ui", Some("local_last"), Some(&escape(&self.local_last)))?;
+        put(&path, "transfer", Some("sendto"), Some(&self.send_dir))?;
+        put(&path, "transfer", Some("replace"), Some(if self.send_replace { "1" } else { "0" }))?;
+        put(&path, "sendtopc", None, None)?; // drop the old list
+        put(&path, "sendtopc", Some("count"), Some(&self.send_items.len().to_string()))?;
         for (i, item) in self.send_items.iter().enumerate() {
-            put(&path, "sendtopc", Some(&format!("item{i}")), Some(&escape(item)));
+            put(&path, "sendtopc", Some(&format!("item{i}")), Some(&escape(item)))?;
         }
+        Ok(())
     }
 }
 

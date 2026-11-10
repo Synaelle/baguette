@@ -215,11 +215,18 @@ impl AppState {
         }
         if let Some((host, port)) = cement_addr {
             // baguette-cli talks to the last Cement the window reached
-            let mut c = self.config.lock().unwrap();
-            if c.host != host || c.port != port {
-                c.host = host;
-                c.port = port;
-                c.save();
+            let saved = {
+                let mut c = self.config.lock().unwrap();
+                if c.host != host || c.port != port {
+                    c.host = host;
+                    c.port = port;
+                    c.save()
+                } else {
+                    Ok(())
+                }
+            };
+            if let Err(why) = saved {
+                self.message(tab, why);
             }
         }
         self.emit("tab-state", out);
@@ -357,7 +364,9 @@ impl Sink for Bridge {
                 );
             }
             Event::Accent { hex, time } => {
-                commands::spread_accent(app, &hex, time, Some(tab));
+                if let Err(why) = commands::spread_accent(app, &hex, time, Some(tab)) {
+                    app.message(tab, why);
+                }
                 app.emit("accent", hex);
             }
             Event::LoginChanged { user, pass } => {
@@ -369,10 +378,17 @@ impl Sink for Bridge {
                 });
                 if let Some(id) = saved.filter(|id| *id != 0) {
                     let mut all = app.sites.lock().unwrap();
-                    if let Some(s) = all.iter_mut().find(|s| s.id == id) {
-                        s.site.user = user;
-                        s.site.pass = pass;
-                        baguette_core::sites::save(&all);
+                    let stored = match all.iter_mut().find(|s| s.id == id) {
+                        Some(s) => {
+                            s.site.user = user;
+                            s.site.pass = pass;
+                            baguette_core::sites::save(&all)
+                        }
+                        None => Ok(()),
+                    };
+                    drop(all);
+                    if let Err(why) = stored {
+                        app.message(tab, why);
                     }
                 }
                 app.emit("sites-changed", ());

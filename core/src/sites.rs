@@ -30,7 +30,8 @@ pub fn load() -> Vec<Saved> {
         }
         let port = get_int(&path, "server", "port", 5000) as u16;
         let first = vec![Saved { id: 1, name: "My 3DS".into(), site: Site::cement(&host, port), needs_password: false }];
-        save(&first);
+        // if this fails the old address is still in the file and moves over next time
+        let _ = save(&first);
         return first;
     }
     let mut out = Vec::new();
@@ -61,29 +62,34 @@ pub fn load() -> Vec<Saved> {
     out
 }
 
-pub fn save(sites: &[Saved]) {
+/// Err(why) when a password can't be encrypted (nothing is written then, so the
+/// saved ones stay) or the file can't be written
+pub fn save(sites: &[Saved]) -> Result<(), String> {
+    let secret = |text: &str| protect(text).ok_or_else(|| "Could not encrypt the saved passwords: nothing was saved".to_string());
+    let secrets = sites.iter().map(|sv| Ok((secret(&sv.site.pass)?, secret(&sv.site.passphrase)?))).collect::<Result<Vec<_>, String>>()?;
     let path = config_path();
     let old = get_int(&path, "sites", "count", 0).max(0);
     for i in 0..old {
-        put(&path, &format!("site{i}"), None, None);
+        put(&path, &format!("site{i}"), None, None)?;
     }
-    put(&path, "sites", Some("count"), Some(&sites.len().to_string()));
-    for (i, sv) in sites.iter().enumerate() {
+    put(&path, "sites", Some("count"), Some(&sites.len().to_string()))?;
+    for (i, (sv, (pass, passphrase))) in sites.iter().zip(&secrets).enumerate() {
         let sec = format!("site{i}");
         let p = |k: &str, v: &str| put(&path, &sec, Some(k), Some(&escape(v)));
         let s = &sv.site;
-        p("id", &sv.id.to_string());
-        p("name", &sv.name);
-        p("protocol", s.protocol.name());
-        p("host", &s.host);
-        p("port", &s.port.to_string());
-        p("user", &s.user);
-        p("pass", &protect(&s.pass));
-        p("key", &s.key);
-        p("passphrase", &protect(&s.passphrase));
-        p("trusted", &s.trusted.join("|"));
-        p("start", &s.start_dir);
+        p("id", &sv.id.to_string())?;
+        p("name", &sv.name)?;
+        p("protocol", s.protocol.name())?;
+        p("host", &s.host)?;
+        p("port", &s.port.to_string())?;
+        p("user", &s.user)?;
+        p("pass", pass)?;
+        p("key", &s.key)?;
+        p("passphrase", passphrase)?;
+        p("trusted", &s.trusted.join("|"))?;
+        p("start", &s.start_dir)?;
     }
+    Ok(())
 }
 
 /// the user name and password of the saved site at host:port, without
@@ -164,7 +170,7 @@ mod tests {
     #[cfg(windows)] // Linux: linux::tests::key_round_trip, which keeps its key out of the user's folder
     #[test]
     fn dpapi_round_trip() {
-        let h = protect("hunter2 é");
+        let h = protect("hunter2 é").unwrap();
         assert!(!h.is_empty() && !h.contains("hunter2"));
         assert_eq!(unprotect(&h).as_deref(), Some("hunter2 é"));
         assert_eq!(unprotect("00ff").as_deref(), None);
@@ -197,12 +203,24 @@ mod tests {
             },
             needs_password: false,
         });
-        save(&all);
+        save(&all).unwrap();
         let text = std::fs::read_to_string(&file).unwrap();
         assert!(!text.contains("secret"), "password not in clear");
         assert_eq!(load(), all);
-        save(&all[1..]);
+        save(&all[1..]).unwrap();
         assert_eq!(load(), all[1..].to_vec(), "removed sites are gone");
+
+        // a folder that can't be written: an error, and the saved sites stay
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let before = std::fs::read_to_string(&file).unwrap();
+            std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
+            let r = save(&all);
+            std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+            assert!(r.is_err_and(|e| e.contains("Could not save")));
+            assert_eq!(std::fs::read_to_string(&file).unwrap(), before, "nothing lost");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

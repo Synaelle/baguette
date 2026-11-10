@@ -145,27 +145,25 @@ pub fn save_settings(state: St, s: SettingsOut) -> Result<(), String> {
     c.send_dir = s.send_dir.trim().to_string();
     c.send_items = s.send_items;
     c.send_replace = s.send_replace;
-    c.save();
-    Ok(())
+    c.save()
 }
 
 /// the window's colour, picked in the settings; Cement tabs get it too
 #[tauri::command]
 pub fn set_accent(state: St, accent: String) -> Result<(), String> {
     let hex = baguette_core::config::normalize_accent(&accent).ok_or("Not a colour")?;
-    spread_accent(&state, &hex, os::local_now(), None);
-    Ok(())
+    spread_accent(&state, &hex, os::local_now(), None)
 }
 
 /// keeps the colour and sends it to every Cement tab but `from` (the 3DS it
 /// came from)
-pub fn spread_accent(state: &AppState, hex: &str, time: u64, from: Option<u32>) {
-    {
+pub fn spread_accent(state: &AppState, hex: &str, time: u64, from: Option<u32>) -> Result<(), String> {
+    let saved = {
         let mut c = state.config.lock().unwrap();
         c.accent = hex.to_string();
         c.accent_time = time;
-        c.save();
-    }
+        c.save()
+    };
     for t in state.tabs.lock().unwrap().iter() {
         let sh = &t.client.shared;
         *sh.accent.lock().unwrap() = hex.to_string();
@@ -176,6 +174,7 @@ pub fn spread_accent(state: &AppState, hex: &str, time: u64, from: Option<u32>) 
             sh.browse.push(j);
         }
     }
+    saved
 }
 
 #[tauri::command]
@@ -186,16 +185,15 @@ pub fn set_local_start(state: St, start: String) -> Result<(), String> {
     }
     let mut c = state.config.lock().unwrap();
     c.local_start = start;
-    c.save();
-    Ok(())
+    c.save()
 }
 
 /// on or off: refusing to delete or replace important 3DS files
 #[tauri::command]
-pub fn set_protect_3ds(state: St, on: bool) {
+pub fn set_protect_3ds(state: St, on: bool) -> Result<(), String> {
     let mut c = state.config.lock().unwrap();
     c.protect_3ds = on;
-    c.save();
+    c.save()
 }
 
 /// protect::guard for this tab's server
@@ -207,15 +205,16 @@ fn guard(state: &AppState, tab: u32, paths: &[String], check: fn(&str) -> Option
 
 /// experimental: many-file uploads to Cement go as one bundle
 #[tauri::command]
-pub fn set_bundles(state: St, on: bool) {
+pub fn set_bundles(state: St, on: bool) -> Result<(), String> {
     {
         let mut c = state.config.lock().unwrap();
         c.bundles = on;
-        c.save();
+        c.save()?;
     }
     for t in state.tabs.lock().unwrap().iter() {
         t.client.shared.bundles.store(on, std::sync::atomic::Ordering::Relaxed);
     }
+    Ok(())
 }
 
 /// Evil Twin, Ficelle or Ficelle light
@@ -224,8 +223,7 @@ pub fn set_look(state: St, look: String) -> Result<(), String> {
     let l = baguette_core::config::normalize_look(&look).ok_or("Not a look")?;
     let mut c = state.config.lock().unwrap();
     c.look = l;
-    c.save();
-    Ok(())
+    c.save()
 }
 
 /// Standard or Lite, chosen at first launch or in the settings
@@ -234,36 +232,36 @@ pub fn set_mode(state: St, mode: String) -> Result<(), String> {
     let m = baguette_core::config::normalize_mode(&mode).ok_or("Not a mode")?;
     let mut c = state.config.lock().unwrap();
     c.mode = m;
-    c.save();
-    Ok(())
+    c.save()
 }
 
 /// the Send to PC button on the Cement card
 #[tauri::command]
-pub fn set_send_to_pc(state: St, on: bool) {
+pub fn set_send_to_pc(state: St, on: bool) -> Result<(), String> {
     let mut c = state.config.lock().unwrap();
     c.send_to_pc = on;
-    c.save();
+    c.save()
 }
 
 /// downloads save .bmp files as .png
 #[tauri::command]
-pub fn set_bmp_to_png(state: St, on: bool) {
+pub fn set_bmp_to_png(state: St, on: bool) -> Result<(), String> {
     {
         let mut c = state.config.lock().unwrap();
         c.bmp_to_png = on;
-        c.save();
+        c.save()?;
     }
     for t in state.tabs.lock().unwrap().iter() {
         t.client.shared.bmp_to_png.store(on, std::sync::atomic::Ordering::Relaxed);
     }
+    Ok(())
 }
 
 #[tauri::command]
-pub fn set_check_updates(state: St, on: bool) {
+pub fn set_check_updates(state: St, on: bool) -> Result<(), String> {
     let mut c = state.config.lock().unwrap();
     c.check_updates = on;
-    c.save();
+    c.save()
 }
 
 /// a newer release on GitHub, if any (off the window's thread: it waits on the network)
@@ -331,10 +329,11 @@ pub fn open_release(url: String) -> Result<(), String> {
 
 /// the PC folder on screen, for "where you left it"
 #[tauri::command]
-pub fn remember_local(state: St, dir: String) {
-    if !dir.is_empty() {
-        state.config.lock().unwrap().remember_local(&dir);
+pub fn remember_local(state: St, dir: String) -> Result<(), String> {
+    if dir.is_empty() {
+        return Ok(());
     }
+    state.config.lock().unwrap().remember_local(&dir)
 }
 
 /// Cement's own login (empty user: anyone can log in again)
@@ -411,18 +410,18 @@ pub fn site_save(state: St, s: SiteIn) -> Result<Vec<SiteOut>, String> {
             Some(x) => *x = saved,
             None => all.push(saved),
         }
-        sites::save(&all);
+        sites::save(&all)?;
     }
     Ok(sites_out(&state))
 }
 
 #[tauri::command]
-pub fn site_delete(state: St, id: u32) -> Vec<SiteOut> {
+pub fn site_delete(state: St, id: u32) -> Result<Vec<SiteOut>, String> {
     let mut all = state.sites.lock().unwrap();
     all.retain(|s| s.id != id);
-    sites::save(&all);
+    sites::save(&all)?;
     drop(all);
-    sites_out(&state)
+    Ok(sites_out(&state))
 }
 
 #[derive(Serialize)]
@@ -491,10 +490,17 @@ fn change_site(state: &AppState, tab: u32, f: impl Fn(&mut Site), save: bool) {
     if let (Some(id), true) = (saved_id, save) {
         if id != 0 {
             let mut all = state.sites.lock().unwrap();
-            if let Some(s) = all.iter_mut().find(|s| s.id == id) {
-                f(&mut s.site);
-                s.needs_password = false;
-                sites::save(&all);
+            let saved = match all.iter_mut().find(|s| s.id == id) {
+                Some(s) => {
+                    f(&mut s.site);
+                    s.needs_password = false;
+                    sites::save(&all)
+                }
+                None => Ok(()),
+            };
+            drop(all);
+            if let Err(why) = saved {
+                state.message(tab, why);
             }
         }
     }
@@ -695,9 +701,14 @@ pub async fn send_to_pc(app: AppHandle, state: St<'_>, tab: u32) -> Result<(), (
     if dir.is_empty() {
         let Some(d) = pick_folder(&app, "Choose the Send to PC folder (saved in the settings)") else { return Ok(()) };
         dir = d;
-        let mut c = state.config.lock().unwrap();
-        c.send_dir = dir.clone();
-        c.save();
+        let saved = {
+            let mut c = state.config.lock().unwrap();
+            c.send_dir = dir.clone();
+            c.save()
+        };
+        if let Err(why) = saved {
+            state.message(tab, why);
+        }
     }
     if let Err(why) = state.windows_guard(&dir, false) {
         state.message(tab, why);

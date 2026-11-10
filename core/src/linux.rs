@@ -361,26 +361,23 @@ fn key(dir: &str, create: bool) -> Option<ring::aead::LessSafeKey> {
     Some(LessSafeKey::new(UnboundKey::new(&CHACHA20_POLY1305, &bytes).ok()?))
 }
 
-/// encrypts with this user's key, as hex for the ini file
-pub fn protect(text: &str) -> String {
+/// encrypts with this user's key, as hex for the ini file; None when it can't
+/// (no key could be made)
+pub fn protect(text: &str) -> Option<String> {
     protect_in(&key_dir(), text)
 }
 
-fn protect_in(dir: &str, text: &str) -> String {
+fn protect_in(dir: &str, text: &str) -> Option<String> {
     use ring::aead::{Aad, NONCE_LEN, Nonce};
     if text.is_empty() {
-        return String::new();
+        return Some(String::new());
     }
-    let Some(k) = key(dir, true) else { return String::new() };
+    let k = key(dir, true)?;
     let mut nonce = [0u8; NONCE_LEN];
-    if ring::rand::SecureRandom::fill(&ring::rand::SystemRandom::new(), &mut nonce).is_err() {
-        return String::new();
-    }
+    ring::rand::SecureRandom::fill(&ring::rand::SystemRandom::new(), &mut nonce).ok()?;
     let mut data = text.as_bytes().to_vec();
-    if k.seal_in_place_append_tag(Nonce::assume_unique_for_key(nonce), Aad::empty(), &mut data).is_err() {
-        return String::new();
-    }
-    nonce.iter().chain(&data).map(|b| format!("{b:02x}")).collect()
+    k.seal_in_place_append_tag(Nonce::assume_unique_for_key(nonce), Aad::empty(), &mut data).ok()?;
+    Some(nonce.iter().chain(&data).map(|b| format!("{b:02x}")).collect())
 }
 
 /// None when it was encrypted with another key (another PC or user)
@@ -452,11 +449,11 @@ mod tests {
         let base = std::env::temp_dir().join(format!("baguette-key-{}", std::process::id()));
         let (dir, other_dir) = (base.join("a").to_string_lossy().into_owned(), base.join("b").to_string_lossy().into_owned());
         assert_eq!(unprotect_in(&dir, "00112233445566778899aabbccddeeff"), None, "no key yet");
-        let h = protect_in(&dir, "hunter2 é");
+        let h = protect_in(&dir, "hunter2 é").unwrap();
         assert!(!h.is_empty() && !h.contains("hunter2"));
         assert_eq!(std::fs::metadata(join(&dir, "secret.key")).unwrap().mode() & 0o777, 0o600);
         assert_eq!(unprotect_in(&dir, &h).as_deref(), Some("hunter2 é"));
-        assert_ne!(protect_in(&dir, "hunter2 é"), h, "a new nonce each time");
+        assert_ne!(protect_in(&dir, "hunter2 é").unwrap(), h, "a new nonce each time");
         assert_eq!(unprotect_in(&dir, "00ff"), None);
         let mut tampered = h.clone();
         tampered.replace_range(30..32, if &h[30..32] == "00" { "01" } else { "00" });

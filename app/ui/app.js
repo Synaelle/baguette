@@ -198,7 +198,7 @@ class Pane {
       const r = await invoke("local_list", { path });
       this.show(r);
       if (!r.ok) setMessage("Can't open " + path + ": " + r.error);
-      else if (this.st.path) invoke("remember_local", { dir: this.st.path });
+      else if (this.st.path) invoke("remember_local", { dir: this.st.path }).catch(tell);
     } else if (tab()) {
       invoke("navigate", { tab: active, path });
     }
@@ -903,33 +903,33 @@ $("prefsOk").onclick = async () => {
     return;
   }
   protect3ds = $("protect3ds").checked;
-  invoke("set_protect_3ds", { on: protect3ds });
+  invoke("set_protect_3ds", { on: protect3ds }).catch(tell);
   updateToolbar();
   if (pickedMode !== mode) {
-    invoke("set_mode", { mode: pickedMode });
+    invoke("set_mode", { mode: pickedMode }).catch(tell);
     applyMode(pickedMode);
   }
   if ($("sendToPc").checked !== sendToPc) {
     sendToPc = $("sendToPc").checked;
-    invoke("set_send_to_pc", { on: sendToPc });
+    invoke("set_send_to_pc", { on: sendToPc }).catch(tell);
     drawCement();
   }
   if ($("bmpToPng").checked !== bmpToPng) {
     bmpToPng = $("bmpToPng").checked;
-    invoke("set_bmp_to_png", { on: bmpToPng });
+    invoke("set_bmp_to_png", { on: bmpToPng }).catch(tell);
   }
   if ($("bundles").checked !== bundles) {
     bundles = $("bundles").checked;
-    invoke("set_bundles", { on: bundles });
+    invoke("set_bundles", { on: bundles }).catch(tell);
   }
   if ($("checkUpdates").checked !== checkUpdates) {
     checkUpdates = $("checkUpdates").checked;
-    invoke("set_check_updates", { on: checkUpdates });
+    invoke("set_check_updates", { on: checkUpdates }).catch(tell);
     if (checkUpdates) lookForUpdate();
     else $("updateChip").hidden = true;
   }
   if (pickedLook !== look) {
-    invoke("set_look", { look: pickedLook });
+    invoke("set_look", { look: pickedLook }).catch(tell);
     look = pickedLook;
   }
   if (pickedAccent !== accent) {
@@ -1189,7 +1189,12 @@ $("siteDelete").onclick = async () => {
     $("siteDlg").hidden = false;
     return;
   }
-  sites = await invoke("site_delete", { id: s.id });
+  try {
+    sites = await invoke("site_delete", { id: s.id });
+  } catch (e) {
+    tell(e);
+    return;
+  }
   renderSites();
 };
 $("btnNewSite").onclick = () => editSite(null);
@@ -1672,7 +1677,7 @@ function drawSetup() {
 }
 for (const b of document.querySelectorAll(".setup-card")) b.onclick = () => ((setupPick = b.dataset.mode), drawSetup());
 $("setupGo").onclick = async () => {
-  await invoke("set_mode", { mode: setupPick });
+  await invoke("set_mode", { mode: setupPick }).catch(tell);
   $("setup").hidden = true;
   applyMode(setupPick);
 };
