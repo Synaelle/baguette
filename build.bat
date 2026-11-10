@@ -17,6 +17,9 @@ for /f "delims=" %%d in ('git status --porcelain 2^>nul') do set DIRTY=-dev
 if "%COMMIT%"=="" (set BAGUETTE_VERSION=%BASEVER%-dev) else if "%DIRTY%%~1"=="" (set BAGUETTE_VERSION=%BASEVER%) else (set BAGUETTE_VERSION=%BASEVER%-%COMMIT%-dev)
 echo version %BAGUETTE_VERSION%
 
+rem the exe's file version (Windows wants plain numbers), merged into tauri.conf.json
+set TAURI_CONFIG={"version":"%BASEVER%"}
+
 set PACKAGES=-p baguette -p baguette-cli
 set FILES=Baguette.exe baguette-cli.exe
 set PROFILE=release
