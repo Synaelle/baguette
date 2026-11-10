@@ -333,6 +333,14 @@ input[type=color] { width: 44px; height: 28px; flex-grow: 0 !important; padding:
 /* ---- settings ---- */
 .win svg.gear { width: 15px; height: 15px; fill: currentColor; stroke: none; transition: transform .3s; }
 #btnSettings:hover svg.gear { transform: rotate(45deg); }
+
+/* no pulsing or turning for people who asked their system for less motion; the
+   waiting dot stays dimmed so it still differs from a connected one */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0s !important; }
+  .dot.wait { animation: none; opacity: .6; }
+  #btnSettings:hover svg.gear { transform: none; }
+}
 .dialog.prefs { width: 560px; gap: 16px; }
 .prefs-head { display: flex; flex-direction: column; gap: 12px; }
 .seg { display: flex; gap: 4px; padding: 4px; border-radius: var(--r-99); background: var(--well); align-self: flex-start; }
