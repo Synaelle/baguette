@@ -8,7 +8,7 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use baguette_core::ftp::{Error, Ftp};
+use baguette_core::ftp::{Error, Ftp, Login};
 use baguette_core::remote::{self, Protocol, Remote, Site};
 use baguette_core::util::part_path;
 use common::{ftpd, sftpd};
@@ -227,5 +227,6 @@ fn cement_style_ftp_still_works_without_login() {
     let root = temp("anon-root");
     let srv = ftpd::start(&root, ftpd::Options { mlsd: true, pasv: true, ..Default::default() });
     let mut f = Ftp::new();
-    assert!(!f.connect("127.0.0.1", srv.port), "this server wants pi/secret, anonymous is refused");
+    let refused = f.open("127.0.0.1", srv.port, Login::default());
+    assert!(matches!(refused, Err(Error::Ftp(_))), "this server wants pi/secret, anonymous is refused");
 }

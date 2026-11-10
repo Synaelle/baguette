@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use baguette_core::ftp::Entry;
+use baguette_core::remote::Site;
 use baguette_core::workers::{CONNECTED, Client, Event, Job, Kind, ListResult, Sink, WAITING};
 
 #[derive(Default)]
@@ -115,7 +116,7 @@ fn workers_against_cement() {
     let lists = |e: &Arc<Events>| e.0.lock().unwrap().clone();
 
     println!("waits for the server, then connects");
-    let mut client = Client::start("127.0.0.1", DEV_PORT, Box::new(Collect(events.clone())));
+    let mut client = Client::start_site(Site::cement("127.0.0.1", DEV_PORT), Box::new(Collect(events.clone())));
     let s = client.shared.clone();
     std::thread::sleep(Duration::from_millis(2500));
     c.check(s.browse.state.load(Ordering::Relaxed) == WAITING, "waiting while the server is down");

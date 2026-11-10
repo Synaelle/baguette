@@ -75,11 +75,6 @@ pub fn local_existing(dir: String, names: Vec<String>) -> Vec<String> {
 }
 
 #[tauri::command]
-pub fn local_join(dir: String, name: String) -> String {
-    os::join(&dir, &name)
-}
-
-#[tauri::command]
 pub fn local_mkdir(state: St, path: String) -> Result<(), String> {
     state.windows_guard(&path, false)?;
     std::fs::create_dir(&path).map_err(|e| format!("Can't create {path}: {e}"))
@@ -116,8 +111,8 @@ mod tests {
         assert_eq!(local_parent("/home/me".into()), "/home");
         assert_eq!(local_parent("/home/".into()), "/");
         assert_eq!(local_parent("/".into()), "");
-        assert_eq!(local_join("/".into(), "a".into()), "/a");
-        assert_eq!(local_join("/x".into(), "a".into()), "/x/a");
+        assert_eq!(os::join("/", "a"), "/a");
+        assert_eq!(os::join("/x", "a"), "/x/a");
     }
 
     #[cfg(windows)]
@@ -126,7 +121,7 @@ mod tests {
         assert_eq!(local_parent("C:\\Users\\me".into()), "C:\\Users");
         assert_eq!(local_parent("C:\\Users".into()), "C:\\");
         assert_eq!(local_parent("C:\\".into()), "");
-        assert_eq!(local_join("C:\\".into(), "a".into()), "C:\\a");
-        assert_eq!(local_join("C:\\x".into(), "a".into()), "C:\\x\\a");
+        assert_eq!(os::join("C:\\", "a"), "C:\\a");
+        assert_eq!(os::join("C:\\x", "a"), "C:\\x\\a");
     }
 }

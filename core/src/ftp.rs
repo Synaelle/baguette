@@ -258,11 +258,6 @@ impl Ftp {
         self.ctrl.is_some()
     }
 
-    /// Cement: anonymous, plain FTP
-    pub fn connect(&mut self, host: &str, port: u16) -> bool {
-        self.open(host, port, Login::default()).is_ok()
-    }
-
     /// Net: unreachable (try again later). Ftp: the server refused the login.
     /// Untrusted: the certificate needs the user's OK.
     pub fn open(&mut self, host: &str, port: u16, login: Login) -> Result<()> {

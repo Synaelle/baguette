@@ -742,7 +742,6 @@ fn main() {
             local::local_delete,
             local::local_open,
             local::local_parent,
-            local::local_join,
             local::local_existing,
         ])
         .run(tauri::generate_context!())

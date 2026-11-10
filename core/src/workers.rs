@@ -354,11 +354,6 @@ pub struct Client {
 }
 
 impl Client {
-    /// Cement at host:port
-    pub fn start(host: &str, port: u16, sink: Box<dyn Sink>) -> Client {
-        Client::start_site(Site::cement(host, port), sink)
-    }
-
     pub fn start_site(site: Site, sink: Box<dyn Sink>) -> Client {
         // empty: the server's home folder, found when the browse connection opens
         let cwd = site.start_dir.clone();
