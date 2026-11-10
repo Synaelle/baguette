@@ -716,14 +716,16 @@ const DEFAULT_ACCENT = "e44c3e";
 const PALETTE = {
   "--accent": "#e44c3e", "--accent-hi": "#ec6457", "--hi": "#ec7366", "--soft": "#e8b4ab", "--bg": "#0e0d0d", "--blob": "#131111",
   "--surface": "#161414", "--well": "#110f0f", "--quick": "#131111", "--track": "#1f1c1b", "--sel": "#3a1915", "--edge": "#423b38",
-  "--line": "#2e2a28", "--input": "#3a3431", "--text": "#e6dfd8", "--dim": "#9a918a", "--mute": "#5f5752",
+  "--line": "#2e2a28", "--input": "#3a3431", "--text": "#e6dfd8", "--dim": "#9a918a", "--mute": "#8a817a",
+  "--tag": "#ec7366",
 };
 // Ficelle's light room: the same names, the lights on
 const LIGHT_ACCENT = "c1271b";
 const LIGHT_PALETTE = {
   "--accent": "#c1271b", "--accent-hi": "#ad2117", "--hi": "#c1271b", "--soft": "#7a2a20", "--bg": "#f1efea", "--blob": "#e9e6e0",
   "--surface": "#fbfaf7", "--well": "#f1efea", "--quick": "#f6f4ef", "--track": "#e5e2db", "--sel": "#f5d5ce", "--edge": "#a9a298",
-  "--line": "#cbc6bc", "--input": "#cbc6bc", "--text": "#161413", "--dim": "#5e5853", "--mute": "#9c958c",
+  "--line": "#cbc6bc", "--input": "#cbc6bc", "--text": "#161413", "--dim": "#5e5853", "--mute": "#6e6761",
+  "--tag": "#a81f15",
 };
 // the same list as in Cement, already as bright as the red (dark text on them reads at 5:1)
 const ACCENTS = [

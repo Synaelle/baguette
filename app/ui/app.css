@@ -47,7 +47,8 @@
   --input: #3a3431;
   --text: #e6dfd8;
   --dim: #9a918a;
-  --mute: #5f5752;
+  --mute: #8a817a;
+  --tag: #ec7366;      /* small tag text on --sel */
   --ok: #8db07a;
   --r-99: 99px; --r-20: 20px; --r-18: 18px; --r-16: 16px; --r-14: 14px; --r-12: 12px;
   --r-10: 10px; --r-9: 9px; --r-8: 8px; --r-6: 6px;
@@ -129,7 +130,7 @@ button.chip { border: 0; cursor: pointer; }
 .site .edit svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 .site:hover .edit { visibility: visible; }
 .site .edit:hover { background: var(--sel); color: var(--text); }
-.tag { flex: none; font-size: 10px; font-weight: var(--w-800); padding: 1px 6px; border-radius: var(--r-6); background: var(--sel); color: var(--hi); }
+.tag { flex: none; font-size: 10px; font-weight: var(--w-800); padding: 1px 6px; border-radius: var(--r-6); background: var(--sel); color: var(--tag); }
 
 .dot { width: 9px; height: 9px; border-radius: var(--r-99); background: var(--mute); display: inline-block; flex: none; }
 .dot.on { background: var(--ok); }
@@ -556,7 +557,8 @@ html.light {
   --input: #cbc6bc;
   --text: #161413;
   --dim: #5e5853;
-  --mute: #9c958c;
+  --mute: #6e6761;
+  --tag: #a81f15;
   --ok: #3d6b35;
   color-scheme: light;
 }
