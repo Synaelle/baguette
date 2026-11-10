@@ -8,6 +8,9 @@ rem   add-to-path.bat remove   takes it out again (bin\ stays, delete it if you 
 rem Open a new terminal afterwards: running ones keep their old PATH.
 setlocal
 set "BIN=%~dp0bin"
+rem Your saved PATH is read and written as it is in the registry, so entries like
+rem %%USERPROFILE%%\bin stay unexpanded and the value stays REG_EXPAND_SZ. Clearing an
+rem unused variable afterwards makes Windows tell running programs that PATH changed.
 rem tests only change this window's copy of PATH, never your saved one
 set "SCOPE=User"
 if defined BAGUETTE_PATH_TEST set "SCOPE=Process"
@@ -27,16 +30,26 @@ if exist "%BIN%\chomp.bat" del "%BIN%\chomp.bat"
     echo "%%~dp0..\baguette-cli.exe" %%*
 )
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$bin = $env:BIN; $old = [Environment]::GetEnvironmentVariable('Path', $env:SCOPE); $parts = @($old -split ';' | Where-Object { $_ });" ^
+  "$bin = $env:BIN; $user = $env:SCOPE -eq 'User';" ^
+  "if ($user) { $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment'); $old = $key.GetValue('Path', '', 'DoNotExpandEnvironmentNames') }" ^
+  "else { $old = [Environment]::GetEnvironmentVariable('Path', 'Process') };" ^
+  "$parts = @($old -split ';' | Where-Object { $_ });" ^
   "if ($parts -contains $bin) { Write-Host 'baguette is already on your PATH:' $bin; exit 0 }" ^
-  "[Environment]::SetEnvironmentVariable('Path', (($parts + $bin) -join ';'), $env:SCOPE);" ^
+  "$new = ($parts + $bin) -join ';';" ^
+  "if ($user) { $key.SetValue('Path', $new, 'ExpandString'); [Environment]::SetEnvironmentVariable('BAGUETTE_PATH_UNUSED', $null, 'User') }" ^
+  "else { [Environment]::SetEnvironmentVariable('Path', $new, 'Process') };" ^
   "Write-Host 'Added to your PATH:' $bin; Write-Host 'Open a new terminal and type: baguette --help'"
 exit /b %errorlevel%
 
 :remove
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$bin = $env:BIN; $old = [Environment]::GetEnvironmentVariable('Path', $env:SCOPE); $parts = @($old -split ';' | Where-Object { $_ });" ^
+  "$bin = $env:BIN; $user = $env:SCOPE -eq 'User';" ^
+  "if ($user) { $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment'); $old = $key.GetValue('Path', '', 'DoNotExpandEnvironmentNames') }" ^
+  "else { $old = [Environment]::GetEnvironmentVariable('Path', 'Process') };" ^
+  "$parts = @($old -split ';' | Where-Object { $_ });" ^
   "if ($parts -notcontains $bin) { Write-Host 'baguette was not on your PATH'; exit 0 }" ^
-  "[Environment]::SetEnvironmentVariable('Path', (($parts | Where-Object { $_ -ne $bin }) -join ';'), $env:SCOPE);" ^
+  "$new = ($parts | Where-Object { $_ -ne $bin }) -join ';';" ^
+  "if ($user) { $key.SetValue('Path', $new, 'ExpandString'); [Environment]::SetEnvironmentVariable('BAGUETTE_PATH_UNUSED', $null, 'User') }" ^
+  "else { [Environment]::SetEnvironmentVariable('Path', $new, 'Process') };" ^
   "Write-Host 'Removed from your PATH:' $bin"
 exit /b %errorlevel%
