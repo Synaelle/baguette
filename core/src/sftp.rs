@@ -276,8 +276,8 @@ impl Remote for Sftp {
 
     fn upload(&mut self, local: &str, remote: &str, offset: u64, progress: Progress) -> Result<()> {
         use std::io::{Read, Seek};
-        let mut file = std::fs::File::open(local).map_err(|_| Error::Ftp(format!("Can't open local file {local}")))?;
-        file.seek(SeekFrom::Start(offset)).map_err(|_| Error::Ftp(format!("Can't read local file {local}")))?;
+        let mut file = std::fs::File::open(local).map_err(|e| Error::Ftp(format!("Can't open local file {local}: {e}")))?;
+        file.seek(SeekFrom::Start(offset)).map_err(|e| Error::Ftp(format!("Can't read local file {local}: {e}")))?;
         let sftp = self.sftp()?;
         let flags = OpenFlags::WRITE | OpenFlags::CREATE | if offset == 0 { OpenFlags::TRUNCATE } else { OpenFlags::empty() };
         let r = self.rt.block_on(async {
@@ -287,7 +287,7 @@ impl Remote for Sftp {
             }
             let mut buf = vec![0u8; 256 * 1024];
             loop {
-                let n = file.read(&mut buf).map_err(|_| Error::Ftp(format!("Can't read local file {local}")))?;
+                let n = file.read(&mut buf).map_err(|e| Error::Ftp(format!("Can't read local file {local}: {e}")))?;
                 if n == 0 {
                     break;
                 }
@@ -319,7 +319,7 @@ impl Remote for Sftp {
                 if n == 0 {
                     break;
                 }
-                file.write_all(&buf[..n]).map_err(|_| Error::Ftp(format!("Can't write local file {part}")))?;
+                file.write_all(&buf[..n]).map_err(|e| Error::Ftp(format!("Can't write local file {part}: {e}")))?;
                 progress(n as u64)?;
             }
             Ok::<(), Error>(())

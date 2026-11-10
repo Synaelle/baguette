@@ -678,9 +678,9 @@ impl Ftp {
         offset: u64,
         progress: &mut dyn FnMut(u64) -> Result<()>,
     ) -> Result<()> {
-        let mut file = File::open(local).map_err(|_| Error::Ftp(format!("Can't open local file {local}")))?;
+        let mut file = File::open(local).map_err(|e| Error::Ftp(format!("Can't open local file {local}: {e}")))?;
         let total = file.metadata().map(|m| m.len()).unwrap_or(0);
-        file.seek(SeekFrom::Start(offset)).map_err(|_| Error::Ftp(format!("Can't read local file {local}")))?;
+        file.seek(SeekFrom::Start(offset)).map_err(|e| Error::Ftp(format!("Can't read local file {local}: {e}")))?;
 
         self.open_data()?;
         // announce the full size first so the 3DS can report progress and time left
@@ -698,7 +698,7 @@ impl Ftp {
 
         let mut buf = vec![0u8; 1 << 20];
         loop {
-            let n = file.read(&mut buf).map_err(|_| Error::Ftp(format!("Can't read local file {local}")))?;
+            let n = file.read(&mut buf).map_err(|e| Error::Ftp(format!("Can't read local file {local}: {e}")))?;
             if n == 0 {
                 break;
             }
@@ -760,7 +760,7 @@ impl Ftp {
                 Ok(n) => n,
                 Err(_) => return Err(Error::Net),
             };
-            file.write_all(&buf[..n]).map_err(|_| Error::Ftp(format!("Can't write local file {part}")))?;
+            file.write_all(&buf[..n]).map_err(|e| Error::Ftp(format!("Can't write local file {part}: {e}")))?;
             if let Err(e) = progress(n as u64) {
                 if e == Error::Cancel {
                     self.reset_data();
@@ -781,14 +781,14 @@ impl Ftp {
 
 /// the download's .part file, cut to `offset` (what is already there)
 pub(crate) fn open_part(part: &str, offset: u64) -> Result<File> {
-    let cant = || Error::Ftp(format!("Can't create local file {part}"));
-    let mut file = OpenOptions::new().write(true).create(true).truncate(offset == 0).open(part).map_err(|_| cant())?;
-    file.set_len(offset).map_err(|_| cant())?;
-    file.seek(SeekFrom::Start(offset)).map_err(|_| cant())?;
+    let cant = |e: std::io::Error| Error::Ftp(format!("Can't create local file {part}: {e}"));
+    let mut file = OpenOptions::new().write(true).create(true).truncate(offset == 0).open(part).map_err(cant)?;
+    file.set_len(offset).map_err(cant)?;
+    file.seek(SeekFrom::Start(offset)).map_err(cant)?;
     Ok(file)
 }
 
 /// a complete download takes its real name, replacing the file there
 pub(crate) fn finish_part(part: &str, local: &str) -> Result<()> {
-    std::fs::rename(part, local).map_err(|_| Error::Ftp(format!("Can't replace local file {local}")))
+    std::fs::rename(part, local).map_err(|e| Error::Ftp(format!("Can't replace local file {local}: {e}")))
 }
