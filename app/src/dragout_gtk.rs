@@ -18,6 +18,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use baguette_core::ftp::Entry;
+use baguette_core::util::safe_name;
 use baguette_core::os;
 use baguette_core::workers::JobPtr;
 use gtk::prelude::*;
@@ -65,8 +66,9 @@ fn give_up(state: &AppState, tab: u32, job: &JobPtr, dir: &str) {
 }
 
 /// runs on the GTK thread and returns at once: the drag goes on in GTK's loop
-pub fn drag_out(app: &AppHandle, state: Arc<AppState>, tab: u32, remote_dir: &str, entries: Vec<Entry>) {
+pub fn drag_out(app: &AppHandle, state: Arc<AppState>, tab: u32, remote_dir: &str, mut entries: Vec<Entry>) {
     let Some(window) = app.get_webview_window("main").and_then(|w| w.gtk_window().ok()) else { return finished(app) };
+    entries.retain(|e| safe_name(&e.name));
     if entries.is_empty() {
         return finished(app);
     }

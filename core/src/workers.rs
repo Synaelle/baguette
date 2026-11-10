@@ -16,7 +16,7 @@ use std::time::Duration;
 use crate::ftp::{Aborter, Entry, Error, Ftp, Result};
 use crate::remote::{self, Remote, Site};
 use crate::status::{ServerInfo, Status, battery_refusal, battery_text};
-use crate::util::{base_name, format_size, join_remote, parent_remote};
+use crate::util::{base_name, format_size, join_local, join_remote, parent_remote};
 use crate::{BUNDLE_MIN_FILES, REQUIRED_PROTOCOL, os};
 
 /// a listing for the main window (notify 0) or another view (the 3DS picker)
@@ -718,7 +718,7 @@ fn expand_remote(ftp: &mut Box<dyn Remote>, job: &mut Job, remote: &str, local: 
     if e.dir {
         job.items.push(Item { local: local.into(), remote: remote.into(), dir: true, size: 0 });
         for child in ftp.list(remote)? {
-            expand_remote(ftp, job, &join_remote(remote, &child.name), &os::join(local, &child.name), &child)?;
+            expand_remote(ftp, job, &join_remote(remote, &child.name), &join_local(local, &child.name)?, &child)?;
         }
     } else {
         job.items.push(Item { local: local.into(), remote: remote.into(), dir: false, size: e.size });
@@ -812,7 +812,7 @@ fn expand_send_to_pc(ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
         }
         // each item lands directly in the PC folder: /openmw/logs -> <PC folder>\logs
         let name = base_name(&rp).to_string();
-        let local = os::join(&job.path2, &name);
+        let local = join_local(&job.path2, &name)?;
         // find the item in its parent folder to know if it is a folder or a file
         let siblings = match ftp.list(&parent_remote(&rp)) {
             Ok(v) => v,
@@ -907,7 +907,7 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
             expand_send_to_pc(ftp, job)?;
         } else {
             for e in job.remotes.clone() {
-                let (remote, local) = (join_remote(&job.path, &e.name), os::join(&job.path2, &e.name));
+                let (remote, local) = (join_remote(&job.path, &e.name), join_local(&job.path2, &e.name)?);
                 expand_remote(ftp, job, &remote, &local, &e)?;
             }
         }

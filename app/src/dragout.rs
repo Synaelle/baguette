@@ -9,6 +9,7 @@ use std::mem::ManuallyDrop;
 use std::time::Duration;
 
 use baguette_core::ftp::Entry;
+use baguette_core::util::safe_name;
 use windows::Win32::Foundation::*;
 use windows::Win32::System::Com::*;
 use windows::Win32::System::Memory::*;
@@ -168,7 +169,8 @@ fn download_modal(state: &AppState, tab: u32, remote_dir: &str, entries: Vec<Ent
 }
 
 /// runs on the UI thread: the drag loop is modal
-pub fn drag_out(state: &AppState, tab: u32, remote_dir: &str, entries: Vec<Entry>) {
+pub fn drag_out(state: &AppState, tab: u32, remote_dir: &str, mut entries: Vec<Entry>) {
+    entries.retain(|e| safe_name(&e.name));
     if entries.is_empty() {
         return;
     }

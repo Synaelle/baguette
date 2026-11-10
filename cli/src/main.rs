@@ -462,6 +462,11 @@ fn collect_local(local: &str, remote_dir: &str, items: &mut Vec<Item>, t: &mut T
     }
 }
 
+/// a local path for a name the 3DS listed
+fn local_child(dir: &str, name: &str) -> CliResult<String> {
+    baguette_core::util::join_local(dir, name).map_err(|_| Fail::Ftp(format!("refused the 3DS's file name {name:?}")))
+}
+
 fn collect_remote(link: &mut Link, remote: &str, e: &Entry, local: &str, items: &mut Vec<Item>) -> CliResult<()> {
     items.push(Item { local: local.into(), remote: remote.into(), dir: e.dir, size: e.size });
     if !e.dir {
@@ -469,7 +474,7 @@ fn collect_remote(link: &mut Link, remote: &str, e: &Entry, local: &str, items: 
     }
     let children = link.run(|f| f.list(remote))?;
     for c in children {
-        collect_remote(link, &join_remote(remote, &c.name), &c, &os::join(local, &c.name), items)?;
+        collect_remote(link, &join_remote(remote, &c.name), &c, &local_child(local, &c.name)?, items)?;
     }
     Ok(())
 }
@@ -788,10 +793,10 @@ fn run(link: &mut Link, cmd: &str, args: &[String], opt: &Options) -> CliResult<
                         // --contents: the folder's contents go straight into local-dir
                         let children = link.run(|f| f.list(&remote))?;
                         for c in children {
-                            collect_remote(link, &join_remote(&remote, &c.name), &c, &os::join(&dir, &c.name), &mut items)?;
+                            collect_remote(link, &join_remote(&remote, &c.name), &c, &local_child(&dir, &c.name)?, &mut items)?;
                         }
                     }
-                    Some(e) => collect_remote(link, &remote, &e, &os::join(&dir, &e.name), &mut items)?,
+                    Some(e) => collect_remote(link, &remote, &e, &local_child(&dir, &e.name)?, &mut items)?,
                 }
             }
             let mut files = items.iter().filter(|i| !i.dir).count() as u64;

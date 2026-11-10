@@ -20,6 +20,22 @@ pub fn base_name(path: &str) -> &str {
     path.rfind(['/', '\\']).map_or(path, |i| &path[i + 1..])
 }
 
+/// a name from a server listing that is safe as one part of a local path: not
+/// empty, not . or .., and no separator or NUL (nor a drive or stream colon on
+/// Windows)
+pub fn safe_name(name: &str) -> bool {
+    !name.is_empty() && name != "." && name != ".." && !name.contains(['/', '\\', '\0']) && !(cfg!(windows) && name.contains(':'))
+}
+
+/// dir + a name that came from the server, refused when it could reach outside dir
+pub fn join_local(dir: &str, name: &str) -> crate::ftp::Result<String> {
+    if safe_name(name) {
+        Ok(crate::os::join(dir, name))
+    } else {
+        Err(crate::ftp::Error::Ftp(format!("Refused the server's file name {name:?}")))
+    }
+}
+
 /// "1.23 GB", "4.5 MB", "12.0 KB", "512 B"
 pub fn format_size(v: u64) -> String {
     if v >= 1 << 30 {
@@ -124,6 +140,19 @@ mod tests {
         assert_eq!(parent_remote("/a"), "/");
         assert_eq!(normalize_remote(" a\\\\b// "), "/a/b");
         assert_eq!(normalize_remote(""), "/");
+    }
+
+    #[test]
+    fn server_names() {
+        for bad in ["", ".", "..", "../x", "a/b", "..\\..\\x", "a\0b"] {
+            assert!(!safe_name(bad), "{bad:?}");
+            assert!(join_local("/tmp/d", bad).is_err(), "{bad:?}");
+        }
+        for good in ["a", "...", "a b.txt", ".hidden", "x..y"] {
+            assert!(safe_name(good), "{good:?}");
+        }
+        assert_eq!(safe_name("C:x"), !cfg!(windows));
+        assert_eq!(join_local("/tmp/d", "a").unwrap(), crate::os::join("/tmp/d", "a"));
     }
 
     #[test]

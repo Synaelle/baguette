@@ -4,9 +4,10 @@
 //! servers without MLSD.
 
 use crate::ftp::Entry;
-use crate::util::parse_u64;
+use crate::util::{parse_u64, safe_name};
 
-/// "type=file;size=12;modify=20260101120000; name"
+/// "type=file;size=12;modify=20260101120000; name"; names that can't be a
+/// local file name are dropped (see `safe_name`), whatever their type
 pub fn parse_mlsd(raw: &str) -> Vec<Entry> {
     let mut out = Vec::new();
     for line in raw.split('\n') {
@@ -28,7 +29,7 @@ pub fn parse_mlsd(raw: &str) -> Vec<Entry> {
                 _ => {}
             }
         }
-        if !skip && !e.name.is_empty() {
+        if !skip && safe_name(&e.name) {
             out.push(e);
         }
     }
@@ -109,11 +110,13 @@ fn parse_dos(line: &str) -> Option<Entry> {
     })
 }
 
-/// LIST output; lines that look like neither format ("total 12") are skipped
+/// LIST output; lines that look like neither format ("total 12") are skipped,
+/// and so are names that can't be a local file name (see `safe_name`)
 pub fn parse_list(raw: &str, this_year: u32, this_month: u32) -> Vec<Entry> {
     raw.split('\n')
         .map(|l| l.strip_suffix('\r').unwrap_or(l))
         .filter_map(|l| parse_unix(l, this_year, this_month).or_else(|| parse_dos(l)))
+        .filter(|e| safe_name(&e.name))
         .collect()
 }
 
@@ -151,5 +154,13 @@ mod tests {
         assert_eq!(v.len(), 2);
         assert!(v[0].dir && v[0].name == "Program Files" && v[0].modified == "20240105123000");
         assert_eq!((v[1].size, v[1].modified.as_str()), (2048, "20261019090500"));
+    }
+    #[test]
+    fn names_that_leave_the_folder() {
+        let v = parse_mlsd("type=dir; .\r\ntype=dir; ..\r\ntype=file;size=1; ../x\r\ntype=file;size=1; a\\..\\x\r\ntype=file;size=1; ok\r\n");
+        assert_eq!(v.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["ok"]);
+        let v = parse_list("10-19-26  09:05AM  <DIR>  ..\r\n10-19-26  09:05AM  <DIR>  .\r\n10-19-26  09:05AM  2  ..\\x\r\n10-19-26  09:05AM  2  ok\r\n", 2026, 10);
+        assert_eq!(v.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["ok"]);
+        assert!(parse_list("-rw-r--r-- 1 a b 1 Dec  1 10:00 a/b", 2026, 10).is_empty());
     }
 }

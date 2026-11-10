@@ -221,7 +221,7 @@ impl Remote for Sftp {
         let mut out = Vec::new();
         for e in dir {
             let name = e.file_name();
-            if name == "." || name == ".." {
+            if !crate::util::safe_name(&name) {
                 continue;
             }
             let mut m = e.metadata();
