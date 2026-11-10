@@ -330,10 +330,10 @@ pub fn recycle(paths: &[String]) -> bool {
     paths.iter().filter(|p| !trash(p)).count() == 0
 }
 
-// The saved passwords: encrypted (ChaCha20-Poly1305) with a random key kept next
-// to baguette.ini (secret.key, readable by this user only). Like Windows' DPAPI,
-// the ini file copied without the key still opens, and its sites ask for their
-// password again.
+// The saved passwords: encrypted (ChaCha20-Poly1305) with a random key kept in the
+// desktop's keyring, or, without one, next to baguette.ini (secret.key, readable
+// by this user only). Like Windows' DPAPI, the ini file copied without the key
+// still opens, and its sites ask for their password again.
 
 /// the folder of the settings file, where the key goes
 fn key_dir() -> String {
@@ -343,24 +343,77 @@ fn key_dir() -> String {
 
 fn key(dir: &str, create: bool) -> Option<ring::aead::LessSafeKey> {
     use ring::aead::{CHACHA20_POLY1305, LessSafeKey, UnboundKey};
-    let file = join(dir, "secret.key");
-    let bytes = match std::fs::read(&file) {
-        Ok(b) => b,
-        Err(_) if create => {
-            let mut k = [0u8; 32];
-            ring::rand::SecureRandom::fill(&ring::rand::SystemRandom::new(), &mut k).ok()?;
-            mkdir_private(Path::new(dir));
-            match std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&file) {
-                Ok(mut f) => {
-                    f.write_all(&k).ok()?;
-                    k.to_vec()
-                }
-                Err(_) => std::fs::read(&file).ok()?, // another Baguette made it first
-            }
-        }
-        Err(_) => return None,
-    };
+    let bytes = key_bytes(dir, create)?;
     Some(LessSafeKey::new(UnboundKey::new(&CHACHA20_POLY1305, &bytes).ok()?))
+}
+
+/// The key lives in the desktop's keyring when it has one. A secret.key file
+/// (from before, or made where there is no keyring) wins and moves into the
+/// keyring, and is deleted only once the keyring holds it.
+fn key_bytes(dir: &str, create: bool) -> Option<Vec<u8>> {
+    let file = join(dir, "secret.key");
+    match std::fs::read(&file) {
+        Ok(b) => {
+            if keyring_store(dir, &b) && keyring_read(dir).as_deref() == Some(b.as_slice()) {
+                let _ = std::fs::remove_file(&file);
+            }
+            return Some(b);
+        }
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => return None,
+        Err(_) => {}
+    }
+    if let Some(k) = keyring_read(dir) {
+        return Some(k);
+    }
+    if !create {
+        return None;
+    }
+    let mut k = [0u8; 32];
+    ring::rand::SecureRandom::fill(&ring::rand::SystemRandom::new(), &mut k).ok()?;
+    if keyring_store(dir, &k) {
+        // what the keyring holds now, in case another Baguette stored its key first
+        return keyring_read(dir);
+    }
+    mkdir_private(Path::new(dir));
+    match std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&file) {
+        Ok(mut f) => {
+            f.write_all(&k).ok()?;
+            Some(k.to_vec())
+        }
+        Err(_) => std::fs::read(&file).ok(), // another Baguette made it first
+    }
+}
+
+/// what the key's keyring item is found by: one key per settings folder
+fn keyring_attributes(dir: &str) -> std::collections::HashMap<&str, &str> {
+    std::collections::HashMap::from([("application", "baguette"), ("purpose", "saved passwords key"), ("folder", dir)])
+}
+
+/// the key from the desktop's keyring (Secret Service); None without a keyring,
+/// and always in tests, which must never touch the user's keyring
+fn keyring_read(dir: &str) -> Option<Vec<u8>> {
+    use dbus_secret_service::{EncryptionType, SecretService};
+    if cfg!(test) {
+        return None;
+    }
+    let ss = SecretService::connect(EncryptionType::Plain).ok()?;
+    let collection = ss.get_default_collection().ok()?;
+    let items = collection.search_items(keyring_attributes(dir)).ok()?;
+    let item = items.first()?;
+    item.ensure_unlocked().ok()?;
+    item.get_secret().ok().filter(|k| k.len() == 32)
+}
+
+/// puts the key in the desktop's keyring; false without a keyring (and in tests)
+fn keyring_store(dir: &str, key: &[u8]) -> bool {
+    use dbus_secret_service::{EncryptionType, SecretService};
+    if cfg!(test) {
+        return false;
+    }
+    let Ok(ss) = SecretService::connect(EncryptionType::Plain) else { return false };
+    let Ok(collection) = ss.get_default_collection() else { return false };
+    collection.ensure_unlocked().is_ok()
+        && collection.create_item("Baguette: saved passwords key", keyring_attributes(dir), key, true, "application/octet-stream").is_ok()
 }
 
 /// encrypts with this user's key, as hex for the ini file; None when it can't

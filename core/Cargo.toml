@@ -22,6 +22,7 @@ windows-sys.workspace = true
 [target.'cfg(not(windows))'.dependencies]
 libc = "0.2.191"
 ring = "0.17.14" # the saved passwords' encryption (Windows uses DPAPI)
+dbus-secret-service = "4.1.0" # that encryption's key, kept in the desktop's keyring
 
 [dev-dependencies]
 rcgen = "0.14.10"
