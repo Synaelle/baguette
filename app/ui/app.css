@@ -261,6 +261,8 @@ select option { padding: 3px 6px; border-radius: var(--r-6); }
 .bar > div.soft { background: var(--hi); }
 
 #statusbar { display: flex; gap: 12px; align-items: center; padding: 8px 18px; color: var(--dim); font-weight: 600; white-space: nowrap; overflow: hidden; flex: none; }
+/* messages and errors can be copied */
+#st0, #st1 { user-select: text; -webkit-user-select: text; cursor: text; }
 #st0 { color: var(--text); }
 #st1 { overflow: hidden; text-overflow: ellipsis; }
 
