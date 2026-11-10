@@ -38,7 +38,7 @@ impl client::Handler for Keys {
             PublicKeyOrCertificate::Certificate(c) => c.public_key().clone(),
         };
         let fp = data.fingerprint(HashAlg::Sha256).to_string();
-        let ok = self.trusted.iter().any(|t| *t == fp);
+        let ok = self.trusted.contains(&fp);
         *self.seen.lock().unwrap() = Some((fp, ok));
         Ok(ok)
     }
@@ -197,7 +197,7 @@ impl Remote for Sftp {
 
     fn close(&mut self) {
         if let Some(c) = self.conn.take() {
-            let _ = self.rt.block_on(async {
+            self.rt.block_on(async {
                 let _ = tokio::time::timeout(Duration::from_secs(1), c.sftp.close()).await;
                 let _ = c.ssh.disconnect(russh::Disconnect::ByApplication, "", "en").await;
             });

@@ -186,7 +186,7 @@ impl AppState {
                     low: info.battery.low,
                     sd_free: if info.has_space { format_size(info.sd_free) } else { String::new() },
                     sd_total: if info.has_space { format_size(info.sd_total) } else { String::new() },
-                    sd_permille: if info.sd_total != 0 { (info.sd_total - info.sd_free.min(info.sd_total)) * 1000 / info.sd_total } else { 0 },
+                    sd_permille: ((info.sd_total - info.sd_free.min(info.sd_total)) * 1000).checked_div(info.sd_total).unwrap_or(0),
                     cias,
                     installing,
                     version: info.version.clone(),
@@ -536,7 +536,7 @@ fn ticker(app: Arc<AppState>) {
                 t.status.part1.clone()
             });
             let Some(part1) = part1 else { continue };
-            let permille = if p.total != 0 { p.done * 1000 / p.total } else { 0 };
+            let permille = (p.done * 1000).checked_div(p.total).unwrap_or(0);
             let now = (p.active, permille, part1);
             if r.last_sent.as_ref() != Some(&now) {
                 let name = if p.file_count != 0 { format!("{} ({}/{})", p.name, p.file_index, p.file_count) } else { String::new() };

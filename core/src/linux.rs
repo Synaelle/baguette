@@ -106,7 +106,8 @@ pub fn empty_folder(dir: &str, recycle: bool) -> bool {
         let paths: Vec<String> = paths.iter().map(|p| p.to_string_lossy().into_owned()).collect();
         self::recycle(&paths)
     } else {
-        paths.iter().fold(true, |ok, p| remove(p) && ok)
+        // every path is tried, even after one fails
+        paths.iter().filter(|p| !remove(p)).count() == 0
     }
 }
 
@@ -183,7 +184,7 @@ fn tm_text(tm: &libc::tm, date_sep: &str, mid: &str) -> String {
 /// colour times use: the 3DS keeps local time)
 pub fn local_now() -> u64 {
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
-    (now + local_tm(now).tm_gmtoff as i64).max(0) as u64
+    (now + local_tm(now).tm_gmtoff).max(0) as u64
 }
 
 /// "YYYY-MM-DD hh:mm:ss" in local time, from a file_time
@@ -325,7 +326,8 @@ fn trash(path: &str) -> bool {
 
 /// to the trash
 pub fn recycle(paths: &[String]) -> bool {
-    paths.iter().fold(true, |ok, p| trash(p) && ok)
+    // every path is tried, even after one fails
+    paths.iter().filter(|p| !trash(p)).count() == 0
 }
 
 // The saved passwords: encrypted (ChaCha20-Poly1305) with a random key kept next

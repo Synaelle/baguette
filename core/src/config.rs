@@ -191,7 +191,7 @@ pub(crate) fn put(file: &str, section: &str, key: Option<&str>, value: Option<&s
 pub(crate) fn escape(s: &str) -> String {
     let mut out = String::new();
     for &c in s.as_bytes() {
-        if c >= 0x80 || c < 0x20 || c == b'%' {
+        if !(0x20..0x80).contains(&c) || c == b'%' {
             out.push_str(&format!("%{c:02X}"));
         } else {
             out.push(c as char);
@@ -205,13 +205,12 @@ pub(crate) fn unescape(s: &str) -> String {
     let mut out = Vec::new();
     let mut i = 0;
     while i < b.len() {
-        if b[i] == b'%' && i + 2 < b.len() {
-            if let Some(v) = s.get(i + 1..i + 3).and_then(|h| u8::from_str_radix(h, 16).ok()) {
+        if b[i] == b'%' && i + 2 < b.len()
+            && let Some(v) = s.get(i + 1..i + 3).and_then(|h| u8::from_str_radix(h, 16).ok()) {
                 out.push(v);
                 i += 3;
                 continue;
             }
-        }
         out.push(b[i]);
         i += 1;
     }

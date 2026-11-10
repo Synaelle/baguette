@@ -577,14 +577,13 @@ fn run(s: &Arc<Shared>, transfer: bool) {
             let j = job.job.lock().unwrap();
             (j.kind, j.open_after, j.track_local.clone(), j.items.first().cloned())
         };
-        if ok && (open_after || !track_local.is_empty()) {
-            if let Some(first) = first {
+        if ok && (open_after || !track_local.is_empty())
+            && let Some(first) = first {
                 // remember the 3DS file's time, to tell later whether it changed there
                 let remote_stamp = r.mtime(&first.remote).ok().flatten().unwrap_or_default();
                 let f = Fetched { local: if open_after { first.local } else { track_local }, remote: first.remote, remote_stamp };
                 s.sink.emit(if open_after { Event::Opened(f) } else { Event::Sent(f) });
             }
-        }
         if transfer && !w.busy() {
             s.progress.lock().unwrap().active = false;
         }
@@ -975,11 +974,10 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
         let mut offset = 0;
         if job.partial {
             if up {
-                if let Some(remote) = ftp.size(&it.remote)? {
-                    if remote <= it.size {
+                if let Some(remote) = ftp.size(&it.remote)?
+                    && remote <= it.size {
                         offset = remote;
                     }
-                }
             } else if let Ok(m) = std::fs::metadata(part_path(&it.local)) {
                 offset = it.size.min(m.len());
             }
@@ -1023,11 +1021,10 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
                 // only for files saved into the user's folders: a file opened from the
                 // server or dragged out to Explorer must keep the name it was asked for
                 let saved = !job.open_after && !job.path2.starts_with(&crate::os::temp_root());
-                if !up && saved && s.bmp_to_png.load(Ordering::Relaxed) {
-                    if let Err(e) = crate::png::convert(&it.local) {
+                if !up && saved && s.bmp_to_png.load(Ordering::Relaxed)
+                    && let Err(e) = crate::png::convert(&it.local) {
                         s.message(format!("Error: {e}"));
                     }
-                }
             }
             Err(Error::Ftp(msg)) => {
                 if !up {

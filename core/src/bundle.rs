@@ -148,8 +148,8 @@ impl Read for Reader {
                 self.pos += n;
                 return Ok(n);
             }
-            if let Some((f, left, _)) = &mut self.file {
-                if *left > 0 {
+            if let Some((f, left, _)) = &mut self.file
+                && *left > 0 {
                     let want = (*left).min(buf.len() as u64) as usize;
                     let n = f.read(&mut buf[..want])?;
                     if n == 0 {
@@ -159,7 +159,6 @@ impl Read for Reader {
                     *left -= n as u64;
                     return Ok(n);
                 }
-            }
             if self.done && self.file.is_none() && self.pos >= self.pending.len() && self.next >= self.items.len() {
                 return Ok(0);
             }

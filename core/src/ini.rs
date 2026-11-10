@@ -24,12 +24,11 @@ pub fn get(text: &str, section: &str, key: &str) -> Option<String> {
     for line in text.lines() {
         if let Some(s) = section_name(line) {
             inside = s.eq_ignore_ascii_case(section);
-        } else if inside {
-            if let Some((_, v)) = key_value(line).filter(|(k, _)| k.eq_ignore_ascii_case(key)) {
+        } else if inside
+            && let Some((_, v)) = key_value(line).filter(|(k, _)| k.eq_ignore_ascii_case(key)) {
                 let unquoted = v.len() >= 2 && (v.starts_with('"') && v.ends_with('"') || v.starts_with('\'') && v.ends_with('\''));
                 return Some(if unquoted { v[1..v.len() - 1].to_string() } else { v.to_string() });
             }
-        }
     }
     None
 }

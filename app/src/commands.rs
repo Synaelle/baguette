@@ -398,11 +398,10 @@ pub fn site_save(state: St, s: SiteIn) -> Result<Vec<SiteOut>, String> {
             start_dir: s.start_dir.trim().to_string(),
         };
         // a key or certificate stays trusted while the address is the same
-        if let Some(o) = &old {
-            if o.site.host == site.host && o.site.port == site.port && o.site.protocol == site.protocol {
+        if let Some(o) = &old
+            && o.site.host == site.host && o.site.port == site.port && o.site.protocol == site.protocol {
                 site.trusted = o.site.trusted.clone();
             }
-        }
         let name = if s.name.trim().is_empty() { site.host.clone() } else { s.name.trim().to_string() };
         let needs_password = old.as_ref().is_some_and(|o| o.needs_password) && s.pass.is_none();
         let saved = Saved { id, name, site, needs_password };
@@ -487,8 +486,8 @@ fn change_site(state: &AppState, tab: u32, f: impl Fn(&mut Site), save: bool) {
         t.client.shared.xfer.reconnect();
         t.saved_id
     });
-    if let (Some(id), true) = (saved_id, save) {
-        if id != 0 {
+    if let (Some(id), true) = (saved_id, save)
+        && id != 0 {
             let mut all = state.sites.lock().unwrap();
             let saved = match all.iter_mut().find(|s| s.id == id) {
                 Some(s) => {
@@ -503,7 +502,6 @@ fn change_site(state: &AppState, tab: u32, f: impl Fn(&mut Site), save: bool) {
                 state.message(tab, why);
             }
         }
-    }
 }
 
 /// the user accepted this certificate or host key
