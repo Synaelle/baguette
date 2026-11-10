@@ -629,18 +629,6 @@ fn pick_folder(app: &AppHandle, title: &str) -> Option<String> {
 }
 
 #[tauri::command]
-pub async fn download_to(app: AppHandle, state: St<'_>, tab: u32, dir: String, entries: Vec<EntryOut>) -> Result<(), ()> {
-    if let Some(to) = pick_folder(&app, "Download to") {
-        if let Err(why) = state.windows_guard(&to, false) {
-            state.message(tab, why);
-            return Ok(());
-        }
-        start_download(&state, tab, &dir, entries.into_iter().map(Entry::from).collect(), to, false);
-    }
-    Ok(())
-}
-
-#[tauri::command]
 pub async fn browse_folder(app: AppHandle, title: String) -> Result<Option<String>, ()> {
     Ok(pick_folder(&app, &title))
 }

@@ -411,13 +411,19 @@ function uploadSelected(to) {
   if (!t || !sel.length || localPane.st.path === "") return;
   invoke("upload", { tab: active, paths: sel.map((e) => localPane.join(localPane.st.path, e.name)), dir: to ?? remotePane.st.path }).catch(tell);
 }
-function downloadSelected(to) {
+async function downloadSelected(to, pick = false) {
   const t = tab();
   const sel = remotePane.selectedEntries();
   if (!t || !sel.length) return;
-  const dest = to ?? localPane.st.path;
-  if (dest === "") invoke("download_to", { tab: active, dir: remotePane.st.path, entries: sel });
-  else invoke("download", { tab: active, dir: remotePane.st.path, entries: sel, to: dest }).catch(tell);
+  let dest = to ?? localPane.st.path;
+  if (pick || dest === "") dest = await invoke("browse_folder", { title: "Download to" });
+  if (!dest) return;
+  const there = await invoke("local_existing", { dir: dest, names: sel.map((e) => e.name) });
+  if (there.length) {
+    const what = there.length === 1 ? `${there[0]} is` : `${there.length} of these are`;
+    if (!(await ask(`${what} already in ${dest}. Replace ${there.length === 1 ? "it" : "them"}?`, "Replace", "Cancel"))) return;
+  }
+  invoke("download", { tab: active, dir: remotePane.st.path, entries: sel, to: dest }).catch(tell);
   t.refreshLocal = true; // the worker lists the server folder again once the job is done
 }
 
@@ -589,7 +595,7 @@ function showMenu(pane, x, y) {
       items.push(["Install on the 3DS", "", () => invoke("install_cia", { tab: active, path: pane.join(pane.st.path, sel[0].name) }).catch(tell)]);
     if (!local) {
       items.push(["Download", "", () => downloadSelected()]);
-      items.push(["Download to...", "", () => invoke("download_to", { tab: active, dir: pane.st.path, entries: sel })]);
+      items.push(["Download to...", "", () => downloadSelected(undefined, true)]);
     }
     items.push(["Rename", "F2", () => pane.startRename(), sel.length !== 1]);
     items.push(["Delete", "Del", () => pane.deleteSelected()]);

@@ -692,7 +692,6 @@ fn main() {
             commands::delete,
             commands::upload,
             commands::download,
-            commands::download_to,
             commands::browse_folder,
             commands::browse_file,
             commands::browse_files,
@@ -711,6 +710,7 @@ fn main() {
             local::local_open,
             local::local_parent,
             local::local_join,
+            local::local_existing,
         ])
         .run(tauri::generate_context!())
         .expect("Baguette");

@@ -68,6 +68,12 @@ pub fn local_parent(path: String) -> String {
     }
 }
 
+/// which of these names are already in a PC folder, before a download replaces them
+#[tauri::command]
+pub fn local_existing(dir: String, names: Vec<String>) -> Vec<String> {
+    names.into_iter().filter(|n| std::fs::symlink_metadata(os::join(&dir, n)).is_ok()).collect()
+}
+
 #[tauri::command]
 pub fn local_join(dir: String, name: String) -> String {
     os::join(&dir, &name)
