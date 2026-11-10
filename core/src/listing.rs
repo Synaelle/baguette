@@ -25,7 +25,7 @@ pub fn parse_mlsd(raw: &str) -> Vec<Entry> {
                     skip = v == "cdir" || v == "pdir";
                 }
                 "size" => e.size = parse_u64(&v),
-                "modify" if v.len() >= 14 => e.modified = v[..14].to_string(),
+                "modify" => e.modified = v.get(..14).unwrap_or_default().to_string(),
                 _ => {}
             }
         }
@@ -162,5 +162,11 @@ mod tests {
         let v = parse_list("10-19-26  09:05AM  <DIR>  ..\r\n10-19-26  09:05AM  <DIR>  .\r\n10-19-26  09:05AM  2  ..\\x\r\n10-19-26  09:05AM  2  ok\r\n", 2026, 10);
         assert_eq!(v.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["ok"]);
         assert!(parse_list("-rw-r--r-- 1 a b 1 Dec  1 10:00 a/b", 2026, 10).is_empty());
+    }
+
+    #[test]
+    fn odd_text_does_not_panic() {
+        let v = parse_mlsd("type=file;modify=2026010112000é;size=1; a\r\ntype=file;modify=2026; b\r\n");
+        assert_eq!((v[0].modified.as_str(), v[1].modified.as_str()), ("", ""));
     }
 }

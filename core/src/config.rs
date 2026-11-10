@@ -206,7 +206,7 @@ pub(crate) fn unescape(s: &str) -> String {
     let mut i = 0;
     while i < b.len() {
         if b[i] == b'%' && i + 2 < b.len() {
-            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+            if let Some(v) = s.get(i + 1..i + 3).and_then(|h| u8::from_str_radix(h, 16).ok()) {
                 out.push(v);
                 i += 3;
                 continue;
@@ -308,6 +308,7 @@ mod tests {
     fn escaping() {
         assert_eq!(escape("/été 100%"), "/%C3%A9t%C3%A9 100%25");
         assert_eq!(unescape(&escape("/été 100%")), "/été 100%");
+        assert_eq!(unescape("%é%"), "%é%", "a stray % before a non-ASCII letter");
     }
 
     #[test]
