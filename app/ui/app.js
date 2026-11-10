@@ -375,10 +375,15 @@ class Pane {
       else if (ev.key === "Delete") this.deleteSelected();
       else if (ev.key === "F2") this.startRename();
       else if (ev.key === "F5") this.refresh();
-      else if (ev.key === "Tab" && !lite) (this === localPane ? remotePane : localPane).focus();
+      // Tab goes from the PC side to the server side and Shift+Tab back; past them it leaves
+      // the lists. WebKitGTK names Shift+Tab (ISO_Left_Tab) "Unidentified", its code is Tab.
+      else if (ev.code === "Tab" && !lite && !ev.shiftKey && this === localPane) remotePane.focus();
+      else if (ev.code === "Tab" && !lite && ev.shiftKey && this === remotePane) localPane.focus();
       else if (ev.key === "a" && ev.ctrlKey) this.setSelection(st.entries.map((e) => e.name));
-      else if (ev.key === "ContextMenu") showMenu(this, this.el.getBoundingClientRect().left + 40, this.el.getBoundingClientRect().top + 80);
-      else return;
+      else if (ev.key === "ContextMenu" || (ev.key === "F10" && ev.shiftKey)) {
+        const r = this.rows.children[st.focus]?.getBoundingClientRect() ?? this.el.getBoundingClientRect();
+        showMenu(this, r.left + 40, r.bottom, true);
+      } else return;
       ev.preventDefault();
     });
     this.list.addEventListener("focus", () => setActivePane(this));
@@ -583,7 +588,7 @@ $("btnRefresh").onclick = () => activePane.refresh();
 $("btnReconnect").onclick = () => tab() && invoke("reconnect", { tab: active });
 $("btnCancel").onclick = () => tab() && invoke("cancel", { tab: active });
 
-function showMenu(pane, x, y) {
+function showMenu(pane, x, y, fromKeyboard = false) {
   const sel = pane.selectedEntries();
   const items = [];
   const t = tab();
@@ -612,18 +617,47 @@ function showMenu(pane, x, y) {
     }
     const d = document.createElement("div");
     d.innerHTML = `<span>${it[0]}</span><span class="key">${it[1]}</span>`;
-    if (it[3]) d.className = "off";
+    d.setAttribute("role", "menuitem");
+    d.tabIndex = -1;
+    if (it[3]) {
+      d.className = "off";
+      d.setAttribute("aria-disabled", "true");
+    }
     d.onclick = () => {
+      if (it[3]) return;
       hideMenu();
       it[2]();
     };
     m.appendChild(d);
   }
+  menuPane = pane;
   m.hidden = false;
   m.style.left = Math.min(x, innerWidth - m.offsetWidth - 4) + "px";
   m.style.top = Math.min(y, innerHeight - m.offsetHeight - 4) + "px";
+  if (fromKeyboard) m.querySelector("[role=menuitem]:not(.off)")?.focus();
 }
-const hideMenu = () => ($("menu").hidden = true);
+let menuPane = null;
+// back to the list the menu was opened from when it was used from the keyboard
+function hideMenu() {
+  const m = $("menu");
+  if (m.hidden) return;
+  const hadFocus = m.contains(document.activeElement);
+  m.hidden = true;
+  if (hadFocus) menuPane?.list.focus();
+}
+$("menu").addEventListener("keydown", (ev) => {
+  const items = [...$("menu").querySelectorAll("[role=menuitem]:not(.off)")];
+  const i = items.indexOf(document.activeElement);
+  if (ev.key === "ArrowDown") items[(i + 1) % items.length]?.focus();
+  else if (ev.key === "ArrowUp") items[(i - 1 + items.length) % items.length]?.focus();
+  else if (ev.key === "Home") items[0]?.focus();
+  else if (ev.key === "End") items[items.length - 1]?.focus();
+  else if (ev.key === "Enter" || ev.key === " ") document.activeElement?.click();
+  else if (ev.key === "Escape" || ev.key === "Tab") hideMenu();
+  else return;
+  ev.preventDefault();
+  ev.stopPropagation();
+});
 document.addEventListener("contextmenu", (ev) => {
   if (ev.target.tagName !== "INPUT") ev.preventDefault();
 });
@@ -716,16 +750,16 @@ const DEFAULT_ACCENT = "e44c3e";
 const PALETTE = {
   "--accent": "#e44c3e", "--accent-hi": "#ec6457", "--hi": "#ec7366", "--soft": "#e8b4ab", "--bg": "#0e0d0d", "--blob": "#131111",
   "--surface": "#161414", "--well": "#110f0f", "--quick": "#131111", "--track": "#1f1c1b", "--sel": "#3a1915", "--edge": "#423b38",
-  "--line": "#2e2a28", "--input": "#3a3431", "--text": "#e6dfd8", "--dim": "#9a918a", "--mute": "#8a817a",
-  "--tag": "#ec7366",
+  "--line": "#2e2a28", "--input": "#6a615c", "--text": "#e6dfd8", "--dim": "#9a918a", "--mute": "#8a817a",
+  "--tag": "#ec7366", "--focus": "#7a716b",
 };
 // Ficelle's light room: the same names, the lights on
 const LIGHT_ACCENT = "c1271b";
 const LIGHT_PALETTE = {
   "--accent": "#c1271b", "--accent-hi": "#ad2117", "--hi": "#c1271b", "--soft": "#7a2a20", "--bg": "#f1efea", "--blob": "#e9e6e0",
   "--surface": "#fbfaf7", "--well": "#f1efea", "--quick": "#f6f4ef", "--track": "#e5e2db", "--sel": "#f5d5ce", "--edge": "#a9a298",
-  "--line": "#cbc6bc", "--input": "#cbc6bc", "--text": "#161413", "--dim": "#5e5853", "--mute": "#6e6761",
-  "--tag": "#a81f15",
+  "--line": "#cbc6bc", "--input": "#8f887f", "--text": "#161413", "--dim": "#5e5853", "--mute": "#6e6761",
+  "--tag": "#a81f15", "--focus": "#7a736b",
 };
 // the same list as in Cement, already as bright as the red (dark text on them reads at 5:1)
 const ACCENTS = [
@@ -972,10 +1006,10 @@ function renderSites() {
     const d = document.createElement("div");
     d.className = "site" + (t && t.id === active ? " open" : "");
     d.innerHTML =
-      `<span class="dot ${dotClass(t)}"></span>` +
+      `<button class="pick"${t && t.id === active ? ' aria-current="true"' : ""}><span class="dot ${dotClass(t)}"></span>` +
       `<span class="txt"><b>${escapeHtml(s.name)}</b><span class="sub">${PROTO[s.protocol] || s.protocol} · ${escapeHtml(s.host)}</span></span>` +
       (t?.cement ? '<span class="tag">3DS</span>' : "") +
-      `<button class="edit" title="Edit" aria-label="Edit ${escapeHtml(s.name)}">${PENCIL}</button>`;
+      `</button><button class="edit" title="Edit" aria-label="Edit ${escapeHtml(s.name)}">${PENCIL}</button>`;
     d.onclick = (ev) => {
       if (ev.target.closest(".edit")) return editSite(s);
       const open = tabOfSite(s.id);
@@ -993,7 +1027,9 @@ function renderTabs() {
   for (const t of tabs.values()) {
     const d = document.createElement("div");
     d.className = "tab" + (t.id === active ? " active" : "");
-    d.innerHTML = `<span class="dot ${dotClass(t)}"></span><span>${escapeHtml(t.name)}</span><button class="x" title="Close (Ctrl+W)" aria-label="Close">${CROSS}</button>`;
+    d.innerHTML =
+      `<button class="pick"${t.id === active ? ' aria-current="true"' : ""}><span class="dot ${dotClass(t)}"></span><span>${escapeHtml(t.name)}</span></button>` +
+      `<button class="x" title="Close (Ctrl+W)" aria-label="Close ${escapeHtml(t.name)}">${CROSS}</button>`;
     d.onclick = (ev) => (ev.target.closest(".x") ? closeTab(t.id) : activate(t.id));
     d.onauxclick = (ev) => ev.button === 1 && closeTab(t.id);
     bar.appendChild(d);

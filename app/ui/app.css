@@ -44,11 +44,12 @@
   --sel: #3a1915;
   --edge: #423b38;
   --line: #2e2a28;
-  --input: #3a3431;
+  --input: #6a615c;
   --text: #e6dfd8;
   --dim: #9a918a;
   --mute: #8a817a;
   --tag: #ec7366;      /* small tag text on --sel */
+  --focus: #7a716b;    /* the keyboard focus edge, 3:1 on every surface */
   --ok: #8db07a;
   --r-99: 99px; --r-20: 20px; --r-18: 18px; --r-16: 16px; --r-14: 14px; --r-12: 12px;
   --r-10: 10px; --r-9: 9px; --r-8: 8px; --r-6: 6px;
@@ -72,6 +73,7 @@ body {
   -webkit-user-select: none;
 }
 [hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--hi); outline-offset: 2px; }
 .grow { flex-grow: 1; }
 .dim { color: var(--dim); }
 .small { font-size: 11px; }
@@ -128,7 +130,14 @@ button.chip { border: 0; cursor: pointer; }
 .site .sub { display: block; color: var(--dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .site .edit { visibility: hidden; border: 0; background: transparent; color: var(--dim); width: 22px; height: 22px; border-radius: var(--r-6); padding: 3px; flex: none; }
 .site .edit svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
-.site:hover .edit { visibility: visible; }
+.site:hover .edit, .site:focus-within .edit { visibility: visible; }
+/* the site and tab names are buttons, so they take the keyboard; they look like the row */
+.site .pick, .tab .pick {
+  display: flex; align-items: center; min-width: 0; padding: 0; border: 0; background: transparent;
+  color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: var(--r-6);
+}
+.site .pick { gap: 10px; flex-grow: 1; }
+.tab .pick { gap: 8px; }
 .site .edit:hover { background: var(--sel); color: var(--text); }
 .tag { flex: none; font-size: 10px; font-weight: var(--w-800); padding: 1px 6px; border-radius: var(--r-6); background: var(--sel); color: var(--tag); }
 
@@ -227,7 +236,7 @@ select option { padding: 3px 6px; border-radius: var(--r-6); }
 .row-e:hover { background: var(--blob); }
 .row-e.sel { background: var(--sel); }
 .row-e.sel .size, .row-e.sel .date { color: var(--soft); }
-.list:focus .row-e.focus { box-shadow: inset 0 0 0 1px var(--edge); }
+.list:focus .row-e.focus { box-shadow: inset 0 0 0 1px var(--focus); }
 .row-e.drop { background: var(--accent); color: var(--on-accent); }
 .row-e .name { display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; }
 .row-e .name span { overflow: hidden; text-overflow: ellipsis; }
@@ -273,7 +282,7 @@ select option { padding: 3px 6px; border-radius: var(--r-6); }
   box-shadow: 0 12px 32px #0009;
 }
 .menu div { display: flex; justify-content: space-between; gap: 20px; padding: 6px 10px; border-radius: var(--r-8); cursor: default; }
-.menu div:hover { background: var(--sel); }
+.menu div:hover, .menu div:focus { background: var(--sel); outline: none; }
 .menu div.off { color: var(--mute); pointer-events: none; }
 .menu .key { color: var(--dim); font-size: 11px; }
 .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
@@ -562,11 +571,12 @@ html.light {
   --sel: #f5d5ce;
   --edge: #a9a298;
   --line: #cbc6bc;
-  --input: #cbc6bc;
+  --input: #8f887f;
   --text: #161413;
   --dim: #5e5853;
   --mute: #6e6761;
   --tag: #a81f15;
+  --focus: #7a736b;
   --ok: #3d6b35;
   color-scheme: light;
 }
