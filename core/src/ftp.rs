@@ -314,7 +314,12 @@ impl Ftp {
         }
         if tls != Tls::None {
             self.cmd("PBSZ 0", None)?;
-            self.prot_p = self.cmd("PROT P", None)? / 100 == 2;
+            // FTPS was asked for: file data in the clear is not an option
+            let (code, text) = self.cmd_text("PROT P")?;
+            if code / 100 != 2 {
+                return Err(Error::Ftp(format!("The server won't encrypt file transfers: {}", first_line(&text))));
+            }
+            self.prot_p = true;
         }
         self.cmd("TYPE I", None)?;
         self.cmd("OPTS UTF8 ON", None)?;

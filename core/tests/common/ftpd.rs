@@ -20,6 +20,7 @@ pub struct Options {
     pub pasv: bool,
     pub tls: bool,      // AUTH TLS offered
     pub implicit: bool, // TLS from the first byte
+    pub no_prot: bool,  // refuses PROT P (data in the clear only)
 }
 
 pub struct Ftpd {
@@ -175,6 +176,7 @@ fn session(c: TcpStream, root: &Path, opt: &Options, cfg: &Arc<ServerConfig>) {
                 }
             }
             "PBSZ" => say(&mut r, "200 PBSZ=0"),
+            "PROT" if opt.no_prot && arg.eq_ignore_ascii_case("P") => say(&mut r, "534 Not allowed"),
             "PROT" => {
                 prot = arg.eq_ignore_ascii_case("P");
                 say(&mut r, "200 Protection set");

@@ -198,6 +198,13 @@ fn ftps_explicit() {
     let mut p = s.clone();
     p.port = plain.port;
     assert!(matches!(r.open(&p), Err(Error::Ftp(m)) if m.contains("doesn't offer FTPS")));
+
+    // TLS for the login but not for the files: refused, not sent in the clear
+    let half = ftpd::start(&root, ftpd::Options { mlsd: true, pasv: true, tls: true, no_prot: true, ..Default::default() });
+    let mut h = s.clone();
+    h.port = half.port;
+    h.trusted = vec![baguette_core::tls::fingerprint(&half.cert)];
+    assert!(matches!(r.open(&h), Err(Error::Ftp(m)) if m.contains("won't encrypt")));
 }
 
 #[test]
