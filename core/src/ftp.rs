@@ -16,6 +16,9 @@ use crate::listing::{parse_list, parse_mlsd};
 use crate::status::{ServerInfo, parse_server_info};
 use crate::util::{parse_u64, part_path};
 
+/// a folder listing bigger than this is refused (about half a million names)
+const MAX_LISTING: usize = 64 << 20;
+
 /// why an FTP call failed
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {
@@ -528,7 +531,15 @@ impl Ftp {
                     Ok(n) => raw.extend_from_slice(&buf[..n]),
                     Err(_) => return Err(Error::Net),
                 }
+                if raw.len() > MAX_LISTING {
+                    break;
+                }
             }
+        }
+        if raw.len() > MAX_LISTING {
+            self.reset_data();
+            self.reply(None)?;
+            return Err(Error::Ftp(format!("The listing of {path} is over {} MB: not shown", MAX_LISTING >> 20)));
         }
         self.close_data();
         let mut text = String::new();
