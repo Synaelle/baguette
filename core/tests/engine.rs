@@ -3,7 +3,7 @@
 //! Headless test of Baguette's workers against Cement's PC test server
 //! (cargo build --release in the cement repo). The server is found through
 //! CEMENT_SERVER, or next to this repo at ../cement/target/release/cement-server.exe;
-//! without it the test is skipped.
+//! without either the test is skipped.
 
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
@@ -66,11 +66,15 @@ impl Checks {
     }
 }
 
+/// CEMENT_SERVER must exist when it is set (the release workflow sets it), so the
+/// test can't skip itself there
 fn server_exe() -> Option<PathBuf> {
-    let p = std::env::var_os("CEMENT_SERVER").map(PathBuf::from).unwrap_or_else(|| {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(format!("../../cement/target/release/cement-server{}", std::env::consts::EXE_SUFFIX))
-    });
+    if let Some(p) = std::env::var_os("CEMENT_SERVER").map(PathBuf::from) {
+        assert!(p.exists(), "CEMENT_SERVER is {}, which doesn't exist", p.display());
+        return Some(p);
+    }
+    let p = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("../../cement/target/release/cement-server{}", std::env::consts::EXE_SUFFIX));
     p.exists().then_some(p)
 }
 
