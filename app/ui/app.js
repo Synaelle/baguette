@@ -1102,6 +1102,7 @@ function showTab() {
   renderTabs();
   renderSites();
   $("remoteTitle").textContent = t ? t.name : "Server";
+  $("remoteTitle").title = t ? t.name : "";
   if (t) {
     remotePane.attach(t.remote);
     if (t.state === "connected" && t.remote.shown === null && t.remote.path) remotePane.refresh();
