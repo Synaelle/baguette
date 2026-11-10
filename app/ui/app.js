@@ -236,13 +236,15 @@ class Pane {
     if (!this.isRoot(this.st.path)) this.navigate(this.parent(this.st.path));
   }
 
-  openRow(i) {
+  async openRow(i) {
     if (i < 0 || i >= this.rowCount()) return;
     const e = this.entryAt(i);
     if (!e) return this.up();
     if (e.dir) return this.navigate(this.join(this.st.path, e.name));
-    if (this.kind === "local") invoke("local_open", { path: this.join(this.st.path, e.name) }).catch(tell);
-    else invoke("open_file", { tab: active, dir: this.st.path, entry: e });
+    if (this.kind === "local") return invoke("local_open", { path: this.join(this.st.path, e.name) }).catch(tell);
+    // opening a program from a server runs it on this PC
+    if (RUNS.test(e.name) && !(await ask(`${e.name} is a program or script: opening it runs it on this PC. Open it?`, "Run it", "Cancel"))) return;
+    invoke("open_file", { tab: active, dir: this.st.path, entry: e });
   }
 
   newFolder() {
@@ -395,6 +397,8 @@ class Pane {
   }
 }
 
+// file types the system runs when they are opened
+const RUNS = /\.(exe|com|bat|cmd|msi|msp|lnk|url|scr|pif|cpl|hta|jar|js|jse|vbs|vbe|wsf|wsh|ps1|psm1|reg|appimage|desktop|sh|run)$/i;
 const localPane = new Pane($("paneLocal"), "local");
 const remotePane = new Pane($("paneRemote"), "remote");
 activePane = localPane;
