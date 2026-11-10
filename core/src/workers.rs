@@ -120,6 +120,7 @@ pub struct Job {
     done: u64,
     total: u64,
     errors: usize,
+    stalls: u32, // connections lost in a row without any progress
 }
 
 impl Job {
@@ -144,6 +145,7 @@ impl Job {
             done: 0,
             total: 0,
             errors: 0,
+            stalls: 0,
         }
     }
 }
@@ -535,17 +537,25 @@ fn run(s: &Arc<Shared>, transfer: bool) {
 
         let mut ok = false;
         let mut done = true;
-        let result = {
+        let progress = |j: &Job| (j.next, s.progress.lock().unwrap().done);
+        let (result, before) = {
             let mut j = job.job.lock().unwrap();
-            execute(s, &mut r, &mut j)
+            let before = progress(&j);
+            (execute(s, &mut r, &mut j), before)
         };
         match result {
             Ok(()) => ok = job.job.lock().unwrap().errors == 0,
             Err(Error::Net) => {
-                // connection lost: keep the job, it resumes after reconnecting
+                // connection lost: keep the job, it resumes after reconnecting, unless
+                // the connection keeps dropping on it without getting anywhere
                 r.close();
                 set_state(s, w, WAITING);
-                done = s.cancel.load(Ordering::Relaxed);
+                let mut j = job.job.lock().unwrap();
+                j.stalls = if progress(&j) == before { j.stalls + 1 } else { 0 };
+                done = s.cancel.load(Ordering::Relaxed) || j.stalls >= MAX_STALLS;
+                if j.stalls >= MAX_STALLS {
+                    s.message(format!("Error: the connection dropped {MAX_STALLS} times in a row without progress, so this job stopped"));
+                }
             }
             Err(Error::Cancel) => {
                 end_batch(&mut r);
@@ -588,6 +598,10 @@ fn run(s: &Arc<Shared>, transfer: bool) {
         }
     }
 }
+
+/// how often a job may lose the connection in a row without any progress before
+/// it stops (a lid closed for long never gets this far: nothing runs until it reconnects)
+const MAX_STALLS: u32 = 5;
 
 /// SD card free/total space and battery for the status bar (Cement only)
 /// how long the idle browse connection waits before asking Cement again: often
