@@ -153,6 +153,10 @@ jobs:
           sha256sum "${files[@]}" > SHA256SUMS
           key="$RUNNER_TEMP/release-signing.pem"
           (umask 077; printf '%s\n' "$SIGNING_KEY" > "$key")
+          trap 'rm -f "$key"' EXIT
+          # the key Baguette trusts (RELEASE_KEY in app/src/update.rs): another one would make updates fail
+          public=$(openssl pkey -in "$key" -pubout -outform DER | tail -c 32 | od -An -tx1 | tr -d ' \n')
+          [ "$public" = 18d787177065e96304292b13b2ee55dcc840912731f0caad59bbb60ce3320b67 ] || { echo "RELEASE_SIGNING_KEY isn't the release key" >&2; exit 1; }
           openssl pkeyutl -sign -inkey "$key" -rawin -in SHA256SUMS -out SHA256SUMS.sig
           rm -f "$key"
           [ "$(wc -c < SHA256SUMS.sig)" -eq 64 ] || { echo "the signature isn't 64 bytes" >&2; exit 1; }
