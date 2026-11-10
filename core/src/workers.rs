@@ -1011,6 +1011,14 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
             ftp.download(&it.remote, &it.local, offset, &mut progress)
         };
         match r {
+            Ok(()) if up => {
+                // the server's size says whether the whole file arrived (a server
+                // without SIZE says nothing)
+                if let Some(have) = ftp.size(&it.remote)?.filter(|have| *have != it.size) {
+                    job.errors += 1;
+                    s.message(format!("Error: {} has {have} of {} bytes on the server", it.remote, it.size));
+                }
+            }
             Ok(()) => {
                 // only for files saved into the user's folders: a file opened from the
                 // server or dragged out to Explorer must keep the name it was asked for
