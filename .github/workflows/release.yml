@@ -133,6 +133,30 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: sign the archives' checksums
+        # SHA256SUMS and its Ed25519 signature: the updater checks both before unpacking
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          [ -n "$SIGNING_KEY" ] || { echo "the RELEASE_SIGNING_KEY secret is missing" >&2; exit 1; }
+          version=$(tr -d '\r\n' < VERSION)
+          files=("Baguette-$version-windows.zip" "Baguette-$version-linux.tar.gz")
+          dir="$RUNNER_TEMP/sums"
+          mkdir -p "$dir"
+          cd "$dir"
+          for f in "${files[@]}"; do
+            gh release download "$TAG" --pattern "$f" --clobber || { echo "missing $f" >&2; exit 1; }
+          done
+          sha256sum "${files[@]}" > SHA256SUMS
+          key="$RUNNER_TEMP/release-signing.pem"
+          (umask 077; printf '%s\n' "$SIGNING_KEY" > "$key")
+          openssl pkeyutl -sign -inkey "$key" -rawin -in SHA256SUMS -out SHA256SUMS.sig
+          rm -f "$key"
+          [ "$(wc -c < SHA256SUMS.sig)" -eq 64 ] || { echo "the signature isn't 64 bytes" >&2; exit 1; }
+          gh release upload "$TAG" SHA256SUMS SHA256SUMS.sig --clobber
       - name: publish once both archives are on it
         env:
           GH_TOKEN: ${{ github.token }}
@@ -141,7 +165,7 @@ jobs:
         run: |
           version=$(tr -d '\r\n' < VERSION)
           assets=$(gh release view "$TAG" --json assets --jq '.assets[].name')
-          for f in "Baguette-$version-windows.zip" "Baguette-$version-linux.tar.gz"; do
+          for f in "Baguette-$version-windows.zip" "Baguette-$version-linux.tar.gz" SHA256SUMS SHA256SUMS.sig; do
             echo "$assets" | grep -qx "$f" || { echo "missing $f" >&2; exit 1; }
           done
           gh release edit "$TAG" --draft=false --latest
