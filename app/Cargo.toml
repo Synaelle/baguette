@@ -21,6 +21,9 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ureq = { version = "3.4.2", default-features = false, features = ["rustls", "json"] }
+# the signed checksums of updates (both already come with rustls and core)
+ring = "0.17.14"
+sha2 = "0.11.1"
 
 # drag-out to Explorer (OLE) and the Windows-only bits, and the update's zip
 [target.'cfg(windows)'.dependencies]

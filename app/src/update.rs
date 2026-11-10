@@ -139,7 +139,7 @@ pub fn check(current: &str) -> Option<Update> {
         return None;
     }
     let version = version_of(&r.tag_name);
-    let install = r.assets.iter().any(|a| a.name == archive_name(&version)) && self_path().is_some();
+    let install = has(&r, &archive_name(&version)) && signed(&r) && self_path().is_some();
     let url = if r.html_url.starts_with(RELEASES) { r.html_url } else { RELEASES.into() };
     Some(Update { version, url, install })
 }
@@ -151,7 +151,16 @@ pub fn cement_update(cement_version: &str) -> Option<String> {
     if cement_version.is_empty() || !older(cement_version, &r.tag_name) {
         return None;
     }
-    r.assets.iter().any(|a| a.name == "Cement.cia").then(|| version_of(&r.tag_name))
+    (has(&r, "Cement.cia") && signed(&r)).then(|| version_of(&r.tag_name))
+}
+
+fn has(r: &Release, name: &str) -> bool {
+    r.assets.iter().any(|a| a.name == name)
+}
+
+/// only a signed release can be installed from Baguette (see `check_signed`)
+fn signed(r: &Release) -> bool {
+    has(r, SUMS) && has(r, SUMS_SIG)
 }
 
 /// downloads `url` to the file `to`, refusing anything but the expected size
@@ -175,16 +184,72 @@ fn download_asset(current: &str, name: &str, cement: bool) -> Result<(PathBuf, S
         (&LATEST_RELEASE, RELEASES, "BAGUETTE_UPDATE_URL")
     };
     let r = latest.lock().unwrap().clone().ok_or("Look for updates first")?;
-    let asset = r.assets.iter().find(|a| a.name == name).ok_or_else(|| format!("This release has no {name}"))?;
-    if !asset.browser_download_url.starts_with(releases) && std::env::var_os(test).is_none() {
-        return Err("Not a release file from GitHub".into());
-    }
+    let asset = |n: &str| -> Result<Asset, String> {
+        let a = r.assets.iter().find(|a| a.name == n).ok_or_else(|| format!("This release has no {n}"))?;
+        if !a.browser_download_url.starts_with(releases) && std::env::var_os(test).is_none() {
+            return Err("Not a release file from GitHub".into());
+        }
+        Ok(a.clone())
+    };
+    let file = asset(name)?;
+    let unsigned = |_| "This release isn't signed, so Baguette won't install it: get it from GitHub yourself".to_string();
+    let (sums, sig) = (asset(SUMS).map_err(unsigned)?, asset(SUMS_SIG).map_err(unsigned)?);
     let dir = PathBuf::from(os::temp_root()).join("update");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).map_err(|e| format!("Could not save the update: {e}"))?;
     let to = dir.join(name);
-    fetch(current, &asset.browser_download_url, asset.size, &to)?;
+    fetch(current, &file.browser_download_url, file.size, &to)?;
+    let (sums_at, sig_at) = (dir.join(SUMS), dir.join(SUMS_SIG));
+    fetch(current, &sums.browser_download_url, sums.size, &sums_at)?;
+    fetch(current, &sig.browser_download_url, sig.size, &sig_at)?;
+    let read = |p: &Path| std::fs::read(p).map_err(|e| format!("Could not read the update: {e}"));
+    check_signed(&RELEASE_KEY, &read(&sums_at)?, &read(&sig_at)?, name, &sha256_of(&to)?)?;
     Ok((to, version_of(&r.tag_name)))
+}
+
+/// what each release carries besides its files: their SHA-256 sums, and the
+/// release key's Ed25519 signature of that list (made by the release workflow)
+const SUMS: &str = "SHA256SUMS";
+const SUMS_SIG: &str = "SHA256SUMS.sig";
+
+/// the public half of the release key; its private half is a secret of the
+/// GitHub repositories, used only by the release workflows of Baguette and Cement
+const RELEASE_KEY: [u8; 32] = [
+    0x18, 0xd7, 0x87, 0x17, 0x70, 0x65, 0xe9, 0x63, 0x04, 0x29, 0x2b, 0x13, 0xb2, 0xee, 0x55, 0xdc,
+    0xc8, 0x40, 0x91, 0x27, 0x31, 0xf0, 0xca, 0xad, 0x59, 0xbb, 0xb6, 0x0c, 0xe3, 0x32, 0x0b, 0x67,
+];
+
+/// Ok when `sig` is `key`'s signature of `sums` and `sums` lists `name` with
+/// this SHA-256 (hex)
+fn check_signed(key: &[u8], sums: &[u8], sig: &[u8], name: &str, sha256: &str) -> Result<(), String> {
+    use ring::signature::{ED25519, UnparsedPublicKey};
+    UnparsedPublicKey::new(&ED25519, key)
+        .verify(sums, sig)
+        .map_err(|_| "The release's signature is wrong, so Baguette won't install it".to_string())?;
+    // sha256sum's lines: "<hex>  <name>", or "<hex> *<name>" in binary mode
+    let listed = String::from_utf8_lossy(sums)
+        .lines()
+        .find_map(|l| l.split_once(' ').filter(|(_, n)| n.get(1..) == Some(name)).map(|(h, _)| h.to_string()));
+    match listed {
+        Some(h) if h.eq_ignore_ascii_case(sha256) => Ok(()),
+        Some(_) => Err(format!("The downloaded {name} isn't the one the release signed, so Baguette won't install it")),
+        None => Err(format!("The release's signed list doesn't have {name}")),
+    }
+}
+
+/// a file's SHA-256, as lowercase hex
+fn sha256_of(path: &Path) -> Result<String, String> {
+    use sha2::Digest;
+    let mut f = std::fs::File::open(path).map_err(|e| format!("Could not read the update: {e}"))?;
+    let mut h = sha2::Sha256::new();
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        match f.read(&mut buf).map_err(|e| format!("Could not read the update: {e}"))? {
+            0 => break,
+            n => h.update(&buf[..n]),
+        }
+    }
+    Ok(h.finalize().iter().map(|b| format!("{b:02x}")).collect())
 }
 
 /// the newest Cement.cia, downloaded for a 3DS: its path on the PC and its version
@@ -420,6 +485,41 @@ mod tests {
         want.sort();
         assert_eq!(got, want, "only Baguette's own files, without their folder");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn unhex(h: &str) -> Vec<u8> {
+        (0..h.len() / 2).map(|i| u8::from_str_radix(&h[i * 2..i * 2 + 2], 16).unwrap()).collect()
+    }
+
+    /// SHA256SUMS as the release workflow makes it, signed there by openssl with the
+    /// release key (`openssl pkeyutl -sign -rawin`)
+    const SUMS_TEXT: &str = "c865f6c5ab8d1b0bcd383a5e1e3879d22681c96bf462c269b7581d523fbe70ab  Baguette-1.6.0-windows.zip\n\
+        6d7ebc44c5bc26207e62f4f628f912e1a0f41ed11764891aa7dd99eab83228e7  Baguette-1.6.0-linux.tar.gz\n";
+    const SUMS_SIG_HEX: &str = "4c2693936a380f98b52e45cb829e528ce50db5cce7ae196a4c0806f9de127510\
+        fe32f88da5add3ae48550de22c3f769ae4da85007412beb21481141c6b2e430b";
+
+    #[test]
+    fn checks_the_signed_checksums() {
+        let (sums, sig) = (SUMS_TEXT.as_bytes(), unhex(SUMS_SIG_HEX));
+        let linux = "6d7ebc44c5bc26207e62f4f628f912e1a0f41ed11764891aa7dd99eab83228e7";
+        assert_eq!(check_signed(&RELEASE_KEY, sums, &sig, "Baguette-1.6.0-linux.tar.gz", linux), Ok(()));
+        let other = "00".repeat(32);
+        assert!(check_signed(&RELEASE_KEY, sums, &sig, "Baguette-1.6.0-linux.tar.gz", &other).is_err_and(|e| e.contains("isn't the one")));
+        assert!(check_signed(&RELEASE_KEY, sums, &sig, "Baguette-1.7.0-linux.tar.gz", linux).is_err_and(|e| e.contains("doesn't have")));
+        let tampered = SUMS_TEXT.replacen("6d7e", "6d7f", 1);
+        assert!(check_signed(&RELEASE_KEY, tampered.as_bytes(), &sig, "Baguette-1.6.0-linux.tar.gz", linux).is_err_and(|e| e.contains("signature")));
+        let mut bad_sig = sig.clone();
+        bad_sig[0] ^= 1;
+        assert!(check_signed(&RELEASE_KEY, sums, &bad_sig, "Baguette-1.6.0-linux.tar.gz", linux).is_err());
+        assert!(check_signed(&[7u8; 32], sums, &sig, "Baguette-1.6.0-linux.tar.gz", linux).is_err(), "another key");
+    }
+
+    #[test]
+    fn hashes_files() {
+        let f = std::env::temp_dir().join(format!("baguette-sha-test-{}", std::process::id()));
+        std::fs::write(&f, b"l\n").unwrap();
+        assert_eq!(sha256_of(&f).unwrap(), "6d7ebc44c5bc26207e62f4f628f912e1a0f41ed11764891aa7dd99eab83228e7");
+        let _ = std::fs::remove_file(&f);
     }
 
     #[test]
