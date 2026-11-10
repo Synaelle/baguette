@@ -573,20 +573,213 @@ fn icompare(a: &str, b: &str) -> std::cmp::Ordering {
     a.chars().flat_map(char::to_lowercase).cmp(b.chars().flat_map(char::to_lowercase))
 }
 
+/// commands that change files: never start on top of another transfer
+fn idle(link: &mut Link, opt: &Options) -> CliResult<()> {
+    if opt.no_wait { Ok(()) } else { wait_idle(link, opt.busy_wait) }
+}
+
+/// the 3DS refuses transfers on a nearly empty battery: fail before starting
+fn battery_check(link: &mut Link) -> CliResult<()> {
+    let b: Battery = query_status(link)?.battery;
+    if b.low {
+        return Err(Fail::Ftp(format!("3DS battery too low ({}): plug in the charger", battery_text(&b))));
+    }
+    Ok(())
+}
+
+/// put <local>... <remote-dir>
+fn put(link: &mut Link, args: &[String], opt: &Options) -> CliResult<u8> {
+    let dir = remote_path(args.last().unwrap());
+    let mut t = Totals::new();
+    let mut items = Vec::new();
+    for a in &args[..args.len() - 1] {
+        let mut local = a.clone();
+        while local.len() > 1 && (local.ends_with('\\') || local.ends_with('/')) && !local[..local.len() - 1].ends_with(':') {
+            local.pop();
+        }
+        collect_local(&local, &dir, &mut items, &mut t);
+    }
+    let targets: Vec<String> = items.iter().map(|i| i.remote.clone()).chain([dir.clone()]).collect();
+    protected(&targets, protect::write)?;
+    let mut files = items.iter().filter(|i| !i.dir).count() as u64;
+    let mut bytes: u64 = items.iter().map(|i| i.size).sum();
+    idle(link, opt)?;
+    battery_check(link)?;
+    // refuse up front what can't fit, instead of failing halfway with a full card
+    let sizes: Vec<(String, u64)> = items.iter().filter(|i| !i.dir).map(|i| (i.remote.clone(), i.size)).collect();
+    let (fit, need_bytes, avail) = link.run(|f| f.fits(&sizes))?;
+    if !fit {
+        return Err(Fail::Ftp(format!(
+            "not enough space on the SD card: needs {}, {} free",
+            format_size(need_bytes),
+            format_size(avail)
+        )));
+    }
+    mkdirs(link, &dir)?;
+    link.batch(files, bytes, "up");
+    link.run(|f| f.announce_batch(files, bytes, "up"))?;
+    job_start("put", files, bytes);
+    for it in &items {
+        if it.dir {
+            mkdir1(link, &it.remote)?;
+            t.folders += 1;
+            continue;
+        }
+        match upload_file(link, it) {
+            Ok(()) => {
+                note(&format!("put {} ({})", it.remote, format_size(it.size)));
+                t.files += 1;
+                t.bytes += it.size;
+                job_file_done(it.size);
+                progress_event("file", &it.remote, it.size, it.size, "");
+            }
+            Err(Fail::Ftp(msg)) => {
+                t.errors.push(first_line(&msg).to_string());
+                progress_event("error", &it.remote, 0, it.size, first_line(&msg));
+                if battery_refusal(&msg) {
+                    break; // the rest would be refused too
+                }
+            }
+            Err(e) => return Err(e),
+        }
+        files -= 1;
+        bytes -= it.size;
+        link.batch(files, bytes, "up");
+    }
+    link.batch(0, 0, "up");
+    link.run(|f| {
+        f.end_batch();
+        Ok(())
+    })?;
+    print_summary("uploaded", &t);
+    Ok(if t.errors.is_empty() { EXIT_OK } else { EXIT_FAILED })
+}
+
+/// get <remote>... <local-dir>
+fn get(link: &mut Link, args: &[String], opt: &Options) -> CliResult<u8> {
+    let dir = args.last().unwrap().clone();
+    let mut t = Totals::new();
+    let mut items = Vec::new();
+    for a in &args[..args.len() - 1] {
+        let remote = remote_path(a);
+        let found = if remote == "/" { None } else { stat_remote(link, &remote)? };
+        match found {
+            None => t.errors.push(format!("not found on the 3DS: {remote}")),
+            Some(e) if e.dir && opt.contents => {
+                // --contents: the folder's contents go straight into local-dir
+                let children = link.run(|f| f.list(&remote))?;
+                for c in children {
+                    collect_remote(link, &join_remote(&remote, &c.name), &c, &local_child(&dir, &c.name)?, &mut items)?;
+                }
+            }
+            Some(e) => collect_remote(link, &remote, &e, &local_child(&dir, &e.name)?, &mut items)?,
+        }
+    }
+    let mut files = items.iter().filter(|i| !i.dir).count() as u64;
+    let mut bytes: u64 = items.iter().map(|i| i.size).sum();
+    idle(link, opt)?;
+    battery_check(link)?;
+    let _ = std::fs::create_dir_all(&dir);
+    link.batch(files, bytes, "down");
+    link.run(|f| f.announce_batch(files, bytes, "down"))?;
+    job_start("get", files, bytes);
+    for it in &items {
+        if it.dir {
+            let _ = std::fs::create_dir(&it.local);
+            t.folders += 1;
+            continue;
+        }
+        match download_file(link, it) {
+            Ok(()) => {
+                note(&format!("got {} ({})", it.remote, format_size(it.size)));
+                if opt.png {
+                    match baguette_core::png::convert(&it.local) {
+                        Ok(Some(png)) => note(&format!("saved as {png}")),
+                        Ok(None) => {}
+                        Err(e) => t.errors.push(e),
+                    }
+                }
+                t.files += 1;
+                t.bytes += it.size;
+                job_file_done(it.size);
+                progress_event("file", &it.remote, it.size, it.size, "");
+            }
+            Err(Fail::Ftp(msg)) => {
+                t.errors.push(first_line(&msg).to_string());
+                progress_event("error", &it.remote, 0, it.size, first_line(&msg));
+                if battery_refusal(&msg) {
+                    break; // the rest would be refused too
+                }
+            }
+            Err(e) => return Err(e),
+        }
+        files -= 1;
+        bytes -= it.size;
+        link.batch(files, bytes, "down");
+    }
+    link.batch(0, 0, "down");
+    link.run(|f| {
+        f.end_batch();
+        Ok(())
+    })?;
+    print_summary("downloaded", &t);
+    Ok(if t.errors.is_empty() { EXIT_OK } else { EXIT_FAILED })
+}
+
+/// rm <remote>...
+fn rm(link: &mut Link, args: &[String], opt: &Options) -> CliResult<u8> {
+    let mut t = Totals::new();
+    let mut items = Vec::new();
+    let paths: Vec<String> = args.iter().map(|a| remote_path(a)).collect();
+    if paths.iter().any(|p| p == "/") {
+        return Err(Fail::Usage("refusing to delete the whole SD card".into()));
+    }
+    protected(&paths, protect::delete_or_rename)?;
+    for path in paths {
+        match stat_remote(link, &path)? {
+            None => t.errors.push(format!("not found on the 3DS: {path}")),
+            Some(e) => collect_delete(link, &path, e.dir, &mut items)?,
+        }
+    }
+    idle(link, opt)?;
+    let mut left = items.len() as u64;
+    link.batch(left, 0, "delete");
+    link.run(|f| f.announce_batch(left, 0, "delete"))?;
+    job_start("rm", left, 0);
+    for it in &items {
+        let (code, text) = link.run(|f| f.cmd_text(&format!("{} {}", if it.dir { "RMD" } else { "DELE" }, it.remote)))?;
+        // after a reconnect the item may already be gone: only report what still exists
+        if let Some(j) = JOB.lock().unwrap().as_mut() {
+            j.files_done += 1;
+        }
+        if code / 100 != 2 && stat_remote(link, &it.remote)?.is_some() {
+            t.errors.push(format!("{}: {}", it.remote, first_line(&text)));
+            progress_event("error", &it.remote, 0, 0, first_line(&text));
+        } else {
+            if it.dir {
+                t.folders += 1;
+            } else {
+                t.files += 1;
+            }
+            progress_event("file", &it.remote, 0, 0, "");
+        }
+        left -= 1;
+        link.batch(left, 0, "delete");
+    }
+    link.batch(0, 0, "delete");
+    link.run(|f| {
+        f.end_batch();
+        Ok(())
+    })?;
+    print_summary("deleted", &t);
+    Ok(if t.errors.is_empty() { EXIT_OK } else { EXIT_FAILED })
+}
+
 fn run(link: &mut Link, cmd: &str, args: &[String], opt: &Options) -> CliResult<u8> {
     let need = |n: usize| -> CliResult<()> {
         if args.len() < n { Err(Fail::Usage(format!("'{cmd}' needs more arguments"))) } else { Ok(()) }
     };
-    // commands that change files: never start on top of another transfer
-    let idle = |link: &mut Link| -> CliResult<()> { if opt.no_wait { Ok(()) } else { wait_idle(link, opt.busy_wait) } };
-    // the 3DS refuses transfers on a nearly empty battery: fail before starting
-    let battery_check = |link: &mut Link| -> CliResult<()> {
-        let b: Battery = query_status(link)?.battery;
-        if b.low {
-            return Err(Fail::Ftp(format!("3DS battery too low ({}): plug in the charger", battery_text(&b))));
-        }
-        Ok(())
-    };
+    let idle = |link: &mut Link| idle(link, opt);
 
     match cmd {
         "status" => {
@@ -715,190 +908,17 @@ fn run(link: &mut Link, cmd: &str, args: &[String], opt: &Options) -> CliResult<
 
         "put" => {
             need(2)?;
-            let dir = remote_path(args.last().unwrap());
-            let mut t = Totals::new();
-            let mut items = Vec::new();
-            for a in &args[..args.len() - 1] {
-                let mut local = a.clone();
-                while local.len() > 1 && (local.ends_with('\\') || local.ends_with('/')) && !local[..local.len() - 1].ends_with(':') {
-                    local.pop();
-                }
-                collect_local(&local, &dir, &mut items, &mut t);
-            }
-            let targets: Vec<String> = items.iter().map(|i| i.remote.clone()).chain([dir.clone()]).collect();
-            protected(&targets, protect::write)?;
-            let mut files = items.iter().filter(|i| !i.dir).count() as u64;
-            let mut bytes: u64 = items.iter().map(|i| i.size).sum();
-            idle(link)?;
-            battery_check(link)?;
-            // refuse up front what can't fit, instead of failing halfway with a full card
-            let sizes: Vec<(String, u64)> = items.iter().filter(|i| !i.dir).map(|i| (i.remote.clone(), i.size)).collect();
-            let (fit, need_bytes, avail) = link.run(|f| f.fits(&sizes))?;
-            if !fit {
-                return Err(Fail::Ftp(format!(
-                    "not enough space on the SD card: needs {}, {} free",
-                    format_size(need_bytes),
-                    format_size(avail)
-                )));
-            }
-            mkdirs(link, &dir)?;
-            link.batch(files, bytes, "up");
-            link.run(|f| f.announce_batch(files, bytes, "up"))?;
-            job_start("put", files, bytes);
-            for it in &items {
-                if it.dir {
-                    mkdir1(link, &it.remote)?;
-                    t.folders += 1;
-                    continue;
-                }
-                match upload_file(link, it) {
-                    Ok(()) => {
-                        note(&format!("put {} ({})", it.remote, format_size(it.size)));
-                        t.files += 1;
-                        t.bytes += it.size;
-                        job_file_done(it.size);
-                        progress_event("file", &it.remote, it.size, it.size, "");
-                    }
-                    Err(Fail::Ftp(msg)) => {
-                        t.errors.push(first_line(&msg).to_string());
-                        progress_event("error", &it.remote, 0, it.size, first_line(&msg));
-                        if battery_refusal(&msg) {
-                            break; // the rest would be refused too
-                        }
-                    }
-                    Err(e) => return Err(e),
-                }
-                files -= 1;
-                bytes -= it.size;
-                link.batch(files, bytes, "up");
-            }
-            link.batch(0, 0, "up");
-            link.run(|f| {
-                f.end_batch();
-                Ok(())
-            })?;
-            print_summary("uploaded", &t);
-            Ok(if t.errors.is_empty() { EXIT_OK } else { EXIT_FAILED })
+            put(link, args, opt)
         }
 
         "get" => {
             need(2)?;
-            let dir = args.last().unwrap().clone();
-            let mut t = Totals::new();
-            let mut items = Vec::new();
-            for a in &args[..args.len() - 1] {
-                let remote = remote_path(a);
-                let found = if remote == "/" { None } else { stat_remote(link, &remote)? };
-                match found {
-                    None => t.errors.push(format!("not found on the 3DS: {remote}")),
-                    Some(e) if e.dir && opt.contents => {
-                        // --contents: the folder's contents go straight into local-dir
-                        let children = link.run(|f| f.list(&remote))?;
-                        for c in children {
-                            collect_remote(link, &join_remote(&remote, &c.name), &c, &local_child(&dir, &c.name)?, &mut items)?;
-                        }
-                    }
-                    Some(e) => collect_remote(link, &remote, &e, &local_child(&dir, &e.name)?, &mut items)?,
-                }
-            }
-            let mut files = items.iter().filter(|i| !i.dir).count() as u64;
-            let mut bytes: u64 = items.iter().map(|i| i.size).sum();
-            idle(link)?;
-            battery_check(link)?;
-            let _ = std::fs::create_dir_all(&dir);
-            link.batch(files, bytes, "down");
-            link.run(|f| f.announce_batch(files, bytes, "down"))?;
-            job_start("get", files, bytes);
-            for it in &items {
-                if it.dir {
-                    let _ = std::fs::create_dir(&it.local);
-                    t.folders += 1;
-                    continue;
-                }
-                match download_file(link, it) {
-                    Ok(()) => {
-                        note(&format!("got {} ({})", it.remote, format_size(it.size)));
-                        if opt.png {
-                            match baguette_core::png::convert(&it.local) {
-                                Ok(Some(png)) => note(&format!("saved as {png}")),
-                                Ok(None) => {}
-                                Err(e) => t.errors.push(e),
-                            }
-                        }
-                        t.files += 1;
-                        t.bytes += it.size;
-                        job_file_done(it.size);
-                        progress_event("file", &it.remote, it.size, it.size, "");
-                    }
-                    Err(Fail::Ftp(msg)) => {
-                        t.errors.push(first_line(&msg).to_string());
-                        progress_event("error", &it.remote, 0, it.size, first_line(&msg));
-                        if battery_refusal(&msg) {
-                            break; // the rest would be refused too
-                        }
-                    }
-                    Err(e) => return Err(e),
-                }
-                files -= 1;
-                bytes -= it.size;
-                link.batch(files, bytes, "down");
-            }
-            link.batch(0, 0, "down");
-            link.run(|f| {
-                f.end_batch();
-                Ok(())
-            })?;
-            print_summary("downloaded", &t);
-            Ok(if t.errors.is_empty() { EXIT_OK } else { EXIT_FAILED })
+            get(link, args, opt)
         }
 
         "rm" => {
             need(1)?;
-            let mut t = Totals::new();
-            let mut items = Vec::new();
-            let paths: Vec<String> = args.iter().map(|a| remote_path(a)).collect();
-            if paths.iter().any(|p| p == "/") {
-                return Err(Fail::Usage("refusing to delete the whole SD card".into()));
-            }
-            protected(&paths, protect::delete_or_rename)?;
-            for path in paths {
-                match stat_remote(link, &path)? {
-                    None => t.errors.push(format!("not found on the 3DS: {path}")),
-                    Some(e) => collect_delete(link, &path, e.dir, &mut items)?,
-                }
-            }
-            idle(link)?;
-            let mut left = items.len() as u64;
-            link.batch(left, 0, "delete");
-            link.run(|f| f.announce_batch(left, 0, "delete"))?;
-            job_start("rm", left, 0);
-            for it in &items {
-                let (code, text) = link.run(|f| f.cmd_text(&format!("{} {}", if it.dir { "RMD" } else { "DELE" }, it.remote)))?;
-                // after a reconnect the item may already be gone: only report what still exists
-                if let Some(j) = JOB.lock().unwrap().as_mut() {
-                    j.files_done += 1;
-                }
-                if code / 100 != 2 && stat_remote(link, &it.remote)?.is_some() {
-                    t.errors.push(format!("{}: {}", it.remote, first_line(&text)));
-                    progress_event("error", &it.remote, 0, 0, first_line(&text));
-                } else {
-                    if it.dir {
-                        t.folders += 1;
-                    } else {
-                        t.files += 1;
-                    }
-                    progress_event("file", &it.remote, 0, 0, "");
-                }
-                left -= 1;
-                link.batch(left, 0, "delete");
-            }
-            link.batch(0, 0, "delete");
-            link.run(|f| {
-                f.end_batch();
-                Ok(())
-            })?;
-            print_summary("deleted", &t);
-            Ok(if t.errors.is_empty() { EXIT_OK } else { EXIT_FAILED })
+            rm(link, args, opt)
         }
 
         "mkdir" => {
