@@ -44,7 +44,7 @@
     }
     if (ev.ctrlKey && ev.key === 'w' && !anyModal() && app.active !== null) {
       ev.preventDefault()
-      app.closeTab(app.active)
+      void app.closeTab(app.active)
     }
   }
 </script>

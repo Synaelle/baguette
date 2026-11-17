@@ -12,7 +12,7 @@
     <div
       class="tab"
       class:active={on}
-      onauxclick={(ev) => ev.button === 1 && app.closeTab(t.id)}
+      onauxclick={(ev) => ev.button === 1 && void app.closeTab(t.id)}
       role="presentation"
     >
       <button
@@ -26,7 +26,7 @@
         class="x"
         title="Close (Ctrl+W)"
         aria-label="Close {t.name}"
-        onclick={() => app.closeTab(t.id)}><Icon name="tabClose" /></button
+        onclick={() => void app.closeTab(t.id)}><Icon name="tabClose" /></button
       >
     </div>
   {/each}

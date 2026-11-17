@@ -464,6 +464,18 @@ pub fn close_tab(state: St, tab: u32) {
     state.opened.lock().unwrap().retain(|o| o.tab != tab);
 }
 
+/// on closing the window: each running transfer stops and cleans up after itself
+#[tauri::command]
+pub async fn close_all_tabs(state: St<'_>) -> Result<(), ()> {
+    let tabs: Vec<_> = state.tabs.lock().unwrap().drain(..).collect();
+    state.opened.lock().unwrap().clear();
+    let stopping: Vec<_> = tabs.into_iter().map(|mut t| tauri::async_runtime::spawn_blocking(move || t.client.stop())).collect();
+    for s in stopping {
+        let _ = s.await;
+    }
+    Ok(())
+}
+
 /// applies a change to a tab's site (and the saved site), then reconnects
 fn change_site(state: &AppState, tab: u32, f: impl Fn(&mut Site), save: bool) {
     let saved_id = state.with_tab(tab, |t| {

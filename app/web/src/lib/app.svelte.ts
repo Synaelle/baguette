@@ -182,9 +182,21 @@ class AppState {
     }
   }
 
-  closeTab(id: number): void {
+  /** false when a transfer runs there and the user keeps the tab */
+  async closeTab(id: number): Promise<boolean> {
+    const t = this.tabs.find((t) => t.id === id)
+    if (!t) return true
+    if (
+      t.progress.active &&
+      !(await ask(
+        `A transfer is still running in ${t.name}. Closing the tab stops it.`,
+        'Close tab',
+        'Cancel',
+      ))
+    )
+      return false
     const i = this.tabs.findIndex((t) => t.id === id)
-    if (i < 0) return
+    if (i < 0) return true
     void invoke('close_tab', { tab: id })
     this.tabs.splice(i, 1)
     if (this.active === id) {
@@ -193,6 +205,7 @@ class AppState {
       if (last) this.activate(last.id)
     }
     this.rememberTabs()
+    return true
   }
 
   activate(id: number): void {

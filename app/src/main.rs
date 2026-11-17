@@ -717,6 +717,7 @@ fn main() {
             commands::open_site,
             commands::open_url,
             commands::close_tab,
+            commands::close_all_tabs,
             commands::trust,
             commands::login,
             commands::navigate,

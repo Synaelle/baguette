@@ -57,7 +57,7 @@
     const id = editing ? editing.id : list.find((x) => !before.has(x.id))?.id
     if (connect && id) {
       const open = app.tabOfSite(id)
-      if (open) app.closeTab(open.id)
+      if (open && !(await app.closeTab(open.id))) return
       void app.openSite(id)
     }
   }
