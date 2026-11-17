@@ -443,6 +443,12 @@ impl From<Error> for Fail {
     }
 }
 
+/// an error as the list shows it: one line, naming the file when the text doesn't
+fn with_path(msg: &str, it: &Item) -> String {
+    let line = first_line(msg);
+    if line.contains(&it.local) || line.contains(&it.remote) { line.to_string() } else { format!("{}: {line}", it.remote) }
+}
+
 fn upload_file(link: &mut Link, it: &Item) -> CliResult<()> {
     // resume after a dropped connection, once bytes went out: before that the server's
     // copy can be an older file of the same name
@@ -576,7 +582,7 @@ fn put(link: &mut Link, args: &[String], opt: &Options) -> CliResult<u8> {
                 progress_event("file", &it.remote, it.size, it.size, "");
             }
             Err(Fail::Ftp(msg)) => {
-                t.errors.push(first_line(&msg).to_string());
+                t.errors.push(with_path(&msg, it));
                 progress_event("error", &it.remote, 0, it.size, first_line(&msg));
                 if battery_refusal(&msg) {
                     break; // the rest would be refused too
@@ -658,7 +664,7 @@ fn get(link: &mut Link, args: &[String], opt: &Options) -> CliResult<u8> {
                 progress_event("file", &it.remote, it.size, it.size, "");
             }
             Err(Fail::Ftp(msg)) => {
-                t.errors.push(first_line(&msg).to_string());
+                t.errors.push(with_path(&msg, it));
                 progress_event("error", &it.remote, 0, it.size, first_line(&msg));
                 if battery_refusal(&msg) {
                     break; // the rest would be refused too
