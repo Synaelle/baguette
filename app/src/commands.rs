@@ -96,8 +96,6 @@ pub struct InitOut {
     bundles: bool,
     bmp_to_png: bool,
     send_to_pc: bool,
-    mode: String,             // "standard", "lite", or empty: not chosen yet (first launch)
-    mode_arg: Option<String>, // started with --lite or --standard: wins for this run
     settings: SettingsOut,
     sites: Vec<SiteOut>,
     home: String,
@@ -127,8 +125,6 @@ pub fn init(state: St) -> InitOut {
         bundles: c.bundles,
         bmp_to_png: c.bmp_to_png,
         send_to_pc: c.send_to_pc,
-        mode: c.mode.clone(),
-        mode_arg: std::env::args().find_map(|a| a.strip_prefix("--").and_then(baguette_core::config::normalize_mode)),
         settings: SettingsOut::from(&*c), sites: sites_out(&state), home: os::home_dir(),
         linux: cfg!(not(windows)), drag_out: cfg!(any(windows, target_os = "linux")) }
 }
@@ -223,15 +219,6 @@ pub fn set_look(state: St, look: String) -> Result<(), String> {
     let l = baguette_core::config::normalize_look(&look).ok_or("Not a look")?;
     let mut c = state.config.lock().unwrap();
     c.look = l;
-    c.save()
-}
-
-/// Standard or Lite, chosen at first launch or in the settings
-#[tauri::command]
-pub fn set_mode(state: St, mode: String) -> Result<(), String> {
-    let m = baguette_core::config::normalize_mode(&mode).ok_or("Not a mode")?;
-    let mut c = state.config.lock().unwrap();
-    c.mode = m;
     c.save()
 }
 
@@ -626,18 +613,6 @@ fn pick_folder(app: &AppHandle, title: &str) -> Option<String> {
 #[tauri::command]
 pub async fn browse_folder(app: AppHandle, title: String) -> Result<Option<String>, ()> {
     Ok(pick_folder(&app, &title))
-}
-
-/// files to send (Lite mode has no PC side to pick them from)
-#[tauri::command]
-pub async fn browse_files(app: AppHandle, title: String) -> Result<Vec<String>, ()> {
-    use tauri_plugin_dialog::DialogExt;
-    let mut d = app.dialog().file().set_title(title);
-    if let Some(w) = app.get_webview_window("main") {
-        d = d.set_parent(&w);
-    }
-    let files = d.blocking_pick_files().unwrap_or_default();
-    Ok(files.into_iter().filter_map(|p| p.into_path().ok()).map(|p| p.to_string_lossy().into_owned()).collect())
 }
 
 /// a key file for a site

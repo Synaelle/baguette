@@ -3,8 +3,6 @@
 
 export const ICONS = {
   logo: '<svg class="logo" viewBox="0 0 512 512" aria-hidden="true" data-tauri-drag-region><defs><mask id="baguetteBite" maskUnits="userSpaceOnUse" x="-100" y="-100" width="712" height="712"><rect x="-100" y="-100" width="712" height="712" fill="#fff"/><path d="M150 214l30 84M256 214l30 84" stroke="#000" stroke-width="26" stroke-linecap="round"/><g fill="#000" transform="translate(405 224) rotate(45) scale(5.6)"><circle cx="-6" cy="-1.7" r="5.5"/><circle cx="0" cy="0" r="5.5"/><circle cx="6" cy="-1.7" r="5.5"/><rect x="-11.5" y="-20" width="23" height="18"/></g></mask></defs><g transform="rotate(-40 256 256)"><rect x="41" y="181" width="430" height="150" rx="75" fill="var(--accent)" mask="url(#baguetteBite)"/></g></svg>',
-  logoBig:
-    '<svg class="logo big" viewBox="0 0 512 512" aria-hidden="true"><defs><mask id="baguetteBiteBig" maskUnits="userSpaceOnUse" x="-100" y="-100" width="712" height="712"><rect x="-100" y="-100" width="712" height="712" fill="#fff"/><path d="M150 214l30 84M256 214l30 84" stroke="#000" stroke-width="26" stroke-linecap="round"/><g fill="#000" transform="translate(405 224) rotate(45) scale(5.6)"><circle cx="-6" cy="-1.7" r="5.5"/><circle cx="0" cy="0" r="5.5"/><circle cx="6" cy="-1.7" r="5.5"/><rect x="-11.5" y="-20" width="23" height="18"/></g></mask></defs><g transform="rotate(-40 256 256)"><rect x="41" y="181" width="430" height="150" rx="75" fill="var(--accent)" mask="url(#baguetteBiteBig)"/></g></svg>',
   bite: '<svg class="bite" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="var(--accent)"/><circle cx="11" cy="2" r="2.6" fill="var(--surface)"/></svg>',
   biteBig:
     '<svg class="bite big" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="var(--accent)"/><circle cx="11" cy="2" r="2.6" fill="var(--surface)"/></svg>',
@@ -18,9 +16,6 @@ export const ICONS = {
   refresh: '<svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5"/></svg>',
   up: '<svg viewBox="0 0 16 16"><path d="M8 13V4M4 8l4-4 4 4"/></svg>',
   lock: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.8"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>',
-  list: '<svg viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h10"/></svg>',
-  tiles:
-    '<svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="9" width="4.5" height="4.5" rx="1.2"/></svg>',
   folder:
     '<svg class="ico dir" viewBox="0 0 16 16"><path d="M1.5 4c0-.8.7-1.5 1.5-1.5h3.2l1.5 1.5H13c.8 0 1.5.7 1.5 1.5v6.5c0 .8-.7 1.5-1.5 1.5H3c-.8 0-1.5-.7-1.5-1.5z"/></svg>',
   file: '<svg class="ico file" viewBox="0 0 16 16"><path d="M4 1.5h5L12.5 5v9c0 .3-.2.5-.5.5H4c-.3 0-.5-.2-.5-.5V2c0-.3.2-.5.5-.5zM9 1.5V5h3.5"/></svg>',

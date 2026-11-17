@@ -111,8 +111,8 @@
     else if (ev.key === 'F5') app.refresh(side)
     // Tab goes from the PC side to the server side and Shift+Tab back; past them it leaves
     // the lists. WebKitGTK names Shift+Tab (ISO_Left_Tab) "Unidentified", its code is Tab.
-    else if (ev.code === 'Tab' && !app.lite && !ev.shiftKey && side === 'local') focusSide('remote')
-    else if (ev.code === 'Tab' && !app.lite && ev.shiftKey && side === 'remote') focusSide('local')
+    else if (ev.code === 'Tab' && !ev.shiftKey && side === 'local') focusSide('remote')
+    else if (ev.code === 'Tab' && ev.shiftKey && side === 'remote') focusSide('local')
     else if (ev.key === 'a' && ev.ctrlKey)
       app.select(
         side,
@@ -146,22 +146,6 @@
     app.finishRename(side, from, (ev.target as HTMLInputElement).value)
     list?.focus()
   }
-
-  // Lite mode: the folders as crumbs
-  const crumbs = $derived.by(() => {
-    const parts = (st.path || '/').split('/').filter(Boolean)
-    const root = app.tab?.cement ? 'SD card' : app.tab?.name || 'Server'
-    return [
-      { label: root, to: '/' },
-      ...parts.map((p, i) => ({ label: p, to: '/' + parts.slice(0, i + 1).join('/') })),
-    ]
-  })
-
-  async function sendFiles() {
-    if (!app.tab) return
-    const paths = await invoke<string[]>('browse_files', { title: 'Send files' })
-    if (paths.length) void invoke('upload', { tab: app.active, paths, dir: st.path })
-  }
 </script>
 
 <!-- the mouse only marks the side in use here; the keyboard does it through the list's focus -->
@@ -171,7 +155,6 @@
   class="pane"
   class:active={app.activeSide === side}
   class:dropping
-  class:tiles={side === 'remote' && app.lite && app.liteView === 'tiles'}
   aria-label={side === 'local' ? 'This PC' : 'Server'}
   data-side={side}
   onmousedown={() => (app.activeSide = side)}
@@ -210,29 +193,6 @@
         }
       }}
     />
-    {#if side === 'remote' && app.lite}
-      <span class="crumbs">
-        {#each crumbs as c, i (c.to)}
-          {#if i > 0}<span class="sep">/</span>{/if}
-          <button onclick={() => app.navigate('remote', c.to)}>{c.label}</button>
-        {/each}
-      </span>
-      <div class="view-switch" role="group" aria-label="View">
-        <button
-          title="List"
-          aria-label="List"
-          aria-pressed={app.liteView === 'list'}
-          onclick={() => app.setLiteView('list')}><Icon name="list" /></button
-        >
-        <button
-          title="Tiles"
-          aria-label="Tiles"
-          aria-pressed={app.liteView === 'tiles'}
-          onclick={() => app.setLiteView('tiles')}><Icon name="tiles" /></button
-        >
-      </div>
-      <button id="btnSendFiles" class="pill accent" onclick={sendFiles}>Send files</button>
-    {/if}
   </div>
   <div class="cols">
     <span class="c-name">Name</span><span class="c-size">Size</span><span class="c-date"

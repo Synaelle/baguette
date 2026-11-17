@@ -59,8 +59,6 @@ export interface Init {
   bundles: boolean
   bmp_to_png: boolean
   send_to_pc: boolean
-  mode: Mode | ''
-  mode_arg: Mode | null
   settings: SendSettings
   sites: Site[]
   home: string
@@ -69,7 +67,6 @@ export interface Init {
 }
 
 export type Look = 'evil-twin' | 'ficelle' | 'ficelle-light'
-export type Mode = 'standard' | 'lite'
 
 export interface TabInfo {
   id: number

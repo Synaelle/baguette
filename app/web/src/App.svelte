@@ -8,7 +8,6 @@
   import Empty from './components/Empty.svelte'
   import FilePane from './components/FilePane.svelte'
   import Queue from './components/Queue.svelte'
-  import Setup from './components/Setup.svelte'
   import Sidebar from './components/Sidebar.svelte'
   import StatusBar from './components/StatusBar.svelte'
   import Tabs from './components/Tabs.svelte'
@@ -26,13 +25,12 @@
   import { invoke } from './lib/tauri'
 
   $effect(() => {
-    document.body.classList.toggle('lite', app.lite)
     document.body.classList.toggle('notab', !app.tab)
   })
 
-  // the side in use takes the keyboard once the window is up, and after a mode change
+  // the PC side takes the keyboard once the window is up
   $effect(() => {
-    if (app.ready) focusSide(app.lite ? 'remote' : 'local')
+    if (app.ready) focusSide('local')
   })
 
   function key(ev: KeyboardEvent) {
@@ -63,28 +61,24 @@
 
 {#if app.ready}
   <div id="body">
-    {#if !app.lite}<Sidebar />{/if}
+    <Sidebar />
     <main id="main">
-      {#if !app.lite}<Tabs />{/if}
+      <Tabs />
       <div id="work" class:notabs={!app.tabs.length}>
         {#if !app.tabs.length}<Empty />{/if}
-        {#if !app.lite}<Toolbar />{/if}
+        <Toolbar />
         <div id="panes">
-          {#if !app.lite}<FilePane side="local" />{/if}
+          <FilePane side="local" />
           <FilePane side="remote" />
         </div>
         <Queue />
       </div>
       <StatusBar />
-      {#if app.lite}<div id="liteHint">
-          Drag files in to send them, drag them out to save them on the PC
-        </div>{/if}
     </main>
-    {#if !app.lite}<CementCard />{/if}
+    <CementCard />
   </div>
 {/if}
 
-{#if app.setup}<Setup />{/if}
 <ContextMenu />
 
 {#if dialogs.open === 'site'}<SiteEditor />

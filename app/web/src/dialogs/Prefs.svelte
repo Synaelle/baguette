@@ -6,7 +6,7 @@
   import { ACCENTS, applyLook, pickedAccent, shownAccent } from '../lib/colour'
   import { ask, cancelers, dialogs, tell } from '../lib/dialogs.svelte'
   import { invoke } from '../lib/tauri'
-  import type { Look, Mode } from '../lib/types'
+  import type { Look } from '../lib/types'
 
   type TabName = 'general' | '3ds' | 'lab' | 'about'
   const TABS: [TabName, string][] = [
@@ -24,7 +24,6 @@
   let shown = $state<TabName>('general')
   let look = $state(app.look)
   let accent = $state(app.accent)
-  let mode = $state<Mode>(app.mode)
   const custom = app.localStart !== 'home' && app.localStart !== 'last'
   let localStart = $state(custom ? 'dir' : app.localStart)
   let localDir = $state(custom ? app.localStart : app.local.path)
@@ -110,10 +109,6 @@
       if (checkUpdates) void app.lookForUpdate()
       else app.update = null
     }
-    if (mode !== app.mode) {
-      invoke('set_mode', { mode }).catch((e) => void tell(e))
-      app.setMode(mode)
-    }
     if (look !== app.look) {
       invoke('set_look', { look }).catch((e) => void tell(e))
       app.look = look
@@ -190,24 +185,6 @@
               onchange={(ev) => pickColour((ev.target as HTMLInputElement).value)}
             />
             <span class="note">{preset ? preset[1] : `Your own, #${accent}`}</span>
-          </div>
-        </div>
-        <div class="setting">
-          <div class="setting-text">
-            <b id="modeLabel">Mode</b><span
-              >Standard has your PC and the server side by side. Lite shows only the server&#39;s
-              files.</span
-            >
-          </div>
-          <div class="modes" role="radiogroup" aria-labelledby="modeLabel">
-            <button
-              role="radio"
-              aria-checked={mode === 'standard'}
-              onclick={() => (mode = 'standard')}>Standard</button
-            >
-            <button role="radio" aria-checked={mode === 'lite'} onclick={() => (mode = 'lite')}
-              >Lite</button
-            >
           </div>
         </div>
         <div class="setting">

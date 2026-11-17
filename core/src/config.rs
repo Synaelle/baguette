@@ -25,7 +25,6 @@ pub struct Config {
     pub bundles: bool,           // experimental: many files to Cement as one bundle
     pub bmp_to_png: bool,        // downloaded .bmp files are saved as .png
     pub send_to_pc: bool,        // the Send to PC button on the Cement card
-    pub mode: String,            // "standard" or "lite"; empty until chosen at first launch
     pub accent_time: u64,        // when the accent was picked (local clock, 0: never); the newer side wins
     pub look: String,            // "evil-twin", "ficelle" or "ficelle-light"
 }
@@ -38,12 +37,6 @@ const OLD_DEFAULT_ACCENT: &str = "b8283c";
 pub fn normalize_look(s: &str) -> Option<String> {
     let l = s.trim().to_ascii_lowercase();
     matches!(l.as_str(), "evil-twin" | "ficelle" | "ficelle-light").then_some(l)
-}
-
-/// "standard" or "lite" (any case); None for anything else
-pub fn normalize_mode(s: &str) -> Option<String> {
-    let m = s.trim().to_ascii_lowercase();
-    matches!(m.as_str(), "standard" | "lite").then_some(m)
 }
 
 /// "#2B9349" or "2b9349" -> "2b9349" (the old default red gives the new one); None when it isn't a colour
@@ -70,7 +63,6 @@ impl Default for Config {
             bundles: false,
             bmp_to_png: false,
             send_to_pc: false,
-            mode: String::new(),
             accent_time: 0,
             look: "evil-twin".into(),
         }
@@ -258,7 +250,6 @@ impl Config {
             bundles: get_int(&path, "experimental", "bundles", 0) != 0,
             bmp_to_png: get_int(&path, "ui", "bmp_to_png", 0) != 0,
             send_to_pc: get_int(&path, "ui", "send_to_pc", 0) != 0,
-            mode: normalize_mode(&get_str(&path, "ui", "mode", "")).unwrap_or_default(),
             accent_time: get_str(&path, "ui", "accent_time", "0").trim().parse().unwrap_or(0),
             look: normalize_look(&get_str(&path, "ui", "look", "")).unwrap_or_else(|| "evil-twin".into()),
         };
@@ -287,9 +278,6 @@ impl Config {
         put(&path, "experimental", Some("bundles"), Some(if self.bundles { "1" } else { "0" }))?;
         put(&path, "ui", Some("bmp_to_png"), Some(if self.bmp_to_png { "1" } else { "0" }))?;
         put(&path, "ui", Some("send_to_pc"), Some(if self.send_to_pc { "1" } else { "0" }))?;
-        if !self.mode.is_empty() {
-            put(&path, "ui", Some("mode"), Some(&self.mode))?;
-        }
         put(&path, "ui", Some("local_last"), Some(&escape(&self.local_last)))?;
         put(&path, "transfer", Some("sendto"), Some(&self.send_dir))?;
         put(&path, "transfer", Some("replace"), Some(if self.send_replace { "1" } else { "0" }))?;

@@ -17,7 +17,6 @@ import type {
   LocalListing,
   Listing,
   Look,
-  Mode,
   Progress,
   Refused,
   SendSettings,
@@ -81,11 +80,6 @@ class AppState {
 
   accent = $state(DEFAULT_ACCENT)
   look = $state<Look>('evil-twin')
-  mode = $state<Mode>('standard')
-  lite = $derived(this.mode === 'lite')
-  /** first launch: Standard or Lite still to choose */
-  setup = $state(false)
-  liteView = $state<'list' | 'tiles'>(recall('liteView', 'list'))
 
   sites = $state<Site[]>([])
   tabs = $state<Tab[]>([])
@@ -124,9 +118,6 @@ class AppState {
     this.accent = init.accent
     this.look = init.look
     applyLook(this.look, this.accent)
-    // --lite / --standard win for this run; with neither and nothing saved, ask (first launch)
-    this.mode = init.mode_arg || init.mode || 'standard'
-    this.setup = !init.mode_arg && !init.mode
     this.sites = init.sites
     this.localStart = init.local_start
     this.protect3ds = init.protect_3ds
@@ -139,15 +130,13 @@ class AppState {
     this.bundles = init.bundles
     this.bmpToPng = init.bmp_to_png
     this.sendToPc = init.send_to_pc
-    this.activeSide = this.lite ? 'remote' : 'local'
     this.ready = true
     if (this.checkUpdates) setTimeout(() => void this.lookForUpdate(), 2500) // after the window is up
     void this.navigate('local', init.local_dir)
-    // the sites that were open last time (Lite mode: the first one)
+    // the sites that were open last time
     const only = this.sites.length === 1 ? this.sites[0] : undefined
     let reopen = recall<number[]>('openSites', only ? [only.id] : [])
     reopen = reopen.filter((id) => this.sites.some((s) => s.id === id))
-    if (this.lite) reopen = reopen.slice(0, 1)
     for (const id of reopen) await this.openSite(id)
   }
 
@@ -204,11 +193,6 @@ class AppState {
       if (last) this.activate(last.id)
     }
     this.rememberTabs()
-  }
-
-  /** Lite mode keeps one server: picking another closes the one open */
-  closeAll(): void {
-    for (const t of [...this.tabs]) this.closeTab(t.id)
   }
 
   activate(id: number): void {
@@ -485,17 +469,6 @@ class AppState {
 
   // ---------------------------------------------------------------------------
   // settings that change the window
-
-  setMode(m: Mode): void {
-    this.mode = m
-    if (m === 'lite') for (const t of [...this.tabs]) if (t.id !== this.active) this.closeTab(t.id)
-    this.activeSide = m === 'lite' ? 'remote' : 'local'
-  }
-
-  setLiteView(v: 'list' | 'tiles'): void {
-    this.liteView = v
-    store('liteView', v)
-  }
 
   async lookForUpdate(): Promise<void> {
     this.update = await invoke<Update | null>('check_update').catch(() => null)
