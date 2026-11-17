@@ -757,14 +757,8 @@ fn delete_items(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<
 }
 
 fn expand_send_to_pc(ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
-    if job.replace {
-        if os::unsafe_replace_target(&job.path2) {
-            return Err(Error::Ftp(format!("Refusing to empty {} (drive or personal/system folder)", job.path2)));
-        }
-        if !os::empty_folder(&job.path2, job.recycle) {
-            return Err(Error::Ftp(format!("Could not empty {} (a file may be in use)", job.path2)));
-        }
-        job.replace = false; // only once, even if the job resumes after a reconnect
+    if job.replace && os::unsafe_replace_target(&job.path2) {
+        return Err(Error::Ftp(format!("Refusing to empty {} (drive or personal/system folder)", job.path2)));
     }
     for rp in job.send_paths.clone() {
         if rp == "/" {
@@ -786,6 +780,16 @@ fn expand_send_to_pc(ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
             Some(e) => plan::remote_items(&mut |p| ftp.list(p), &rp, &e, &local, &mut job.items)?,
             None => job.missing += 1,
         }
+    }
+    // the PC copy goes only once everything that replaces it is known to be there
+    if job.replace {
+        if job.missing != 0 {
+            return Err(Error::Ftp(format!("{} item(s) not found on the 3DS, so {} was left as it was", job.missing, job.path2)));
+        }
+        if !os::empty_folder(&job.path2, job.recycle) {
+            return Err(Error::Ftp(format!("Could not empty {} (a file may be in use)", job.path2)));
+        }
+        job.replace = false; // only once, even if the job resumes after a reconnect
     }
     Ok(())
 }
