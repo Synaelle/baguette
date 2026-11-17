@@ -5,7 +5,7 @@
 //! on Linux with a key file kept next to the settings: copied to another PC or
 //! user, the file still opens, and those sites just ask for their password again.
 
-use crate::config::{config_path, escape, get_int, get_str, put, unescape};
+use crate::config::{config_path, escape, get_int, get_port, get_str, put, unescape};
 use crate::remote::{Protocol, Site};
 use crate::os::{protect, unprotect};
 
@@ -35,7 +35,7 @@ pub fn load() -> Vec<Saved> {
         if host.is_empty() {
             return Vec::new();
         }
-        let port = get_int(&path, "server", "port", 5000) as u16;
+        let port = get_port(&path, "server", "port", 5000);
         let first = vec![Saved { id: 1, name: "My 3DS".into(), site: Site::cement(&host, port), needs_password: false }];
         // if this fails the old address is still in the file and moves over next time
         let _ = save(&first);
@@ -52,7 +52,7 @@ pub fn load() -> Vec<Saved> {
         let site = Site {
             protocol,
             host: s("host"),
-            port: get_int(&path, &sec, "port", protocol.default_port() as i32) as u16,
+            port: get_port(&path, &sec, "port", protocol.default_port()),
             user: s("user"),
             pass: pass.unwrap_or_default(),
             key: s("key"),
@@ -108,7 +108,7 @@ pub fn find_login(host: &str, port: u16) -> Option<(String, String)> {
         let sec = format!("site{i}");
         let s = |k: &str| unescape(&get_str(&path, &sec, k, ""));
         let p = Protocol::parse(&s("protocol")).unwrap_or_default();
-        let site_port = get_int(&path, &sec, "port", p.default_port() as i32) as u16;
+        let site_port = get_port(&path, &sec, "port", p.default_port());
         if p != Protocol::Ftp || !s("host").eq_ignore_ascii_case(host) || site_port != port || s("user").is_empty() {
             return None;
         }

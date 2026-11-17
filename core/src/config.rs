@@ -99,7 +99,7 @@ pub fn read_address() -> Option<(String, u16)> {
     if host.is_empty() {
         return None;
     }
-    Some((host, get_int(&file, "server", "port", 5000) as u16))
+    Some((host, get_port(&file, "server", "port", 5000)))
 }
 
 /// the app's "protect important 3DS files" setting (on when nothing is saved)
@@ -151,21 +151,40 @@ pub(crate) fn put(file: &str, section: &str, key: Option<&str>, value: Option<&s
     if ok == 0 { Err(not_saved(file, std::io::Error::last_os_error())) } else { Ok(()) }
 }
 
+/// a port setting: `default` when it is missing or not a port
+pub(crate) fn get_port(file: &str, section: &str, key: &str, default: u16) -> u16 {
+    u16::try_from(get_int(file, section, key, default.into())).ok().filter(|p| *p != 0).unwrap_or(default)
+}
+
+/// the file as text: a byte that isn't UTF-8 (a comment saved by another editor)
+/// spoils only itself, and a BOM is skipped
+#[cfg(not(windows))]
+fn read_ini(file: &str) -> std::io::Result<String> {
+    let bytes = std::fs::read(file)?;
+    if let Some(utf16) = bytes.strip_prefix(&[0xff, 0xfe]) {
+        // saved by Notepad as "Unicode"
+        let units: Vec<u16> = utf16.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        return Ok(String::from_utf16_lossy(&units));
+    }
+    let text = String::from_utf8_lossy(&bytes);
+    Ok(text.strip_prefix('\u{feff}').unwrap_or(&text).to_string())
+}
+
 #[cfg(not(windows))]
 pub(crate) fn get_str(file: &str, section: &str, key: &str, default: &str) -> String {
-    let text = std::fs::read_to_string(file).unwrap_or_default();
+    let text = read_ini(file).unwrap_or_default();
     crate::ini::get(&text, section, key).unwrap_or_else(|| default.to_string())
 }
 
 #[cfg(not(windows))]
 pub(crate) fn get_int(file: &str, section: &str, key: &str, default: i32) -> i32 {
-    crate::ini::get_int(&std::fs::read_to_string(file).unwrap_or_default(), section, key, default)
+    crate::ini::get_int(&read_ini(file).unwrap_or_default(), section, key, default)
 }
 
 /// writes through a temp file and a rename: a crash never leaves half a file
 #[cfg(not(windows))]
 pub(crate) fn put(file: &str, section: &str, key: Option<&str>, value: Option<&str>) -> Result<(), String> {
-    let text = match std::fs::read_to_string(file) {
+    let text = match read_ini(file) {
         Ok(t) => t,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(e) => return Err(not_saved(file, e)),
@@ -238,7 +257,7 @@ impl Config {
         let mut c = Config {
             dark: get_int(&path, "ui", "dark", 1) != 0,
             host: get_str(&path, "server", "host", ""),
-            port: get_int(&path, "server", "port", 5000) as u16,
+            port: get_port(&path, "server", "port", 5000),
             send_dir: get_str(&path, "transfer", "sendto", ""),
             send_replace: get_int(&path, "transfer", "replace", 0) != 0,
             send_items: Vec::new(),
@@ -313,5 +332,15 @@ mod tests {
         assert_eq!(normalize_look(" Ficelle-Light ").as_deref(), Some("ficelle-light"));
         assert_eq!(normalize_look("evil-twin").as_deref(), Some("evil-twin"));
         assert_eq!(normalize_look("miku"), None);
+    }
+
+    #[test]
+    fn odd_bytes_and_ports() {
+        let file = std::env::temp_dir().join(format!("baguette-ini-{}.ini", std::process::id())).to_string_lossy().into_owned();
+        std::fs::write(&file, b"\xef\xbb\xbf[server]\n; caf\xe9\nhost=192.168.1.9\nport=70000\n[site0]\nport=-1\n").unwrap();
+        assert_eq!(get_str(&file, "server", "host", ""), "192.168.1.9", "past the BOM and the Latin-1 byte");
+        assert_eq!(get_port(&file, "server", "port", 5000), 5000, "70000 is no port");
+        assert_eq!(get_port(&file, "site0", "port", 21), 21);
+        let _ = std::fs::remove_file(&file);
     }
 }

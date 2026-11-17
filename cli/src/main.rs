@@ -926,7 +926,7 @@ commands:
   mv <from> <to>                 rename or move
 
 options:
-  --host <ip> --port <n>         3DS address (default: the one saved by Baguette.exe)
+  --host <ip> --port <n>         3DS address (default: the one saved by Baguette)
   --wait <seconds>               keep retrying an unreachable 3DS / dropped link (default 20)
   --busy-wait <seconds>          how long put/get/rm/mkdir/mv and wait wait for other
                                  transfers to finish (default 600)
@@ -1033,7 +1033,7 @@ fn main() -> ExitCode {
     if host.is_empty() {
         match &saved {
             Some((h, _)) => host = h.clone(),
-            None => return usage("no 3DS address saved yet: open Baguette.exe once or pass --host and --port"),
+            None => return usage("no 3DS address saved yet: open Baguette once or pass --host and --port"),
         }
     }
     if port == 0 {
