@@ -96,7 +96,7 @@
         >
       {/if}
       <div id="cVersion" class="card-foot">
-        {c.version ? `Cement ${c.version}` : 'Cement'}, protocol {c.protocol}
+        {c.version ? `Cement ${c.version}` : 'Cement'} · protocol {c.protocol}
         {#if hint}<span class="hint">{hint}</span>{/if}
       </div>
     </div>

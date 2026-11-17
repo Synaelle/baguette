@@ -2,9 +2,9 @@
 <!-- No tab open: the way to a site. Lite mode lists the saved sites here, with an address field. -->
 <script lang="ts">
   import { app } from '../lib/app.svelte'
-  import { siteAddress } from '../lib/format'
+  import { siteLine } from '../lib/format'
   import { editSite } from '../lib/siteEditor.svelte'
-  import Mark from './Mark.svelte'
+  import Icon from './Icon.svelte'
   import StatusDot from './StatusDot.svelte'
 
   let addr = $state('')
@@ -20,8 +20,8 @@
 <div id="empty">
   {#if app.lite}
     <div class="empty-card lite-start">
-      <Mark size={76} />
-      <h1>Servers</h1>
+      <Icon name="logoBig" />
+      <h1>Where are your files?</h1>
       <div class="start-box">
         <div id="startSites">
           {#each app.sites as s (s.id)}
@@ -34,8 +34,7 @@
             >
               <StatusDot tab={app.tabOfSite(s.id)} />
               <span class="txt"
-                ><b>{s.name}</b><span class="sub">{siteAddress(s.protocol, s.host, s.port)}</span
-                ></span
+                ><b>{s.name}</b><span class="sub">{siteLine(s.protocol, s.host)}</span></span
               >
               <span class="go">Open</span>
             </button>
@@ -53,12 +52,16 @@
           <button id="startGo" class="pill" onclick={go}>Connect</button>
         </div>
       </div>
+      <p class="small">The sites saved in Advanced mode show up here</p>
     </div>
   {:else}
     <div class="empty-card">
-      <Mark size={56} />
-      <h1>No site open</h1>
-      <p>Open a saved site, add one, or type an address in Quick connect.</p>
+      <Icon name="biteBig" />
+      <h1>Pick a site to start</h1>
+      <p>
+        Open one from the list, add a new one, or type an address in Quick connect.<br />Connected
+        to Cement, the 3DS tools show up on the right.
+      </p>
       <button id="btnEmptyNew" class="pill accent" onclick={() => editSite(null)}>+ New site</button
       >
     </div>

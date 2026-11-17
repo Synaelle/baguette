@@ -21,6 +21,11 @@
 <div id="cementLogin" class="modal">
   <div class="dialog" style:width="420px" role="dialog" aria-modal="true" aria-labelledby="clTitle">
     <h2 id="clTitle">3DS login</h2>
+    <p class="note">
+      With a login, Cement only lets in this user name and password, from any FTP client. Baguette
+      saves them with the site. On the 3DS, Cement 2.3.0 and later keep only a hash of the password
+      on the SD card.
+    </p>
     <div class="form">
       <label for="clUser">User</label>
       <!-- svelte-ignore a11y_autofocus -->

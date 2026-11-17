@@ -10,14 +10,21 @@
 
   let pick = $state<Mode>('standard')
 
-  const cards: { mode: Mode; name: string; img: string; alt: string }[] = [
+  const cards: { mode: Mode; name: string; img: string; alt: string; text: string }[] = [
     {
       mode: 'standard',
       name: 'Standard',
       img: standardImg,
-      alt: 'Standard: your PC and the server side by side, with the 3DS tools',
+      alt: 'Standard: your PC and the server side by side',
+      text: 'Your PC and the server side by side, saved sites, tabs, and the 3DS tools: battery, SD card, CIA installs.',
     },
-    { mode: 'lite', name: 'Lite', img: liteImg, alt: 'Lite: the files on the server alone' },
+    {
+      mode: 'lite',
+      name: 'Lite',
+      img: liteImg,
+      alt: "Lite: one window with the server's files",
+      text: 'Just the files on your 3DS or server. Drag files in to send them, drag them out to save them.',
+    },
   ]
 
   async function start() {
@@ -30,7 +37,7 @@
 <div id="setup" class="modal">
   <div class="setup-in" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
     <h1 id="setupTitle">Welcome to Baguette</h1>
-    <p>You can switch any time in the settings.</p>
+    <p>How do you want it? You can switch any time in the settings.</p>
     <div class="setup-cards">
       {#each cards as c (c.mode)}
         <button
@@ -41,6 +48,7 @@
         >
           <img src={c.img} alt={c.alt} />
           <span class="setup-name"><span class="radio" aria-hidden="true"></span>{c.name}</span>
+          <span class="setup-text">{c.text}</span>
         </button>
       {/each}
     </div>

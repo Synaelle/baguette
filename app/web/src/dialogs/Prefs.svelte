@@ -147,7 +147,12 @@
     {#if shown === 'general'}
       <section class="prefs-tab" role="tabpanel">
         <div class="setting">
-          <div class="setting-text"><b id="lookLabel">Look</b></div>
+          <div class="setting-text">
+            <b id="lookLabel">Look</b><span
+              >Evil Twin is round and soft. Ficelle is sharp and quiet, like the notes app, in a
+              dark or a light room.</span
+            >
+          </div>
           <div class="modes" role="radiogroup" aria-labelledby="lookLabel">
             {#each LOOKS as [id, label] (id)}
               <button role="radio" aria-checked={look === id} onclick={() => pickLook(id)}
@@ -157,7 +162,12 @@
           </div>
         </div>
         <div class="setting">
-          <div class="setting-text"><b id="colourLabel">Colour</b></div>
+          <div class="setting-text">
+            <b id="colourLabel">Colour</b><span
+              >The whole window follows it, and so do Cement&#39;s screens. A colour picked on the
+              3DS comes here too.</span
+            >
+          </div>
           <div class="colour-row">
             <div class="swatches" role="radiogroup" aria-labelledby="colourLabel">
               {#each ACCENTS as [hex, label] (hex)}
@@ -183,7 +193,12 @@
           </div>
         </div>
         <div class="setting">
-          <div class="setting-text"><b id="modeLabel">Mode</b></div>
+          <div class="setting-text">
+            <b id="modeLabel">Mode</b><span
+              >Standard has your PC and the server side by side. Lite shows only the server&#39;s
+              files.</span
+            >
+          </div>
           <div class="modes" role="radiogroup" aria-labelledby="modeLabel">
             <button
               role="radio"
@@ -196,7 +211,11 @@
           </div>
         </div>
         <div class="setting">
-          <div class="setting-text"><label for="localStart"><b>PC side opens in</b></label></div>
+          <div class="setting-text">
+            <label for="localStart"><b>PC side opens in</b></label><span
+              >Where the left side starts when Baguette opens.</span
+            >
+          </div>
           <select id="localStart" bind:value={localStart}>
             <option value="home">Your user folder</option>
             <option value="last">The folder you left it in</option>
@@ -210,17 +229,28 @@
           {/if}
         </div>
         <div class="setting row-setting">
-          <div class="setting-text"><label for="sendToPc"><b>Send to PC</b></label></div>
+          <div class="setting-text">
+            <label for="sendToPc"><b>Send to PC</b></label><span
+              >A button on the Cement card that copies the 3DS folders you choose to a PC folder in
+              one go (Ctrl+S).</span
+            >
+          </div>
           <input id="sendToPc" class="switch" type="checkbox" bind:checked={sendToPc} />
         </div>
         <div class="setting row-setting">
           <div class="setting-text">
-            <label for="bmpToPng"><b>Save BMP pictures as PNG</b></label>
+            <label for="bmpToPng"><b>Save BMP pictures as PNG</b></label><span
+              >Downloads turn .bmp files (like the 3DS screenshots) into .png.</span
+            >
           </div>
           <input id="bmpToPng" class="switch" type="checkbox" bind:checked={bmpToPng} />
         </div>
         <div class="setting row-setting">
-          <div class="setting-text"><label for="checkUpdates"><b>Look for updates</b></label></div>
+          <div class="setting-text">
+            <label for="checkUpdates"><b>Look for updates</b></label><span
+              >Asks GitHub once when Baguette starts. Updates only download when you click them.</span
+            >
+          </div>
           <input id="checkUpdates" class="switch" type="checkbox" bind:checked={checkUpdates} />
         </div>
       </section>
@@ -228,7 +258,11 @@
       <section class="prefs-tab" role="tabpanel">
         <div class="setting row-setting">
           <div class="setting-text">
-            <label for="protect3ds"><b>Protect important 3DS files</b></label>
+            <label for="protect3ds"><b>Protect important 3DS files</b></label><span
+              >On Cement, /Nintendo 3DS, /boot.firm, /luma, /gm9 and /boot.3dsx are read-only: you
+              can look and download, not change them. Luma&#39;s screenshots and crash dumps stay
+              free.</span
+            >
           </div>
           <input
             id="protect3ds"
@@ -241,9 +275,13 @@
       </section>
     {:else if shown === 'lab'}
       <section class="prefs-tab" role="tabpanel">
+        <p class="lab-note">Still being tried out: these may change or go away.</p>
         <div class="setting row-setting">
           <div class="setting-text">
-            <label for="bundles"><b>Send many files as one bundle</b></label>
+            <label for="bundles"><b>Send many files as one bundle</b></label><span
+              >Baguette and Cement only (Cement 2.0-RC3 and later). Uploads of 8 files or more go as
+              one stream that Cement unpacks as it arrives.</span
+            >
           </div>
           <input id="bundles" class="switch" type="checkbox" bind:checked={bundles} />
         </div>
@@ -256,16 +294,22 @@
           {#if cement}
             <div class="about-row">
               <span>Cement on this tab</span><b
-                >{cement.version ? `Cement ${cement.version}` : 'Cement'}, protocol {cement.protocol}</b
+                >{cement.version ? `Cement ${cement.version}` : 'Cement'} · protocol {cement.protocol}</b
               >
             </div>
             {#if cement.protocol < app.protocol}
               <p class="note">Update Cement to use everything this Baguette can do</p>
             {:else if cement.protocol > app.protocol}
               <p class="note">This Cement is newer: update Baguette for its new features</p>
+            {:else}
+              <p class="note">They speak the same protocol: everything works.</p>
             {/if}
           {/if}
         </div>
+        <p class="note">
+          Baguette and Cement each have their own version. The protocol level is what tells which
+          ones work together: a Cement with a lower level still works, without the newer features.
+        </p>
       </section>
     {/if}
 

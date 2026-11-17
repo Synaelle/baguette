@@ -51,13 +51,15 @@
       aria-labelledby="rfTitle"
     >
       <h2 id="rfTitle">{title}</h2>
-      <p id="rfText">{r.message}</p>
+      <p id="rfText">
+        {trust
+          ? r.message +
+            (r.protocol === 'sftp'
+              ? '\n\nIts host key fingerprint:'
+              : '\n\nIts certificate fingerprint (SHA-256):')
+          : r.message}
+      </p>
       {#if trust}
-        <p class="dim">
-          {r.protocol === 'sftp'
-            ? 'Its host key fingerprint'
-            : 'Its certificate fingerprint (SHA-256)'}
-        </p>
         <p id="rfFinger" class="mono">{r.fingerprint}</p>
       {:else}
         <div class="form">

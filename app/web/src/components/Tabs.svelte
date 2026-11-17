@@ -26,7 +26,7 @@
         class="x"
         title="Close (Ctrl+W)"
         aria-label="Close {t.name}"
-        onclick={() => app.closeTab(t.id)}><Icon name="close" /></button
+        onclick={() => app.closeTab(t.id)}><Icon name="tabClose" /></button
       >
     </div>
   {/each}

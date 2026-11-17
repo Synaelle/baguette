@@ -1,42 +1,33 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The icons the window uses, from Lucide (ISC licence), bundled as svg text at
-// build time. Only the inner shapes are kept: Icon.svelte draws the svg around them.
-
-import arrowDown from 'lucide-static/icons/arrow-down.svg?raw'
-import arrowUp from 'lucide-static/icons/arrow-up.svg?raw'
-import file from 'lucide-static/icons/file.svg?raw'
-import folder from 'lucide-static/icons/folder.svg?raw'
-import hardDrive from 'lucide-static/icons/hard-drive.svg?raw'
-import layoutGrid from 'lucide-static/icons/layout-grid.svg?raw'
-import list from 'lucide-static/icons/list.svg?raw'
-import lock from 'lucide-static/icons/lock.svg?raw'
-import minus from 'lucide-static/icons/minus.svg?raw'
-import pencil from 'lucide-static/icons/pencil.svg?raw'
-import rotateCw from 'lucide-static/icons/rotate-cw.svg?raw'
-import settings from 'lucide-static/icons/settings.svg?raw'
-import square from 'lucide-static/icons/square.svg?raw'
-import up from 'lucide-static/icons/corner-left-up.svg?raw'
-import x from 'lucide-static/icons/x.svg?raw'
-
-const inner = (svg: string): string =>
-  svg.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '')
+// The window's own drawn icons and marks, as svg markup (styled by app.css).
 
 export const ICONS = {
-  download: inner(arrowDown),
-  upload: inner(arrowUp),
-  file: inner(file),
-  folder: inner(folder),
-  drive: inner(hardDrive),
-  tiles: inner(layoutGrid),
-  list: inner(list),
-  lock: inner(lock),
-  minimize: inner(minus),
-  edit: inner(pencil),
-  refresh: inner(rotateCw),
-  settings: inner(settings),
-  maximize: inner(square),
-  up: inner(up),
-  close: inner(x),
+  logo: '<svg class="logo" viewBox="0 0 512 512" aria-hidden="true" data-tauri-drag-region><defs><mask id="baguetteBite" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><rect x="-100" y="-100" width="712" height="712" fill="#fff"/><path d="M170 222l22 62M240 222l22 62M310 222l22 62" stroke="#000" stroke-width="20" stroke-linecap="round"/><g fill="#000" transform="translate(405 224) rotate(45) scale(5.6)"><circle cx="-6" cy="-1.7" r="5.5"/><circle cx="0" cy="0" r="5.5"/><circle cx="6" cy="-1.7" r="5.5"/><rect x="-11.5" y="-20" width="23" height="18"/></g></mask></defs><path d="M256 0C437 0 512 75 512 256S437 512 256 512 0 437 0 256 75 0 256 0Z" fill="#0F0F10"/><path d="M256 6C432 6 506 80 506 256S432 506 256 506 6 432 6 256 80 6 256 6Z" fill="none" stroke="#2A2829" stroke-width="23"/><g transform="rotate(-40 256 256)"><rect x="51" y="197" width="410" height="118" rx="59" fill="var(--accent)" mask="url(#baguetteBite)"/></g></svg>',
+  logoBig:
+    '<svg class="logo big" viewBox="0 0 512 512" aria-hidden="true"><defs><mask id="baguetteBiteBig" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><rect x="-100" y="-100" width="712" height="712" fill="#fff"/><path d="M170 222l22 62M240 222l22 62M310 222l22 62" stroke="#000" stroke-width="20" stroke-linecap="round"/><g fill="#000" transform="translate(405 224) rotate(45) scale(5.6)"><circle cx="-6" cy="-1.7" r="5.5"/><circle cx="0" cy="0" r="5.5"/><circle cx="6" cy="-1.7" r="5.5"/><rect x="-11.5" y="-20" width="23" height="18"/></g></mask></defs><path d="M256 0C437 0 512 75 512 256S437 512 256 512 0 437 0 256 75 0 256 0Z" fill="#0F0F10"/><path d="M256 6C432 6 506 80 506 256S432 506 256 506 6 432 6 256 80 6 256 6Z" fill="none" stroke="#2A2829" stroke-width="7"/><g transform="rotate(-40 256 256)"><rect x="51" y="197" width="410" height="118" rx="59" fill="var(--accent)" mask="url(#baguetteBiteBig)"/></g></svg>',
+  bite: '<svg class="bite" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="var(--accent)"/><circle cx="11" cy="2" r="2.6" fill="var(--surface)"/></svg>',
+  biteBig:
+    '<svg class="bite big" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="var(--accent)"/><circle cx="11" cy="2" r="2.6" fill="var(--surface)"/></svg>',
+  settings:
+    '<svg class="gear" viewBox="0 0 16 16" aria-hidden="true"><mask id="gearHole"><rect width="16" height="16" fill="#fff"/><circle cx="8" cy="8" r="2.1" fill="#000"/></mask><g mask="url(#gearHole)"><circle cx="8" cy="8" r="4.9"/><circle cx="13.3" cy="8" r="1.75"/><circle cx="11.75" cy="11.75" r="1.75"/><circle cx="8" cy="13.3" r="1.75"/><circle cx="4.25" cy="11.75" r="1.75"/><circle cx="2.7" cy="8" r="1.75"/><circle cx="4.25" cy="4.25" r="1.75"/><circle cx="8" cy="2.7" r="1.75"/><circle cx="11.75" cy="4.25" r="1.75"/></g></svg>',
+  minimize: '<svg viewBox="0 0 12 12"><path d="M2 6h8"/></svg>',
+  maximize: '<svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1.5"/></svg>',
+  close: '<svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6"/></svg>',
+  upload: '<svg viewBox="0 0 16 16"><path d="M8 13V3M4 7l4-4 4 4"/></svg>',
+  download: '<svg viewBox="0 0 16 16"><path d="M8 3v10M4 9l4 4 4-4"/></svg>',
+  refresh: '<svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5"/></svg>',
+  up: '<svg viewBox="0 0 16 16"><path d="M8 13V4M4 8l4-4 4 4"/></svg>',
+  lock: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.8"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>',
+  list: '<svg viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h10"/></svg>',
+  tiles:
+    '<svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1.2"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1.2"/><rect x="9" y="9" width="4.5" height="4.5" rx="1.2"/></svg>',
+  folder:
+    '<svg class="ico dir" viewBox="0 0 16 16"><path d="M1.5 4c0-.8.7-1.5 1.5-1.5h3.2l1.5 1.5H13c.8 0 1.5.7 1.5 1.5v6.5c0 .8-.7 1.5-1.5 1.5H3c-.8 0-1.5-.7-1.5-1.5z"/></svg>',
+  file: '<svg class="ico file" viewBox="0 0 16 16"><path d="M4 1.5h5L12.5 5v9c0 .3-.2.5-.5.5H4c-.3 0-.5-.2-.5-.5V2c0-.3.2-.5.5-.5zM9 1.5V5h3.5"/></svg>',
+  drive:
+    '<svg class="ico drive" viewBox="0 0 16 16"><path d="M2 9.5h12v3c0 .6-.4 1-1 1H3c-.6 0-1-.4-1-1zM2 9.5 4 3.5h8l2 6M11.5 11.5h.01"/></svg>',
+  edit: '<svg viewBox="0 0 16 16"><path d="M10.5 2.5l3 3-8 8H2.5v-3z"/></svg>',
+  tabClose: '<svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6"/></svg>',
 }
 
 export type IconName = keyof typeof ICONS

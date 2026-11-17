@@ -16,4 +16,4 @@
   })
 </script>
 
-<span class="dot {state.cls}" role="img" aria-label={state.label} title={state.label}></span>
+<span class="dot {state.cls}" role="img" aria-label={state.label}></span>

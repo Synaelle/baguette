@@ -2,7 +2,7 @@
 <!-- The saved sites and Quick connect. -->
 <script lang="ts">
   import { app } from '../lib/app.svelte'
-  import { siteAddress } from '../lib/format'
+  import { siteLine } from '../lib/format'
   import { editSite } from '../lib/siteEditor.svelte'
   import type { Site } from '../lib/types'
   import Icon from './Icon.svelte'
@@ -35,7 +35,7 @@
         <button class="pick" aria-current={open_ ? 'true' : undefined} onclick={() => open(s)}>
           <StatusDot tab={t} />
           <span class="txt"
-            ><b>{s.name}</b><span class="sub">{siteAddress(s.protocol, s.host, s.port)}</span></span
+            ><b>{s.name}</b><span class="sub">{siteLine(s.protocol, s.host)}</span></span
           >
           {#if t?.cement}<span class="tag">3DS</span>{/if}
         </button>
@@ -47,7 +47,8 @@
   </div>
   <div class="grow"></div>
   <div class="quick">
-    <label class="h" for="qc">Quick connect</label>
+    <span class="h">Quick connect</span>
+    <label for="qc">sftp://user@host or 192.168.1.10:5000</label>
     <input
       id="qc"
       spellcheck="false"

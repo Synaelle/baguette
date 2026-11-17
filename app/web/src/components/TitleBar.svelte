@@ -5,7 +5,6 @@
   import { ask, dialogs, tell } from '../lib/dialogs.svelte'
   import { appWindow, invoke } from '../lib/tauri'
   import Icon from './Icon.svelte'
-  import Mark from './Mark.svelte'
   import StatusDot from './StatusDot.svelte'
 
   const shortVersion = $derived(app.version.replace(/-[0-9a-f]+-dev$/, ''))
@@ -40,13 +39,13 @@
 </script>
 
 <header id="titlebar" data-tauri-drag-region>
-  <Mark />
+  <Icon name="logo" />
   <span class="brand" data-tauri-drag-region>baguette</span>
   {#if app.lite && app.tab}
     <button class="server-chip" title="Choose another server" onclick={() => app.closeAll()}>
       <StatusDot tab={app.tab} />
       <span>{app.tab.name}</span>
-      {#if app.cement?.battery}<span class="sub">{app.cement.battery}</span>{/if}
+      {#if app.cement?.battery}<span class="sub">· {app.cement.battery}</span>{/if}
     </button>
   {/if}
   {#if app.version}
@@ -54,7 +53,7 @@
       id="version"
       class="chip"
       data-tauri-drag-region
-      title="Baguette {app.version}, Cement protocol {app.protocol}">{shortVersion}</span
+      title="Baguette v{app.version} · Cement protocol {app.protocol}">{shortVersion}</span
     >
   {/if}
   {#if app.update}

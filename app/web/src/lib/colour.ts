@@ -10,7 +10,6 @@ export const DEFAULT_ACCENT = 'e44c3e'
 const PALETTE: Record<string, string> = {
   '--accent': '#e44c3e',
   '--accent-hi': '#ec6457',
-  '--accent-press': '#c63d31',
   '--hi': '#ec7366',
   '--soft': '#e8b4ab',
   '--bg': '#0e0d0d',
@@ -35,7 +34,6 @@ const LIGHT_ACCENT = 'c1271b'
 const LIGHT_PALETTE: Record<string, string> = {
   '--accent': '#c1271b',
   '--accent-hi': '#ad2117',
-  '--accent-press': '#9a1d13',
   '--hi': '#c1271b',
   '--soft': '#7a2a20',
   '--bg': '#f1efea',

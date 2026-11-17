@@ -27,17 +27,17 @@
       aria-modal="true"
       aria-labelledby="sendbackTitle"
     >
-      <h2 id="sendbackTitle">Edited file</h2>
+      <h2 id="sendbackTitle">Send your changes back?</h2>
       <p id="sbPath" class="mono">{tab ? `${tab.name}:  ` : ''}{d.remote}</p>
       <div class="grid">
-        <span class="dim">On the server</span><span id="sbRemote">{d.remote_text}</span>
-        <span class="dim">Your edited file</span><span id="sbLocal">{d.local_text}</span>
+        <span class="dim">On the server:</span><span id="sbRemote">{d.remote_text}</span>
+        <span class="dim">Your edited file:</span><span id="sbLocal">{d.local_text}</span>
       </div>
-      {#if d.warn}<p id="sbWarn" class="warn">{d.warn}</p>{/if}
+      <p id="sbWarn" class="warn">{d.warn}</p>
       <div class="buttons">
         <div class="grow"></div>
         <button id="sbKeep" class="pill" onclick={() => done(false)}>Don't send</button>
-        <button id="sbSend" class="pill accent" onclick={() => done(true)}>Send it back</button>
+        <button id="sbSend" class="pill accent" onclick={() => done(true)}>Send</button>
       </div>
     </div>
   </div>

@@ -64,6 +64,7 @@
     aria-labelledby="settingsTitle"
   >
     <h2 id="settingsTitle">Send to PC</h2>
+    <p class="note">Copies these 3DS folders and files into one PC folder, in one click.</p>
     <select id="sendItems" multiple size="6" aria-label="3DS folders and files" bind:value={picked}>
       {#each sendDraft.items as p (p)}<option value={p}>{p}</option>{/each}
     </select>
@@ -72,7 +73,6 @@
         id="btnAddPick"
         class="pill small"
         disabled={!onCement}
-        title={onCement ? undefined : 'Connect to Cement to pick from the 3DS'}
         onclick={() => (dialogs.open = 'picker')}>Add from 3DS...</button
       >
       <button
@@ -93,6 +93,7 @@
       />
       <button id="btnAddPath" class="pill small" onclick={addPath}>Add</button>
     </div>
+    <p id="sendNote" class="note">{onCement ? '' : 'Connect to Cement to pick from the 3DS.'}</p>
     <div class="row">
       <label for="sendDir">PC folder</label><input
         id="sendDir"
@@ -107,7 +108,9 @@
         type="checkbox"
         bind:checked={sendDraft.replace}
         onchange={replaceChanged}
-      /> Replace the PC folder contents</label
+      />
+      Replace the PC folder contents (old files go to
+      <span class="bin-name">{app.binName}</span>)</label
     >
     <div class="buttons">
       <div class="grow"></div>

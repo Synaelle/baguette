@@ -42,16 +42,14 @@ export function recall<T>(key: string, fallback: T): T {
 export const RUNS =
   /\.(exe|com|bat|cmd|msi|msp|lnk|url|scr|pif|cpl|hta|jar|js|jse|vbs|vbe|wsf|wsh|ps1|psm1|reg|appimage|desktop|sh|run)$/i
 
-const SCHEME: Record<string, string> = {
-  ftp: 'ftp',
-  sftp: 'sftp',
-  ftps: 'ftps',
-  'ftps-implicit': 'ftps',
+const PROTO: Record<string, string> = {
+  ftp: 'FTP',
+  sftp: 'SFTP',
+  ftps: 'FTPS',
+  'ftps-implicit': 'FTPS',
 }
 
-/** Where a site points, as an address: "sftp://pi.local", "ftp://192.168.1.10:5000". */
-export function siteAddress(protocol: string, host: string, port?: number): string {
-  const defaults: Record<string, number> = { ftp: 21, sftp: 22, ftps: 21, 'ftps-implicit': 990 }
-  const p = port && port !== defaults[protocol] ? `:${port}` : ''
-  return `${SCHEME[protocol] ?? protocol}://${host}${p}`
+/** A site's protocol and host, under its name: "SFTP · pi.local". */
+export function siteLine(protocol: string, host: string): string {
+  return `${PROTO[protocol] ?? protocol} · ${host}`
 }

@@ -48,7 +48,7 @@
       <div id="pickRows">
         {#if picker.cwd !== '/'}
           <div class="row-e" role="option" aria-selected="false" tabindex="-1" ondblclick={up}>
-            <span class="name"><Icon name="folder" class="ico dir" /><span>..</span></span>
+            <span class="name"><Icon name="folder" /><span>..</span></span>
           </div>
         {/if}
         {#each picker.entries as e, i (e.name)}
@@ -61,11 +61,7 @@
             onmousedown={(ev) => down(ev, i)}
             ondblclick={() => e.dir && pickNavigate(app.join('remote', picker.cwd, e.name))}
           >
-            <span class="name"
-              ><Icon name={e.dir ? 'folder' : 'file'} class="ico {e.dir ? 'dir' : 'file'}" /><span
-                >{e.name}</span
-              ></span
-            >
+            <span class="name"><Icon name={e.dir ? 'folder' : 'file'} /><span>{e.name}</span></span>
           </div>
         {/each}
       </div>

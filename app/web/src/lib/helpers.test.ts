@@ -10,7 +10,7 @@ import {
   pickedAccent,
   shownAccent,
 } from './colour'
-import { byName, formatSize, formatStamp, siteAddress } from './format'
+import { byName, formatSize, formatStamp, siteLine } from './format'
 import { inside, join, parent } from './paths'
 
 describe('paths', () => {
@@ -37,14 +37,13 @@ describe('paths', () => {
 })
 
 describe('format', () => {
-  it('shows sizes, times and addresses', () => {
+  it('shows sizes, times and sites', () => {
     expect(formatSize(512)).toBe('512 B')
     expect(formatSize(1536)).toBe('1.5 KB')
     expect(formatStamp('20260105123000')).toBe('2026-01-05 12:30')
     expect(formatStamp('')).toBe('')
-    expect(siteAddress('sftp', 'pi.local', 22)).toBe('sftp://pi.local')
-    expect(siteAddress('ftp', '192.168.1.10', 5000)).toBe('ftp://192.168.1.10:5000')
-    expect(siteAddress('ftps-implicit', 'nas', 990)).toBe('ftps://nas')
+    expect(siteLine('sftp', 'pi.local')).toBe('SFTP · pi.local')
+    expect(siteLine('ftps-implicit', 'nas')).toBe('FTPS · nas')
   })
   it('sorts folders first, numbers as a person would', () => {
     const e = (name: string, dir = false) => ({ name, dir, size: 0, modified: '' })

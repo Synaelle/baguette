@@ -119,7 +119,7 @@
       <input
         id="sUser"
         spellcheck="false"
-        placeholder={protocol === 'ftp' ? 'anonymous' : ''}
+        placeholder={protocol === 'ftp' ? 'empty: anonymous (Cement)' : ''}
         bind:value={user}
         onkeydown={enter}
       />
@@ -128,7 +128,7 @@
         id="sPass"
         type="password"
         placeholder={editing?.has_pass
-          ? 'saved'
+          ? 'saved (type to change)'
           : editing?.needs_password
             ? 'type it again on this PC'
             : ''}
@@ -142,7 +142,7 @@
           <input
             id="sKey"
             spellcheck="false"
-            placeholder="id_ed25519"
+            placeholder="optional: id_ed25519"
             bind:value={key}
             onkeydown={enter}
           />
@@ -152,7 +152,7 @@
         <input
           id="sPassphrase"
           type="password"
-          placeholder={editing?.has_passphrase ? 'saved' : ''}
+          placeholder={editing?.has_passphrase ? 'saved (type to change)' : ''}
           bind:value={passphrase}
           oninput={() => (phraseDirty = true)}
           onkeydown={enter}
@@ -162,11 +162,16 @@
       <input
         id="sStart"
         spellcheck="false"
-        placeholder="the server's home"
+        placeholder="empty: the server's home"
         bind:value={startDir}
         onkeydown={enter}
       />
     </div>
+    <p id="passNote" class="note">
+      {app.linux
+        ? "Passwords are saved encrypted, with a key kept in your desktop's keyring, or next to your settings (~/.config/baguette) when there is none."
+        : 'Passwords are saved encrypted for your Windows account.'}
+    </p>
     <div class="buttons">
       {#if editing}<button id="siteDelete" class="pill ghost danger" onclick={remove}>Delete</button
         >{/if}

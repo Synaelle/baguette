@@ -271,8 +271,7 @@
           onmousedown={(ev) => rowDown(ev, 0)}
           ondblclick={() => app.up(side)}
         >
-          <span class="name"><Icon name="folder" class="ico dir" /><span>..</span></span><span
-            class="size"
+          <span class="name"><Icon name="folder" /><span>..</span></span><span class="size"
           ></span><span class="date"></span>
         </div>
       {/if}
@@ -298,7 +297,7 @@
             (ev.target as HTMLElement).tagName !== 'INPUT' && void app.openEntry(side, e)}
         >
           <span class="name"
-            ><Icon name={icon(e)} class="ico {icon(e) === 'folder' ? 'dir' : icon(e)}" />
+            ><Icon name={icon(e)} />
             {#if st.renaming === e.name}
               <input
                 class="rename"

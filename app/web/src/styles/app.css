@@ -7,25 +7,25 @@
   font-family: 'Fredoka';
   src: url('../fonts/Fredoka.ttf') format('truetype');
   font-weight: 300 700;
-  font-display: swap;
+  font-display: block;
 }
 @font-face {
   font-family: 'Nunito';
   src: url('../fonts/Nunito.ttf') format('truetype');
   font-weight: 200 1000;
-  font-display: swap;
+  font-display: block;
 }
 @font-face {
   font-family: 'Hanken Grotesk';
   src: url('../fonts/HankenGrotesk.woff2') format('woff2');
   font-weight: 100 900;
-  font-display: swap;
+  font-display: block;
 }
 @font-face {
   font-family: 'JetBrains Mono';
   src: url('../fonts/JetBrainsMono.woff2') format('woff2');
   font-weight: 100 800;
-  font-display: swap;
+  font-display: block;
 }
 
 :root {
@@ -51,8 +51,6 @@
   --tag: #ec7366; /* small tag text on --sel */
   --focus: #7a716b; /* the keyboard focus edge, 3:1 on every surface */
   --ok: #8db07a;
-  --scrim: #000000a0; /* behind dialogs */
-  --accent-press: #c63d31;
   /* corners by role: control (buttons, chips, bars, dots), sheet (setup cards), dialog,
      card, panel (work area, boxes), row (sites, tabs, panes), box, field (inputs),
      item (list rows, menu items), mini (small icon buttons, tags) */
@@ -68,7 +66,7 @@
   --r-mini: 6px;
   --w-700: 700;
   --w-800: 800;
-  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --mono: Consolas, 'Cascadia Mono', monospace;
   --display: 'Fredoka', 'Segoe UI Variable Display', sans-serif;
   --body: 'Nunito', 'Segoe UI Variable Text', sans-serif;
   color-scheme: dark;
@@ -81,16 +79,12 @@ html,
 body {
   height: 100%;
   margin: 0;
-  overflow-x: clip;
-}
-#app {
-  display: contents;
 }
 body {
   background: var(--bg);
   color: var(--text);
   font: 13px/1.35 var(--body);
-  overflow: clip;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   user-select: none;
@@ -110,7 +104,7 @@ body {
   color: var(--dim);
 }
 .small {
-  font-size: 12px;
+  font-size: 11px;
 }
 .h {
   font-family: var(--display);
@@ -165,6 +159,10 @@ select {
   padding: 0 0 0 16px;
   border-bottom: 1px solid var(--line);
 }
+.logo {
+  width: 22px;
+  height: 22px;
+}
 .brand {
   font-family: var(--display);
   font-weight: var(--w-700);
@@ -193,7 +191,7 @@ button.chip {
   background: var(--on-accent);
 }
 .chip {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: var(--w-700);
   padding: 2px 8px;
   border-radius: var(--r-control);
@@ -209,9 +207,12 @@ button.chip {
   display: grid;
   place-items: center;
 }
-.win .icon {
-  width: 14px;
-  height: 14px;
+.win svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
 }
 .win:hover {
   background: var(--track);
@@ -287,7 +288,7 @@ button.chip {
 .site .sub {
   display: block;
   color: var(--dim);
-  font-size: 12px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -303,9 +304,12 @@ button.chip {
   padding: 3px;
   flex: none;
 }
-.site .edit .icon {
+.site .edit svg {
   width: 16px;
   height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
 }
 .site:hover .edit,
 .site:focus-within .edit {
@@ -339,7 +343,7 @@ button.chip {
 }
 .tag {
   flex: none;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: var(--w-800);
   padding: 1px 6px;
   border-radius: var(--r-mini);
@@ -360,6 +364,7 @@ button.chip {
 }
 .dot.cement {
   background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
 }
 .dot.wait {
   background: var(--hi);
@@ -382,6 +387,10 @@ button.chip {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.quick label {
+  color: var(--dim);
+  font-size: 11px;
 }
 input:not([type='checkbox']),
 select {
@@ -453,9 +462,12 @@ select option {
   display: grid;
   place-items: center;
 }
-.tab .x .icon {
+.tab .x svg {
   width: 12px;
   height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
 }
 .tab .x:hover {
   background: var(--sel);
@@ -537,9 +549,14 @@ select option {
   opacity: 0.45;
   cursor: default;
 }
-.pill .icon {
+.pill svg {
   width: 14px;
   height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .pill.icon {
   padding: 0 9px;
@@ -619,7 +636,7 @@ select option {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: var(--w-800);
   padding: 2px 8px;
   border-radius: var(--r-control);
@@ -627,9 +644,12 @@ select option {
   color: var(--hi);
   white-space: nowrap;
 }
-.ro-tag .icon {
-  width: 12px;
-  height: 12px;
+.ro-tag svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
 }
 .pane-title {
   font-family: var(--display);
@@ -668,9 +688,14 @@ select option {
   padding: 5px;
   flex: none;
 }
-.up .icon {
+.up svg {
   width: 16px;
   height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .up:hover {
   background: var(--track);
@@ -686,8 +711,10 @@ select option {
 .cols {
   padding: 0 10px 4px;
   color: var(--mute);
-  font-size: 12px;
-  font-weight: var(--w-700);
+  font-size: 11px;
+  font-weight: var(--w-800);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 .c-size,
 .size {
@@ -757,12 +784,19 @@ select option {
   text-align: center;
   grid-column: 1 / -1;
 }
-.ico.dir,
-.ico.drive {
-  color: var(--hi);
+.ico.dir path {
+  fill: var(--hi);
 }
-.ico.file {
-  color: var(--dim);
+.ico.file path {
+  fill: none;
+  stroke: var(--dim);
+  stroke-width: 1.3;
+  stroke-linejoin: round;
+}
+.ico.drive path {
+  fill: none;
+  stroke: var(--hi);
+  stroke-width: 1.4;
 }
 .rename {
   height: 24px !important;
@@ -819,6 +853,7 @@ select option {
   width: 0;
   border-radius: var(--r-control);
   background: var(--accent);
+  transition: width 0.25s;
 }
 .bar.thin {
   height: 8px;
@@ -923,6 +958,7 @@ select option {
   border: 1px solid var(--edge);
   border-radius: var(--r-row);
   padding: 5px;
+  box-shadow: 0 12px 32px #0009;
 }
 .menu div {
   display: flex;
@@ -943,7 +979,7 @@ select option {
 }
 .menu .key {
   color: var(--dim);
-  font-size: 12px;
+  font-size: 11px;
 }
 .menu hr {
   border: 0;
@@ -955,7 +991,7 @@ select option {
   position: fixed;
   inset: 0;
   z-index: 20;
-  background: var(--scrim);
+  background: #0008;
   display: grid;
   place-items: center;
 }
@@ -970,6 +1006,7 @@ select option {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: 0 20px 48px #000a;
   user-select: text;
   -webkit-user-select: text;
 }
@@ -1138,16 +1175,26 @@ input[type='color'] {
 }
 #cCias .cia .size {
   color: var(--dim);
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
 }
 #cCias .cia .pill {
-  height: 24px;
+  height: 22px;
   padding: 0 10px;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 /* ---- settings ---- */
+.win svg.gear {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  stroke: none;
+  transition: transform 0.3s;
+}
+#btnSettings:hover svg.gear {
+  transform: rotate(45deg);
+}
 
 /* no pulsing or turning for people who asked their system for less motion; the
    waiting dot stays dimmed so it still differs from a connected one */
@@ -1160,6 +1207,9 @@ input[type='color'] {
   .dot.wait {
     animation: none;
     opacity: 0.6;
+  }
+  #btnSettings:hover svg.gear {
+    transform: none;
   }
 }
 .dialog.prefs {
@@ -1224,6 +1274,10 @@ input[type='color'] {
 .setting-text b {
   font-weight: var(--w-800);
 }
+.setting-text span {
+  color: var(--dim);
+  font-size: 12px;
+}
 .setting-text label {
   cursor: pointer;
 }
@@ -1238,7 +1292,7 @@ input[type='color'] {
 }
 .card-foot {
   color: var(--dim);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: var(--w-700);
   border-top: 1px solid var(--line);
   padding-top: 10px;
@@ -1247,6 +1301,14 @@ input[type='color'] {
   color: var(--hi);
   display: block;
   margin-top: 2px;
+}
+.lab-note {
+  color: var(--hi);
+  font-weight: var(--w-700);
+  font-size: 12px;
+  background: var(--track);
+  border-radius: var(--r-box);
+  padding: 8px 12px;
 }
 input.switch {
   appearance: none;
@@ -1376,9 +1438,13 @@ body.lite .view-switch {
   background: var(--sel);
   color: var(--text);
 }
-.view-switch .icon {
+.view-switch svg {
   width: 16px;
   height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
 }
 body.lite #btnSendFiles {
   display: inline-flex;
@@ -1422,6 +1488,10 @@ body.lite .lite-start {
   display: block;
   max-width: 440px;
   width: 100%;
+}
+.lite-start .logo.big {
+  width: 76px;
+  height: 76px;
 }
 .start-box {
   background: var(--well);
@@ -1533,7 +1603,7 @@ body.lite #paneRemote.tiles .row-e .date {
   display: none;
 }
 body.lite #paneRemote.tiles .row-e .size {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--mute);
 }
 body.lite.notab #statusbar,
@@ -1684,6 +1754,7 @@ html.ficelle {
   --r-mini: 2px;
   --display: 'Hanken Grotesk', 'Segoe UI Variable Display', sans-serif;
   --body: 'Hanken Grotesk', 'Segoe UI Variable Text', sans-serif;
+  --mono: 'JetBrains Mono', Consolas, monospace;
 }
 html.ficelle .blob {
   display: none;
@@ -1695,8 +1766,14 @@ html.ficelle .brand {
   font-size: 15px;
 }
 html.ficelle .cols {
+  text-transform: none;
+  letter-spacing: 0;
   font-weight: 400;
+  font-size: 12px;
   color: var(--dim);
+}
+html.ficelle .dot.cement {
+  box-shadow: none;
 }
 html.ficelle .dialog {
   box-shadow: none;
@@ -1732,15 +1809,18 @@ html.ficelle .dot.wait {
   background: var(--warning);
 }
 html.ficelle .card-foot .hint,
+html.ficelle .lab-note,
 html.ficelle .dialog h3.sub {
   color: var(--dim);
 }
 html.ficelle.light {
   --warning: #8a5a00;
 }
-html.ficelle .ico.dir,
-html.ficelle .ico.drive {
-  color: var(--dim);
+html.ficelle .ico.dir path {
+  fill: var(--dim);
+}
+html.ficelle .ico.drive path {
+  stroke: var(--dim);
 }
 html.ficelle .dot.cement {
   background: var(--ok);
@@ -1829,8 +1909,8 @@ html.ficelle .pill.accent {
   border-color: var(--accent);
 }
 html.ficelle .pill.accent:hover:not(:disabled) {
-  background: var(--accent-press);
-  border-color: var(--accent-press);
+  background: color-mix(in srgb, var(--accent) 80%, #000);
+  border-color: color-mix(in srgb, var(--accent) 80%, #000);
 }
 html.ficelle .pill.ghost {
   border-color: transparent;
@@ -1993,37 +2073,20 @@ html.light {
   --tag: #a81f15;
   --focus: #7a736b;
   --ok: #3d6b35;
-  --scrim: #1614134d;
-  --accent-press: #9a1d13;
   color-scheme: light;
 }
 html.light .modal {
-  background: var(--scrim);
+  background: #1614134d;
 }
 
-/* Lucide icons: drawn with strokes on a 24 unit grid */
-.icon {
-  flex: none;
-  display: block;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+/* the page is mounted in #app; the yes/no box sits over any dialog and the first
+   launch screen; a dialog taller than the window scrolls without squeezing its parts */
+#app {
+  display: contents;
 }
-.logo {
-  flex: none;
-}
-.offline-text .dot {
-  vertical-align: 0;
-}
-
-/* the yes/no box sits over any dialog, the first launch screen too */
 .modal.top {
   z-index: 70;
 }
-
-/* a dialog taller than the window scrolls; its parts never squeeze into each other */
 .dialog > * {
   flex-shrink: 0;
 }
