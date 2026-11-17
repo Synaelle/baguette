@@ -424,6 +424,8 @@ class AppState {
     name = name.trim()
     const bad = side === 'local' ? /[\\/:*?"<>|]/ : /[\\/]/
     if (!name || name === from || bad.test(name)) return
+    if (st.entries.some((e) => e.name === name))
+      return void tell(`Can't rename ${from}: ${name} is already in this folder`)
     st.selectNext = name
     const a = this.join(side, st.path, from)
     const b = this.join(side, st.path, name)

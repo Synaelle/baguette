@@ -84,6 +84,11 @@ pub fn local_mkdir(state: St, path: String) -> Result<(), String> {
 pub fn local_rename(state: St, from: String, to: String) -> Result<(), String> {
     state.windows_guard(&from, true)?;
     state.windows_guard(&to, false)?;
+    // a plain rename replaces what has the new name; only a change of case (the same
+    // file on Windows) may go through
+    if std::fs::symlink_metadata(&to).is_ok() && std::fs::canonicalize(&from).ok() != std::fs::canonicalize(&to).ok() {
+        return Err(format!("Can't rename {from}: {to} already exists"));
+    }
     std::fs::rename(&from, &to).map_err(|e| format!("Can't rename {from}: {e}"))
 }
 
