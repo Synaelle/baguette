@@ -19,6 +19,9 @@ use crate::status::{ServerInfo, Status, battery_refusal, battery_text};
 use crate::util::{base_name, format_size, join_local, join_remote, parent_remote, part_path};
 use crate::{BUNDLE_MIN_FILES, REQUIRED_PROTOCOL, os, plan};
 
+/// a listing kept in the job's `remotes`, for a caller waiting on the job
+pub const LIST_KEPT: u32 = u32::MAX;
+
 /// a listing for the main window (notify 0) or another view (the 3DS picker)
 #[derive(Clone, Debug)]
 pub struct ListResult {
@@ -668,7 +671,11 @@ fn execute(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> {
                 Err(Error::Ftp(_)) | Err(Error::Untrusted { .. }) => {}
                 Err(e) => return Err(e),
             }
-            s.sink.emit(Event::List(r));
+            if job.notify == LIST_KEPT {
+                job.remotes = r.entries;
+            } else {
+                s.sink.emit(Event::List(r));
+            }
         }
         Kind::Info => {
             let size = ftp.size(&job.path)?;

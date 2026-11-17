@@ -441,9 +441,24 @@ class AppState {
     const sel = this.selectedEntries('local')
     if (!this.tab || !sel.length || this.local.path === '') return
     const paths = sel.map((e) => this.join('local', this.local.path, e.name))
-    invoke('upload', { tab: this.active, paths, dir: to ?? this.remote.path }).catch(
-      (e) => void tell(e),
-    )
+    void this.uploadPaths(paths, to ?? this.remote.path)
+  }
+
+  /** asks first when the upload would replace files on the server, as downloads do */
+  async uploadPaths(paths: string[], dir: string): Promise<void> {
+    const tab = this.active
+    const names = paths.map((p) => p.slice(Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\')) + 1))
+    try {
+      const there = await invoke<string[]>('remote_existing', { tab, dir, names })
+      if (there.length) {
+        const what = there.length === 1 ? `${there[0]} is` : `${there.length} of these are`
+        const them = there.length === 1 ? 'it' : 'them'
+        if (!(await ask(`${what} already in ${dir}. Replace ${them}?`, 'Replace', 'Cancel'))) return
+      }
+      await invoke('upload', { tab, paths, dir })
+    } catch (e) {
+      void tell(e)
+    }
   }
 
   async download(to?: string, pick = false): Promise<void> {

@@ -3,7 +3,7 @@
 // file manager (server items), and in from it (onto the server side).
 
 import { app } from './app.svelte'
-import { anyModal, tell } from './dialogs.svelte'
+import { anyModal } from './dialogs.svelte'
 import type { Side } from './paths'
 import { invoke, on, webview } from './tauri'
 
@@ -119,7 +119,7 @@ export function listenForDrops(): void {
         return
       }
       const dir = t.row ? app.join('remote', app.remote.path, t.row) : app.remote.path
-      invoke('upload', { tab: app.active, paths: p.paths, dir }).catch((e) => void tell(e))
+      void app.uploadPaths(p.paths, dir)
     }
   })
 }

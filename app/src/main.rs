@@ -743,6 +743,7 @@ fn main() {
             local::local_open,
             local::local_parent,
             local::local_existing,
+            commands::remote_existing,
         ])
         .run(tauri::generate_context!())
         .expect("Baguette");

@@ -12,7 +12,7 @@ use baguette_core::remote::{Protocol, Site};
 use baguette_core::sites::{self, Saved};
 use baguette_core::util::{join_remote, normalize_remote, parent_remote};
 use baguette_core::protect;
-use baguette_core::workers::{Job, Kind};
+use baguette_core::workers::{Job, Kind, LIST_KEPT};
 use baguette_core::{VERSION, os};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -535,6 +535,23 @@ pub fn picker_list(state: St, tab: u32, path: String) {
         j.notify = 1;
         c.shared.browse.push(j);
     });
+}
+
+/// which of these names are already in a server folder, before an upload replaces them
+#[tauri::command]
+pub async fn remote_existing(state: St<'_>, tab: u32, dir: String, names: Vec<String>) -> Result<Vec<String>, String> {
+    let shared = state.with_client(tab, |c| c.shared.clone()).ok_or("This tab is closed")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut j = Job::new(Kind::List);
+        j.path = dir;
+        j.notify = LIST_KEPT;
+        let h = shared.browse.push(j);
+        h.wait_timeout(std::time::Duration::from_secs(15)).ok_or("The server didn't answer, so nothing was sent")?;
+        let have = &h.job().remotes;
+        Ok(names.into_iter().filter(|n| have.iter().any(|e| &e.name == n)).collect())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
