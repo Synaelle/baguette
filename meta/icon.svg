@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- The Baguette loaf: one red thread, 52 wide with round ends, tapered like the bread, three scores across it. No tile, so it sits on any background. Source of the app icons: after editing, render it with `cargo tauri icon meta/icon.svg -o <folder>` and copy its 32x32.png, 128x128.png and icon.ico into app/icons (icon.png is 256 wide). -->
+  <g fill="none" stroke="#E44C3E" stroke-width="52" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-35 256 256)">
+    <path d="M50 256C118 146 394 146 462 256C394 366 118 366 50 256Z"/>
+    <path d="M178 242L194 268M248 242L264 268M318 242L334 268"/>
+  </g>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="57 97 398 318">
+  <!-- meta/icon.svg's loaf cropped to itself, for pages (the README). -->
+  <g fill="none" stroke="#E44C3E" stroke-width="52" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-35 256 256)">
+    <path d="M50 256C118 146 394 146 462 256C394 366 118 366 50 256Z"/>
+    <path d="M178 242L194 268M248 242L264 268M318 242L334 268"/>
+  </g>
+</svg>
