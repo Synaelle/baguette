@@ -175,6 +175,8 @@ pub struct Ftp {
     no_pasv: bool,   // PASV refused: EPSV only
     no_mlsd: bool,   // MLSD refused: LIST
     is_cement: bool, // SITE STATUS answered like the 3DS app
+    /// the reply to the last connection, before the login (421: too many connections)
+    pub greeting: i32,
 }
 
 impl Drop for Ftp {
@@ -294,7 +296,8 @@ impl Ftp {
         let tls = self.login.tls.clone();
         self.ctrl = Some(if tls == Tls::Implicit { self.tls_wrap(s)? } else { Conn::Plain(s) });
         self.sync_aborter();
-        if self.reply(None)? != 220 {
+        self.greeting = self.reply(None)?;
+        if self.greeting != 220 {
             return Err(Error::Net);
         }
         if tls == Tls::Explicit {

@@ -29,6 +29,7 @@ const EXIT_BUSY: u8 = 4;
 /// why a command stopped
 enum Fail {
     Unreachable,
+    Full, // every connection Cement allows is taken
     Busy(String),
     Ftp(String),
     Usage(String),
@@ -116,7 +117,7 @@ impl Link {
                 Err(_) => {}
             }
             if Instant::now() >= deadline {
-                return Err(Fail::Unreachable);
+                return Err(if self.ftp.greeting == 421 { Fail::Full } else { Fail::Unreachable });
             }
             if !told {
                 note(&format!("waiting for the 3DS at {}...", self.address()));
@@ -1052,6 +1053,11 @@ fn main() -> ExitCode {
         Err(Fail::Unreachable) => fail(
             EXIT_UNREACHABLE,
             &format!("3DS not reachable at {} (is Cement open on the 3DS, Wi-Fi on and the lid open?)", link.address()),
+            "",
+        ),
+        Err(Fail::Full) => fail(
+            EXIT_UNREACHABLE,
+            &format!("the 3DS at {} has too many connections open (Cement allows 4). Those of a PC that went away close within 5 minutes", link.address()),
             "",
         ),
         Err(Fail::Busy(what)) => {
