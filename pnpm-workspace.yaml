@@ -1,0 +1,18 @@
+overrides:
+  minimatch: ^11.0.1
+
+# Supply-chain guards. A version published less than a week ago is not taken,
+# not even when named exactly: a hijacked package is usually found and pulled
+# within days. A package that loses the provenance or trusted publishing its
+# older versions had fails the install, a sign of a stolen token. A
+# dependency of a dependency may come only from the registry, never from a
+# git or tarball address, and no package's install script runs unless listed.
+minimumReleaseAge: 10080
+minimumReleaseAgeStrict: true
+trustPolicy: no-downgrade
+# published by its own maintainer in December 2024 without provenance, between
+# versions that have it; svelte-check's file watcher, a development tool
+trustPolicyExclude:
+  - chokidar@4.0.3
+blockExoticSubdeps: true
+strictDepBuilds: true
