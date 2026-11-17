@@ -163,7 +163,7 @@ fn read_ini(file: &str) -> std::io::Result<String> {
     let bytes = std::fs::read(file)?;
     if let Some(utf16) = bytes.strip_prefix(&[0xff, 0xfe]) {
         // saved by Notepad as "Unicode"
-        let units: Vec<u16> = utf16.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        let units: Vec<u16> = utf16.as_chunks::<2>().0.iter().map(|c| u16::from_le_bytes(*c)).collect();
         return Ok(String::from_utf16_lossy(&units));
     }
     let text = String::from_utf8_lossy(&bytes);
