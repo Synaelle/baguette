@@ -12,7 +12,6 @@ Download the latest release. On Windows open `Baguette.exe`, on Linux run `Bague
 Add a site or type an address in Quick connect, then drag files between your PC and the server.
 
 - Tabs, saved sites, drag and drop with your file manager, files opened and edited in place
-- Lite mode shows only the server's files
 - Portable on Windows, with settings next to `Baguette.exe` and passwords encrypted for your account
 - One AppImage on Linux, with settings in `~/.config/baguette`
 - Updates itself in one click when a new version is out
