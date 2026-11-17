@@ -149,11 +149,18 @@ pub struct JobHandle {
     job: Mutex<Job>,
     finished: Mutex<Option<bool>>,
     cv: Condvar,
+    /// what an upload or download moves, to tell a repeated click from a new job
+    /// (the running job's lock is held while it runs)
+    copies: Option<String>,
 }
 
 impl JobHandle {
     fn new(job: Job) -> Arc<JobHandle> {
-        Arc::new(JobHandle { job: Mutex::new(job), finished: Mutex::new(None), cv: Condvar::new() })
+        let copies = matches!(job.kind, Kind::Upload | Kind::Download).then(|| {
+            let names: Vec<&str> = job.remotes.iter().map(|e| e.name.as_str()).collect();
+            format!("{:?} {:?} {:?} {:?} {:?} {}", job.kind, job.path, job.path2, job.locals, names, job.open_after)
+        });
+        Arc::new(JobHandle { job: Mutex::new(job), finished: Mutex::new(None), cv: Condvar::new(), copies })
     }
 
     fn finish(&self, ok: bool) {
@@ -234,6 +241,10 @@ impl Worker {
         let h = JobHandle::new(job);
         {
             let mut q = self.q.lock().unwrap();
+            // the same files already on their way: a repeated click, not another copy
+            if let Some(same) = q.jobs.iter().find(|j| h.copies.is_some() && j.copies == h.copies) {
+                return same.clone();
+            }
             let (kind, notify) = {
                 let j = h.job.lock().unwrap();
                 (j.kind, j.notify)
