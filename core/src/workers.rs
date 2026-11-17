@@ -564,6 +564,11 @@ fn run(s: &Arc<Shared>, transfer: bool) {
                 // the connection keeps dropping on it without getting anywhere
                 r.close();
                 set_state(s, w, WAITING);
+                if transfer {
+                    // the browse connection would notice only at its next keep-alive:
+                    // the window shows the server gone (or back) at once
+                    s.browse.reconnect();
+                }
                 let mut j = job.job.lock().unwrap();
                 j.stalls = if progress(&j) == before { j.stalls + 1 } else { 0 };
                 done = s.cancel.load(Ordering::Relaxed) || j.stalls >= MAX_STALLS;
