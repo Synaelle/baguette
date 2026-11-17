@@ -539,9 +539,7 @@ fn put(link: &mut Link, args: &[String], opt: &Options) -> CliResult<u8> {
         while local.len() > 1 && (local.ends_with('\\') || local.ends_with('/')) && !local[..local.len() - 1].ends_with(':') {
             local.pop();
         }
-        if let Err(why) = plan::local_items(&local, &dir, &mut items) {
-            t.errors.push(why);
-        }
+        t.errors.extend(plan::local_items(&local, &dir, &mut items));
     }
     let targets: Vec<String> = items.iter().map(|i| i.remote.clone()).chain([dir.clone()]).collect();
     protected(&targets, protect::write)?;

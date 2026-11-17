@@ -895,11 +895,14 @@ fn expand(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job, up: bool) -> Res
         }
     }
     if up {
+        let mut unreadable = Vec::new();
         for l in job.locals.clone() {
-            if let Err(why) = plan::local_items(&l, &job.path, &mut job.items) {
-                job.errors += 1;
-                s.message(format!("Error: {why}"));
-            }
+            unreadable.extend(plan::local_items(&l, &job.path, &mut job.items));
+        }
+        if let Some(first) = unreadable.first() {
+            job.errors += unreadable.len();
+            let more = if unreadable.len() > 1 { format!(" (and {} more left out)", unreadable.len() - 1) } else { String::new() };
+            s.message(format!("Error: {first}{more}"));
         }
     } else if job.kind == Kind::SendToPc {
         expand_send_to_pc(ftp, job)?;

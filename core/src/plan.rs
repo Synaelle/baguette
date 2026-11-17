@@ -18,27 +18,39 @@ pub struct Item {
 }
 
 /// a PC file or folder and everything in it, to upload into `remote_dir`, in
-/// name order. Err when `local` doesn't exist.
-pub fn local_items(local: &str, remote_dir: &str, items: &mut Vec<Item>) -> Result<(), String> {
-    let meta = std::fs::metadata(local).map_err(|_| format!("Local path not found: {local}"))?;
-    add_local(local, &join_remote(remote_dir, base_name(local)), meta, items);
-    Ok(())
+/// name order. Returns what couldn't be read (left out), each with its path.
+pub fn local_items(local: &str, remote_dir: &str, items: &mut Vec<Item>) -> Vec<String> {
+    let mut unreadable = Vec::new();
+    match std::fs::metadata(local) {
+        Ok(meta) => add_local(local, &join_remote(remote_dir, base_name(local)), meta, items, &mut unreadable),
+        Err(_) => unreadable.push(format!("Local path not found: {local}")),
+    }
+    unreadable
 }
 
-fn add_local(local: &str, remote: &str, meta: std::fs::Metadata, items: &mut Vec<Item>) {
+fn add_local(local: &str, remote: &str, meta: std::fs::Metadata, items: &mut Vec<Item>, unreadable: &mut Vec<String>) {
     if !meta.is_dir() {
-        items.push(Item { local: local.into(), remote: remote.into(), dir: false, size: meta.len() });
+        // found now rather than halfway through, where a bundle would stop at it
+        match std::fs::File::open(local) {
+            Ok(_) => items.push(Item { local: local.into(), remote: remote.into(), dir: false, size: meta.len() }),
+            Err(e) => unreadable.push(format!("Can't read {local}: {e}")),
+        }
         return;
     }
     items.push(Item { local: local.into(), remote: remote.into(), dir: true, size: 0 });
-    let mut names: Vec<String> = std::fs::read_dir(local)
-        .map(|rd| rd.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect())
-        .unwrap_or_default();
+    let mut names: Vec<String> = match std::fs::read_dir(local) {
+        Ok(rd) => rd.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect(),
+        Err(e) => {
+            unreadable.push(format!("Can't read {local}: {e}"));
+            return;
+        }
+    };
     names.sort();
     for name in names {
         let path = crate::os::join(local, &name);
-        if let Ok(m) = std::fs::metadata(&path) {
-            add_local(&path, &join_remote(remote, &name), m, items);
+        match std::fs::metadata(&path) {
+            Ok(m) => add_local(&path, &join_remote(remote, &name), m, items, unreadable),
+            Err(e) => unreadable.push(format!("Can't read {path}: {e}")),
         }
     }
 }
@@ -111,10 +123,25 @@ mod tests {
         std::fs::write(crate::os::join(&top, "c.txt"), b"ccc").unwrap();
         std::fs::write(crate::os::join(&top, "a.txt"), b"a").unwrap();
         let mut items = Vec::new();
-        local_items(&top, "/sd", &mut items).unwrap();
+        assert!(local_items(&top, "/sd", &mut items).is_empty());
         let got: Vec<(&str, bool, u64)> = items.iter().map(|i| (i.remote.as_str(), i.dir, i.size)).collect();
         assert_eq!(got, [("/sd/top", true, 0), ("/sd/top/a.txt", false, 1), ("/sd/top/b dir", true, 0), ("/sd/top/c.txt", false, 3)]);
-        assert!(local_items(&crate::os::join(&base, "gone"), "/sd", &mut items).is_err_and(|e| e.contains("not found")));
+        assert!(local_items(&crate::os::join(&base, "gone"), "/sd", &mut items)[0].contains("not found"));
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn broken_link_is_reported() {
+        let base = temp("link");
+        let top = crate::os::join(&base, "top");
+        std::fs::create_dir_all(&top).unwrap();
+        std::fs::write(crate::os::join(&top, "ok.txt"), b"ok").unwrap();
+        std::os::unix::fs::symlink(crate::os::join(&base, "nowhere"), crate::os::join(&top, "link")).unwrap();
+        let mut items = Vec::new();
+        let unreadable = local_items(&top, "/sd", &mut items);
+        assert_eq!(items.len(), 2, "the folder and ok.txt");
+        assert!(unreadable.len() == 1 && unreadable[0].contains("top/link"), "{unreadable:?}");
         let _ = std::fs::remove_dir_all(&base);
     }
 
