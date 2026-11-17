@@ -1,0 +1,8 @@
+target/
+app/gen/
+app/web/dist/
+node_modules/
+pnpm-lock.yaml
+*.md
+.github/
+app/capabilities/

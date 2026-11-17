@@ -4,7 +4,7 @@ rem scripts and automation), and copies them next to this file.
 rem "build.bat fast" is for trying changes: rebuilds take seconds instead of
 rem minutes (no LTO, parallel and incremental), the exes are a bit bigger and
 rem slower, and their version always ends in -dev. Releases use plain build.bat.
-rem Needs Rust (MSVC toolchain) and the Visual Studio Build Tools.
+rem Needs Rust (MSVC toolchain), the Visual Studio Build Tools, and Node 24 with pnpm.
 setlocal
 cd /d "%~dp0" || exit /b 1
 
@@ -27,6 +27,9 @@ set PACKAGES=-p baguette -p baguette-cli
 set FILES=Baguette.exe baguette-cli.exe
 set PROFILE=release
 if /i "%~1"=="fast" set PROFILE=fast
+rem the window's page (app\web), built into app\web\dist before Rust embeds it
+call pnpm install --frozen-lockfile || exit /b 1
+call pnpm build || exit /b 1
 cargo build --profile %PROFILE% %PACKAGES% || exit /b 1
 for %%f in (%FILES%) do copy /y target\%PROFILE%\%%f %%f >nul || exit /b 1
 echo built %FILES% v%BAGUETTE_VERSION%

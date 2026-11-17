@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "identifier": "fr.synaelle.baguette",
   "build": {
-    "frontendDist": "ui"
+    "frontendDist": "web/dist"
   },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [],
     "security": {
       "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"

@@ -7,3 +7,5 @@ baguette.ini
 Baguette.temp/
 webview/
 .atelier/
+node_modules/
+app/web/dist/

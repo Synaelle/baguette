@@ -4,8 +4,9 @@
 # to this file. The Linux counterpart of build.bat.
 # "build.sh fast" is for trying changes: no LTO, parallel and incremental, and
 # the version always ends in -dev. Releases use plain build.sh.
-# Needs Rust (stable), tauri-cli 2 (cargo install tauri-cli --version "^2" --locked)
-# and the WebKitGTK headers, e.g. on Debian/Ubuntu:
+# Needs Rust (stable), Node 24 with pnpm (the window's page), tauri-cli 2
+# (cargo install tauri-cli --version "^2" --locked) and the WebKitGTK headers,
+# e.g. on Debian/Ubuntu:
 #   apt install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libxdo-dev patchelf file
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -37,6 +38,9 @@ fi
 
 PROFILE=release
 [ "${1:-}" = "fast" ] && PROFILE=fast
+# the window's page (app/web), built into app/web/dist before Rust embeds it
+pnpm install --frozen-lockfile
+pnpm build
 cargo build --profile "$PROFILE" -p baguette-cli
 cp -f "$CARGO_TARGET_DIR/$PROFILE/baguette-cli" baguette-cli
 
