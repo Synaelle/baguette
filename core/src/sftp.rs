@@ -283,8 +283,10 @@ impl Remote for Sftp {
         file.seek(SeekFrom::Start(offset)).map_err(|e| Error::Ftp(format!("Can't read local file {local}: {e}")))?;
         let sftp = self.sftp()?;
         let flags = OpenFlags::WRITE | OpenFlags::CREATE | if offset == 0 { OpenFlags::TRUNCATE } else { OpenFlags::empty() };
+        let mut opened = false;
         let r = self.rt.block_on(async {
             let mut out = sftp.open_with_flags(remote, flags).await.map_err(sftp_err)?;
+            opened = true;
             if offset != 0 {
                 out.seek(SeekFrom::Start(offset)).await.map_err(|_| Error::Net)?;
             }
@@ -300,8 +302,9 @@ impl Remote for Sftp {
             out.shutdown().await.map_err(|_| Error::Net)?;
             Ok(())
         });
-        if r == Err(Error::Cancel) {
-            let _ = self.rt.block_on(sftp.remove_file(remote)); // don't leave a truncated file behind
+        // cancelled or failed: don't leave a truncated file behind (a dropped link resumes)
+        if opened && matches!(r, Err(Error::Cancel | Error::Ftp(_))) {
+            let _ = self.rt.block_on(sftp.remove_file(remote));
         }
         r
     }

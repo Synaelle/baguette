@@ -708,16 +708,20 @@ impl Ftp {
 
         let mut buf = vec![0u8; 1 << 20];
         loop {
-            let n = file.read(&mut buf).map_err(|e| Error::Ftp(format!("Can't read local file {local}: {e}")))?;
+            let n = match file.read(&mut buf) {
+                Ok(n) => n,
+                Err(e) => {
+                    self.abandon_upload(remote)?;
+                    return Err(Error::Ftp(format!("Can't read local file {local}: {e}")));
+                }
+            };
             if n == 0 {
                 break;
             }
             self.data.as_mut().ok_or(Error::Net)?.write_all(&buf[..n])?;
             if let Err(e) = progress(n as u64) {
                 if e == Error::Cancel {
-                    self.reset_data();
-                    self.reply(None)?;
-                    self.cmd(&format!("DELE {remote}"), None)?; // don't leave a truncated file behind
+                    self.abandon_upload(remote)?;
                 }
                 return Err(e);
             }
@@ -729,8 +733,18 @@ impl Ftp {
         let code = self.reply(Some(&mut text))?;
         self.close_data();
         if code / 100 != 2 {
+            // a full card or a write error: what arrived would look like a whole file
+            self.cmd(&format!("DELE {remote}"), None)?;
             return Err(Error::Ftp(text));
         }
+        Ok(())
+    }
+
+    /// stops an upload after STOR and removes what it wrote, so no truncated file is left behind
+    fn abandon_upload(&mut self, remote: &str) -> Result<()> {
+        self.reset_data();
+        self.reply(None)?;
+        self.cmd(&format!("DELE {remote}"), None)?;
         Ok(())
     }
 
