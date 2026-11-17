@@ -42,8 +42,8 @@ describe('format', () => {
     expect(formatSize(1536)).toBe('1.5 KB')
     expect(formatStamp('20260105123000')).toBe('2026-01-05 12:30')
     expect(formatStamp('')).toBe('')
-    expect(siteLine('sftp', 'pi.local')).toBe('SFTP · pi.local')
-    expect(siteLine('ftps-implicit', 'nas')).toBe('FTPS · nas')
+    expect(siteLine('sftp', 'pi.local')).toBe('SFTP - pi.local')
+    expect(siteLine('ftps-implicit', 'nas')).toBe('FTPS - nas')
   })
   it('sorts folders first, numbers as a person would', () => {
     const e = (name: string, dir = false) => ({ name, dir, size: 0, modified: '' })

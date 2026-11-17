@@ -294,7 +294,7 @@
           {#if cement}
             <div class="about-row">
               <span>Cement on this tab</span><b
-                >{cement.version ? `Cement ${cement.version}` : 'Cement'} · protocol {cement.protocol}</b
+                >{cement.version ? `Cement ${cement.version}` : 'Cement'} - protocol {cement.protocol}</b
               >
             </div>
             {#if cement.protocol < app.protocol}

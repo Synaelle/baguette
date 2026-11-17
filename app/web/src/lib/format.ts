@@ -49,7 +49,7 @@ const PROTO: Record<string, string> = {
   'ftps-implicit': 'FTPS',
 }
 
-/** A site's protocol and host, under its name: "SFTP · pi.local". */
+/** A site's protocol and host, under its name: "SFTP - pi.local". */
 export function siteLine(protocol: string, host: string): string {
-  return `${PROTO[protocol] ?? protocol} · ${host}`
+  return `${PROTO[protocol] ?? protocol} - ${host}`
 }

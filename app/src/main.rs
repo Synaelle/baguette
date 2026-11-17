@@ -141,11 +141,11 @@ impl AppState {
                 CONNECTED if cement => {
                     let mut s = format!("Connected to Cement at {addr}");
                     if !info.version.is_empty() {
-                        s += &format!("  ·  v{}", info.version);
+                        s += &format!("  -  v{}", info.version);
                     }
                     // only when this PC app needs a newer 3DS app, not for every new build
                     if info.protocol < REQUIRED_PROTOCOL {
-                        s += "  ·  update the 3DS app: install the new CIA";
+                        s += "  -  update the 3DS app: install the new CIA";
                     }
                     s
                 }

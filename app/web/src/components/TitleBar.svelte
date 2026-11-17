@@ -45,7 +45,7 @@
     <button class="server-chip" title="Choose another server" onclick={() => app.closeAll()}>
       <StatusDot tab={app.tab} />
       <span>{app.tab.name}</span>
-      {#if app.cement?.battery}<span class="sub">· {app.cement.battery}</span>{/if}
+      {#if app.cement?.battery}<span class="sub">- {app.cement.battery}</span>{/if}
     </button>
   {/if}
   {#if app.version}
@@ -53,7 +53,7 @@
       id="version"
       class="chip"
       data-tauri-drag-region
-      title="Baguette v{app.version} · Cement protocol {app.protocol}">{shortVersion}</span
+      title="Baguette v{app.version} - Cement protocol {app.protocol}">{shortVersion}</span
     >
   {/if}
   {#if app.update}
