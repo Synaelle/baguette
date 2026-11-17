@@ -336,7 +336,6 @@ impl Shared {
 
     /// marks the progress bar active (a transfer job is about to be queued)
     pub fn start_progress(&self) {
-        self.cancel.store(false, Ordering::Relaxed);
         self.progress.lock().unwrap().active = true;
     }
 }
@@ -509,6 +508,10 @@ fn run(s: &Arc<Shared>, transfer: bool) {
                 continue;
             }
             let job = q.jobs.front().cloned();
+            if transfer && job.is_some() {
+                // a cancel meant the jobs before this one
+                s.cancel.store(false, Ordering::Relaxed);
+            }
             q.running = job.clone();
             job
         };
