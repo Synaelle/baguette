@@ -18,6 +18,13 @@ pub struct Saved {
     pub needs_password: bool,
 }
 
+/// how many [siteN] sections there are: they are written one after the other, so
+/// the first missing one ends them, whatever a damaged `count` says
+fn saved_count(path: &str, count: i32) -> i32 {
+    let there = |i: i32| ["host", "protocol", "name"].iter().any(|k| !get_str(path, &format!("site{i}"), k, "").is_empty());
+    (0..count.max(0)).find(|i| !there(*i)).unwrap_or(count.max(0))
+}
+
 /// the sites in their saved order. The first time, the Cement address of
 /// earlier versions becomes a "My 3DS" site.
 pub fn load() -> Vec<Saved> {
@@ -35,7 +42,7 @@ pub fn load() -> Vec<Saved> {
         return first;
     }
     let mut out = Vec::new();
-    for i in 0..count {
+    for i in 0..saved_count(&path, count) {
         let sec = format!("site{i}");
         let s = |k: &str| unescape(&get_str(&path, &sec, k, ""));
         let protocol = Protocol::parse(&s("protocol")).unwrap_or_default();
@@ -68,7 +75,7 @@ pub fn save(sites: &[Saved]) -> Result<(), String> {
     let secret = |text: &str| protect(text).ok_or_else(|| "Could not encrypt the saved passwords: nothing was saved".to_string());
     let secrets = sites.iter().map(|sv| Ok((secret(&sv.site.pass)?, secret(&sv.site.passphrase)?))).collect::<Result<Vec<_>, String>>()?;
     let path = config_path();
-    let old = get_int(&path, "sites", "count", 0).max(0);
+    let old = saved_count(&path, get_int(&path, "sites", "count", 0));
     for i in 0..old {
         put(&path, &format!("site{i}"), None, None)?;
     }
@@ -96,7 +103,7 @@ pub fn save(sites: &[Saved]) -> Result<(), String> {
 /// writing anything (baguette-cli, when Cement asks for a login)
 pub fn find_login(host: &str, port: u16) -> Option<(String, String)> {
     let path = crate::config::existing_config()?;
-    let count = get_int(&path, "sites", "count", 0);
+    let count = saved_count(&path, get_int(&path, "sites", "count", 0));
     (0..count).find_map(|i| {
         let sec = format!("site{i}");
         let s = |k: &str| unescape(&get_str(&path, &sec, k, ""));
