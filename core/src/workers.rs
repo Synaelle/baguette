@@ -11,7 +11,7 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::ftp::{Aborter, Entry, Error, Ftp, Result};
 use crate::remote::{self, Remote, Site};
@@ -396,6 +396,14 @@ impl Client {
         for w in [&self.shared.browse, &self.shared.xfer] {
             w.q.lock().unwrap().quit = true;
             w.cv.notify_all();
+        }
+        // a running transfer stops at its next block and removes what it cut short;
+        // a connection that doesn't move is cut after a while
+        let end = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < end && self.threads.iter().any(|t| !t.is_finished()) {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        for w in [&self.shared.browse, &self.shared.xfer] {
             w.abort();
         }
         for t in self.threads.drain(..) {
