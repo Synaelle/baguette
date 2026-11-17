@@ -948,18 +948,22 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
             p.done = base + offset;
         }
         let mut file_done = offset;
+        // an upload resumes only what it sent itself: before its first bytes the server's
+        // copy can be an older file of the same name. A download resumes its own .part file.
+        let mut sent = !up || offset > 0;
         let mut progress = |n: u64| -> Result<()> {
+            sent = true;
             file_done += n;
             s.progress.lock().unwrap().done = base + file_done;
             if s.cancel.load(Ordering::Relaxed) { Err(Error::Cancel) } else { Ok(()) }
         };
 
-        job.partial = true;
         let r = if up {
             ftp.upload(&it.local, &it.remote, offset, &mut progress)
         } else {
             ftp.download(&it.remote, &it.local, offset, &mut progress)
         };
+        job.partial = sent;
         match r {
             Ok(()) if up => {
                 if let Err(why) = plan::check_uploaded(ftp.size(&it.remote)?, &it) {

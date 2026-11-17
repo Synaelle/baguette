@@ -444,12 +444,16 @@ impl From<Error> for Fail {
 }
 
 fn upload_file(link: &mut Link, it: &Item) -> CliResult<()> {
-    let mut retry = false;
+    // resume after a dropped connection, once bytes went out: before that the server's
+    // copy can be an older file of the same name
+    let mut sent = false;
     link.run(|f| {
-        // resume after a dropped connection
-        let offset = if retry { plan::upload_offset(f.size(&it.remote)?, it) } else { 0 };
-        retry = true;
-        let mut progress = progress_line(base_name(&it.remote), it.size, offset);
+        let offset = if sent { plan::upload_offset(f.size(&it.remote)?, it) } else { 0 };
+        let mut line = progress_line(base_name(&it.remote), it.size, offset);
+        let mut progress = |n| {
+            sent = true;
+            line(n)
+        };
         f.upload(&it.local, &it.remote, offset, &mut progress)
     })?;
     plan::check_uploaded(link.run(|f| f.size(&it.remote))?, it).map_err(Fail::Ftp)
