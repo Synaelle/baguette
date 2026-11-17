@@ -956,8 +956,13 @@ fn transfer(s: &Shared, ftp: &mut Box<dyn Remote>, job: &mut Job) -> Result<()> 
                     Ok(()) | Err(Error::Ftp(_)) => {} // fails harmlessly if it exists
                     Err(e) => return Err(e),
                 }
-            } else {
-                let _ = std::fs::create_dir(&it.local);
+            } else if let Err(why) = plan::make_local_dir(&it) {
+                // what goes inside it can't arrive either
+                let skip = plan::inside_count(&job.items, job.next);
+                job.done += job.items[job.next + 1..=job.next + skip].iter().map(|i| i.size).sum::<u64>();
+                job.next += skip;
+                job.errors += 1;
+                s.message(format!("Error: {why}"));
             }
             job.next += 1;
             continue;

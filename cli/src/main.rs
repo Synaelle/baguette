@@ -621,14 +621,25 @@ fn get(link: &mut Link, args: &[String], opt: &Options) -> CliResult<u8> {
     let mut bytes: u64 = items.iter().map(|i| i.size).sum();
     idle(link, opt)?;
     battery_check(link)?;
-    let _ = std::fs::create_dir_all(&dir);
+    std::fs::create_dir_all(&dir).map_err(|e| Fail::Ftp(format!("Can't create {dir}: {e}")))?;
     link.batch(files, bytes, "down");
     link.run(|f| f.announce_batch(files, bytes, "down"))?;
     job_start("get", files, bytes);
-    for it in &items {
+    let mut skip_to = 0; // past what is inside a folder that couldn't be made
+    for (i, it) in items.iter().enumerate() {
+        if i < skip_to {
+            files -= u64::from(!it.dir);
+            bytes -= it.size;
+            continue;
+        }
         if it.dir {
-            let _ = std::fs::create_dir(&it.local);
-            t.folders += 1;
+            match plan::make_local_dir(it) {
+                Ok(()) => t.folders += 1,
+                Err(why) => {
+                    t.errors.push(why);
+                    skip_to = i + 1 + plan::inside_count(&items, i);
+                }
+            }
             continue;
         }
         match download_file(link, it) {

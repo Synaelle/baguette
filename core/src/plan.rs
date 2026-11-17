@@ -95,6 +95,23 @@ pub fn download_offset(it: &Item) -> u64 {
     std::fs::metadata(part_path(&it.local)).map_or(0, |m| it.size.min(m.len()))
 }
 
+/// a download's folder on the PC: Err(why) unless it is there afterwards
+pub fn make_local_dir(it: &Item) -> Result<(), String> {
+    match std::fs::create_dir(&it.local) {
+        Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => Err(format!("Can't create folder {}: {e}", it.local)),
+        _ => Ok(()),
+    }
+}
+
+/// how many items after `items[i]`, a folder, are inside it (they follow it)
+pub fn inside_count(items: &[Item], i: usize) -> usize {
+    let dir = items[i].local.as_str();
+    items[i + 1..]
+        .iter()
+        .take_while(|it| it.local.len() > dir.len() && it.local.starts_with(dir) && matches!(it.local.as_bytes()[dir.len()], b'/' | b'\\'))
+        .count()
+}
+
 /// after an upload, with the server's size of it: Err(why) when that isn't the
 /// file's (a server that gives no size has nothing to check)
 pub fn check_uploaded(have: Option<u64>, it: &Item) -> Result<(), String> {
@@ -128,6 +145,15 @@ mod tests {
         assert_eq!(got, [("/sd/top", true, 0), ("/sd/top/a.txt", false, 1), ("/sd/top/b dir", true, 0), ("/sd/top/c.txt", false, 3)]);
         assert!(local_items(&crate::os::join(&base, "gone"), "/sd", &mut items)[0].contains("not found"));
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn inside_a_folder() {
+        let it = |local: &str| Item { local: local.into(), ..Default::default() };
+        let items = [it("/pc/a"), it("/pc/a/x"), it("/pc/a/b"), it("/pc/a/b/y"), it("/pc/ab"), it("/pc/c")];
+        assert_eq!(inside_count(&items, 0), 3);
+        assert_eq!(inside_count(&items, 2), 1);
+        assert_eq!(inside_count(&items, 4), 0, "a name that only starts the same is not inside");
     }
 
     #[cfg(unix)]
